@@ -1,6 +1,6 @@
 module CostUtils
 
-import JuMPUtils
+import JuMP
 export symbol, normalize
 
 symbol(s::Symbol) = s
