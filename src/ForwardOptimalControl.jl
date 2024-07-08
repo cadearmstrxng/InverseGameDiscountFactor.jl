@@ -1,5 +1,16 @@
 module ForwardOptimalControl
 
+import ..DynamicsModelInterface
+import ..JuMPUtils
+import PATHSolver
+import JuMP
+
+using JuMP: @variable, @constraint, @objective
+using UnPack: @unpack
+
+export solve_optimal_control
+
+#===============================================================================================#
 
 function solve_optimal_control(
     control_system,
