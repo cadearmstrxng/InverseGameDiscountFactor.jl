@@ -2,7 +2,7 @@ module ForwardGame
 
 import JuMP
 import PATHSolver
-import ..DynacmicsModelInterface
+import ..DynamicsModelInterface
 import ..JuMPUtils
 import ..ForwardOptimalControl
 
