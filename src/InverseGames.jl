@@ -9,7 +9,7 @@ import ..InverseOptimalControl
 import ..InversePreSolve
 
 using JuMP: @variable, @constraint, @objective
-using UnPack: @UnPack
+using UnPack: @unpack
 
 export solve_inverse_game
 

@@ -58,7 +58,7 @@ function solve_inverse_optimal_control(
 
     # constraints
     if iszero(observation_model.σ)
-        @constraint(opt_model, observation_model.expected_observation(x[:,1]) .= y[:,1])
+        @constraint(opt_model, observation_model.expected_observation(x[:,1]) .== y[:,1])
     end
     DynamicsModelInterface.add_dynamics_constraints!(control_system, opt_model, x, u)
 
