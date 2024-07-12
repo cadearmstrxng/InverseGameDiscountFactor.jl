@@ -83,3 +83,93 @@ player_cost_models = (
         @test dJdu_ad[player_idx, :] == dJ.du[player_idx, :]
     end
 end
+
+function test_unicycle_multipliers(system, λ, x, u; player_cost_models)
+    df = let 
+        As = [
+            [
+                1 0 system.ΔT*cos(x[4, t]) -system.ΔT*x[3, t]*sin(x[4, t]);
+                0 1 system.ΔT*sin(x[4, t]) system.ΔT*x[3, t]*cos(x[4, t]);
+                0 0 1 0;
+                0 0 0 1
+            ] for t in 1:T
+        ]
+
+        Bs = [
+            [
+                0 0;
+                0 0;
+                1 0;
+                0 1
+            ] for t in 1:T
+        ]
+
+        (;
+            dx = reduce((A, x) -> cat(A,x; dims = 3), As),
+            du = reduce((A, x) -> cat(A,x; dims = 3), Bs),
+        )
+        
+    end
+
+    for (player_idx, cost_model) in enumerate(player_cost_models)
+        @testset "λ$player_idx" begin
+            dJ = cost_model.objective_gradients(x, u; cost_model.weights)
+
+            dLdx = [
+                dJ.dx[:, t] + λ[:, t-1, player_idx]' - df.dx[:, :, t]' * λ[:, t, player_idx]
+                for t in 2:(T-1)
+            ]
+            dLdu = [
+                dJ.du[cost_model.player_inputs, t] - 
+                (df.du[:, cost_model.player_inputs,t]' * λ[:, t, player_idx])
+                for t in 1:(T-1)
+            ]
+
+            @test all(all(isapprox.(x, 0; atol = 1e-6)) for x in dLdx)
+            @test all(all(isapprox.(x, 0; atol = 1e-6)) for x in dLdu)
+        end
+    end
+end
+
+@testset "Forward Nash" begin
+    forward_converged, forward_solution, forward_model = 
+        solve_game(control_system, player_cost_models, x0, T)
+    global forward_solution
+
+    @test forward_converged
+
+    visualize_trajectory(control_system, forward_solution.x)
+
+    test_unicycle_multipliers(
+        control_system, 
+        forward_solution.λ, 
+        forward_solution.x, 
+        forward_solution.u;
+        player_cost_models
+    )
+end
+
+@testset "Inverse Nash" begin
+    inverse_converged, inverse_solution, inverse_model =
+        solve_inverse_game(
+            forward_solution.x, 
+            init = (; forward_solution.u), 
+            control_system,
+            observation_model,
+            player_cost_models,
+            max_observation_error = 0.1,
+    )
+    global inverse_solution
+
+    @test inverse_converged
+
+    for (cost_model, weights) in zip(player_cost_models, inverse_solution.player_weights)
+        TestUtils.test_inverse_solution(weights, cost_model.weights)
+    end
+    TestUtils.test_data_fidelity(
+        inverse_model, 
+        observation_model, 
+        forward_solution.x, 
+        forward_solution.x,
+    )
+end 
