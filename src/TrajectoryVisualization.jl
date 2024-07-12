@@ -1,5 +1,5 @@
 module TrajectoryVisualization
-import Vegalite
+import VegaLite
 
 export visualize_trajectory, visualize_trajectory_batch
 
