@@ -70,7 +70,7 @@ function main(;
         [1, 2.8, 0.0, 0.0],
     ]),
     goal = mortar([[0.0, -2.7, 1], [2.7, 1, 1]]),
-    plot_please = false
+    plot_please = true
 )
 
     """
@@ -89,6 +89,7 @@ function main(;
     turn_length = 2
     solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(goal, 1))
     mcp_game = solver.mcp_game
+
     # sim_steps = let
     #     n_sim_steps = 150
     #     progress = ProgressMeter.Progress(n_sim_steps)
@@ -113,52 +114,13 @@ function main(;
     
     # @infiltrate
 
-    if plot_please
-        player_state_dimension = convert(Int64, state_dim(game.game.dynamics)/2)
-        player_control_dimension = convert(Int64, control_dim(game.game.dynamics)/2)
-        
-        # forward_solution = [forward_solution.primals[1][1:state_dimension*horizon], forward_solution.primals[2][1:state_dimension*horizon],
-        #                     forward_solution.primals[1][state_dimension*horizon+1:end], forward_solution.primals[2][state_dimension*horizon+1:end]]
-
-        # @infiltrate
-            
-        player1state = forward_solution.primals[1][1:player_state_dimension*horizon]
-        player2state = forward_solution.primals[2][1:player_state_dimension*horizon]
-        player1control = forward_solution.primals[1][player_state_dimension*horizon+1:end]
-        player2control = forward_solution.primals[2][player_state_dimension*horizon+1:end]
-
-        solution = []
-
-        for i in 1:horizon
-            push!(solution, player1state[(i-1) * player_state_dimension + 1: i * player_state_dimension])
-            push!(solution, player2state[(i-1) * player_state_dimension + 1: i * player_state_dimension])
-            push!(solution, player1control[(i-1) * player_control_dimension + 1: i * player_control_dimension])
-            push!(solution, player2control[(i-1) * player_control_dimension + 1: i * player_control_dimension])
-        end
-        
-        # @infiltrate
-
-        solution = vcat(solution...)
-
-        solution = BlockVector(solution, [2*player_state_dimension + 2*player_control_dimension for i in 1:horizon])
-
-        # @infiltrate
-
-        fig1 = GLMakie.Figure()
-        ax = GLMakie.Axis(fig1[1, 1])
-
-        for ii in 1:horizon
-            GLMakie.scatter!(ax, solution[Block(ii)][1],solution[Block(ii)][2], color = :red)
-            GLMakie.scatter!(ax, solution[Block(ii)][5],solution[Block(ii)][6], color = :blue)
-            # GLMakie.scatter!(ax, x[9],x[10], color = :purple)
-            # GLMakie.scatter!(ax, x[13],x[14], color = :magenta)
-        end
-
-        GLMakie.display(fig1)
-    end
+    
 
     
     initial_state_guess, context_state_guess = sample_initial_states_and_context(game, horizon, Random.MersenneTwister(1), 0.08)
+
+    # context_state_guess[1] = 0
+    context_state_guess[2] = -2.7
 
     println("Initial State Guess: ", initial_state_guess)
     println("Context State Guess: ", context_state_guess)
@@ -168,6 +130,27 @@ function main(;
     println("Context State Estimation: ", context_state_estimation)
     # @infiltrate
     println("Solution Error: ", norm_sqr(restruct_solution(forward_solution, game, horizon) - restruct_solution(last_solution, game, horizon)))
+
+
+    if plot_please
+        forward_solution = restruct_solution(forward_solution, game, horizon)
+        last_solution = restruct_solution(last_solution, game, horizon)
+        # @infiltrate
+
+        fig1 = GLMakie.Figure()
+        ax = GLMakie.Axis(fig1[1, 1])
+
+        for ii in 1:horizon
+            GLMakie.scatter!(ax, forward_solution[Block(ii)][1], forward_solution[Block(ii)][2], color = :red)
+            GLMakie.scatter!(ax, forward_solution[Block(ii)][5], forward_solution[Block(ii)][6], color = :blue)
+            GLMakie.scatter!(ax, last_solution[Block(ii)][1], last_solution[Block(ii)][2], color = :purple)
+            GLMakie.scatter!(ax, last_solution[Block(ii)][5], last_solution[Block(ii)][6], color = :magenta)
+            # GLMakie.scatter!(ax, x[9],x[10], color = :purple)
+            # GLMakie.scatter!(ax, x[13],x[14], color = :magenta)
+        end
+
+        GLMakie.display(fig1)
+    end
 
     # inv_game = InverseMCPProblem(game,horizon,blocksizes(goal, 1))
 
@@ -191,48 +174,35 @@ function main(;
 end
 
 function restruct_solution(solution, game, horizon)
-    player_state_dimension = convert(Int64, state_dim(game.game.dynamics)/2)
-    player_control_dimension = convert(Int64, control_dim(game.game.dynamics)/2)
-        
-    # forward_solution = [forward_solution.primals[1][1:state_dimension*horizon], forward_solution.primals[2][1:state_dimension*horizon],
-    #                     forward_solution.primals[1][state_dimension*horizon+1:end], forward_solution.primals[2][state_dimension*horizon+1:end]]
-
-    # @infiltrate
+    num_player = num_players(game.game)
+    player_state_dimension = convert(Int64, state_dim(game.game.dynamics)/num_player)
+    player_control_dimension = convert(Int64, control_dim(game.game.dynamics)/num_player)
 
     if typeof(solution) == NamedTuple{(:primals, :variables, :status), Tuple{Vector{Vector{ForwardDiff.Dual{Nothing, Float64, 14}}}, Vector{Float64}, PATHSolver.MCP_Termination}}
         primals = solution.primals
 
         solution = []
 
-        states = []
-        actions = []
-
         for primal in primals
-            for i in eachindex(primal)
-                primal[i] = primal[i].value
+            vars = []
+            for i in primal
+                push!(vars, i.value)
             end
-
-            push!(states, primal[1:player_state_dimension*horizon])
-            push!(actions, primal[player_state_dimension*horizon+1:end])
+            push!(solution,vars)
         end
+        player1state = solution[1][1:player_state_dimension*horizon]
+        player2state = solution[2][1:player_state_dimension*horizon]
+        player1control = solution[1][player_state_dimension*horizon+1:end]
+        player2control = solution[2][player_state_dimension*horizon+1:end]
 
-        solution = vcat(states...)
-        solution = vcat(solution, vcat(actions...))
-        @infiltrate
-
-        vars = []
-
-        for i in solution
-            push!(vars, i.value)
-        end
-
-        return vars
-    end
         
-    player1state = solution.primals[1][1:player_state_dimension*horizon]
-    player2state = solution.primals[2][1:player_state_dimension*horizon]
-    player1control = solution.primals[1][player_state_dimension*horizon+1:end]
-    player2control = solution.primals[2][player_state_dimension*horizon+1:end]
+    else
+        
+        player1state = solution.primals[1][1:player_state_dimension*horizon]
+        player2state = solution.primals[2][1:player_state_dimension*horizon]
+        player1control = solution.primals[1][player_state_dimension*horizon+1:end]
+        player2control = solution.primals[2][player_state_dimension*horizon+1:end]
+    end
 
     solution = []
 
