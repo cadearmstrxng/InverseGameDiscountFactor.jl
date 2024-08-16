@@ -538,7 +538,7 @@ function solve_inverse_mcp_game(
     τs_observed,
     initial_estimation,
     horizon;
-    max_grad_steps = 300, lr = 1e-4, last_solution = nothing,
+    max_grad_steps = 150, lr = 1e-3, last_solution = nothing,
 )
     """
     solve inverse game
