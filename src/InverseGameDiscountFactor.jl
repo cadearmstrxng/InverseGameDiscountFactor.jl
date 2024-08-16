@@ -69,7 +69,7 @@ function main(;
         [-1, 2.5, 0.1, -0.2],
         [1, 2.8, 0.0, 0.0],
     ]),
-    goal = mortar([[0.0, 1.5, 1], [2.7, 1, 1]]),
+    goal = mortar([[0.0, -2.7, 1], [2.7, 1, .9]]),
     plot_please = true
 )
 
@@ -134,15 +134,18 @@ function main(;
     
     initial_state_guess, context_state_guess = sample_initial_states_and_context(game, horizon, Random.MersenneTwister(1), 0.08)
 
-    # context_state_guess[1] = 0
-    # context_state_guess[2] = -2.7
+    context_state_guess[1] = 0
+    context_state_guess[2] = -2.7
+
+    context_state_guess[4] = 2.7
+    context_state_guess[5] = 1
 
     println("Initial State Guess: ", initial_state_guess)
     println("Context State Guess: ", context_state_guess)
 
     for_sol = reconstruct_solution(forward_solution, game.game, horizon)
 
-    context_state_estimation, last_solution, i_, solving_info, time_exec = solve_inverse_mcp_game(mcp_game, initial_state, for_sol, context_state_guess, horizon)
+    context_state_estimation, last_solution, i_, solving_info, time_exec = solve_inverse_mcp_game(mcp_game, initial_state, for_sol, context_state_guess, horizon; max_grad_steps = 500)
 
     println("Context State Estimation: ", context_state_estimation)
     # @infiltrate
@@ -200,7 +203,9 @@ function main(;
     end
     
     context_state_estimation = mortar([context_state_estimation[1:3], context_state_estimation[4:6]])
-    inv_init_states = mortar([inv_sol[Block(1)][1:4], inv_sol[Block(1)][5:8]])
+    # inv_init_states = mortar([inv_sol[Block(1)][1:4], inv_sol[Block(1)][5:8]])
+
+    # @infiltrate
 
     sim_steps2 = let
         n_sim_steps = 150
@@ -210,7 +215,7 @@ function main(;
         rollout(
             game.game.dynamics,
             receding_horizon_strategy,
-            inv_init_states,
+            initial_state,
             n_sim_steps;
             get_info = (γ, x, t) ->
                 (ProgressMeter.next!(progress); γ.receding_horizon_strategy),

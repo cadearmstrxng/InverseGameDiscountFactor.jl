@@ -23,7 +23,7 @@ function (strategy::WarmStartRecedingHorizonStrategy)(state, time)
             solve_trajectory_game!(strategy.solver, strategy.game, state, strategy; strategy.solve_kwargs...)
         strategy.time_last_updated = time
         time_along_plan = 1
-        println("Updated Plan")
+        # println("Updated Plan")
     end
 
     strategy.receding_horizon_strategy(state, time_along_plan)
