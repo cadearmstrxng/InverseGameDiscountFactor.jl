@@ -32,6 +32,7 @@ function solve_mcp_game(
             xs = rollout(dynamics, dummy_strategy, x0_value, horizon + 1).xs[2:end]
             xs = reduce(vcat, xs)
             z[1:(state_dimension * horizon)] = xs
+            # @infiltrate
             # z[1:(state_dimension * horizon)] = repeat(x0_value, horizon)
         end
         z
