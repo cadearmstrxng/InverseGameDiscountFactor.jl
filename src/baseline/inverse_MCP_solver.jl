@@ -536,8 +536,9 @@ function solve_inverse_mcp_game(
     mcp_game::MCPGame,
     initial_state,
     τs_observed,
-    initial_estimation;
-    max_grad_steps = 150, lr = 1e-3, last_solution = nothing,
+    initial_estimation,
+    horizon;
+    max_grad_steps = 300, lr = 1e-4, last_solution = nothing,
 )
     """
     solve inverse game
@@ -555,7 +556,8 @@ function solve_inverse_mcp_game(
         push!(solving_info, solution.info)
         last_solution = solution.status == PATHSolver.MCP_Solved ? (; primals = ForwardDiff.value.(solution.primals),
         variables = ForwardDiff.value.(solution.variables), status = solution.status) : nothing
-        τs_solution = solution.variables
+        τs_solution = reconstruct_solution(solution, mcp_game.game, horizon)
+        # @infiltrate
         
         if solution.status == PATHSolver.MCP_Solved
             infeasible_counter = 0

@@ -99,6 +99,7 @@ function MCPGame(game, horizon, context_state_block_dimensions = 0)
                 sc = mapreduce(x -> state_box_constraints(x[Block(ii)]), vcat, xs[2:end])
                 cc = mapreduce(x -> control_box_constraints(x[Block(ii)]), vcat, us[1:end])
                 [ec; sc; cc]
+                # @infiltrate
             end
             append!(lb, fill(0.0, length(private_inequality_constraints)))
             append!(ub, fill(Inf, length(private_inequality_constraints)))

@@ -23,6 +23,7 @@ function (strategy::WarmStartRecedingHorizonStrategy)(state, time)
             solve_trajectory_game!(strategy.solver, strategy.game, state, strategy; strategy.solve_kwargs...)
         strategy.time_last_updated = time
         time_along_plan = 1
+        println("Updated Plan")
     end
 
     strategy.receding_horizon_strategy(state, time_along_plan)
@@ -246,4 +247,49 @@ function initial_state_feasibility(game, horizon, initial_state, initial_states,
         end
     end
     return true
+end
+
+function reconstruct_solution(solution, game, horizon)
+    num_player = num_players(game)
+    player_state_dimension = convert(Int64, state_dim(game.dynamics)/num_player)
+
+    if typeof(solution) == NamedTuple{(:primals, :variables, :status), Tuple{Vector{Vector{ForwardDiff.Dual{Nothing, Float64, 14}}}, Vector{Float64}, PATHSolver.MCP_Termination}}
+        primals = solution.primals
+
+        solution = []
+
+        for primal in primals
+            vars = []
+            for i in primal
+                push!(vars, i.value)
+            end
+            push!(solution,vars)
+        end
+        player1state = solution[1][1:player_state_dimension*horizon]
+        player2state = solution[2][1:player_state_dimension*horizon]
+        
+
+        
+    else
+        
+        player1state = solution.primals[1][1:player_state_dimension*horizon]
+        player2state = solution.primals[2][1:player_state_dimension*horizon]
+    
+    end
+
+    solution = []
+
+    for i in 1:horizon
+        push!(solution, player1state[(i-1) * player_state_dimension + 1: i * player_state_dimension])
+        push!(solution, player2state[(i-1) * player_state_dimension + 1: i * player_state_dimension])
+    end
+    
+    # @infiltrate
+
+    solution = vcat(solution...)
+
+    solution = BlockVector(solution, [2*player_state_dimension for i in 1:horizon])
+
+    solution
+
 end
