@@ -255,9 +255,7 @@ function reconstruct_solution(solution, game, horizon)
 
     if typeof(solution) == NamedTuple{(:primals, :variables, :status), Tuple{Vector{Vector{ForwardDiff.Dual{Nothing, Float64, 14}}}, Vector{Float64}, PATHSolver.MCP_Termination}}
         primals = solution.primals
-
         solution = []
-
         for primal in primals
             vars = []
             for i in primal
@@ -267,29 +265,15 @@ function reconstruct_solution(solution, game, horizon)
         end
         player1state = solution[1][1:player_state_dimension*horizon]
         player2state = solution[2][1:player_state_dimension*horizon]
-        
-
-        
     else
-        
         player1state = solution.primals[1][1:player_state_dimension*horizon]
         player2state = solution.primals[2][1:player_state_dimension*horizon]
-    
     end
-
     solution = []
-
     for i in 1:horizon
         push!(solution, player1state[(i-1) * player_state_dimension + 1: i * player_state_dimension])
         push!(solution, player2state[(i-1) * player_state_dimension + 1: i * player_state_dimension])
     end
-    
-    # @infiltrate
-
     solution = vcat(solution...)
-
     solution = BlockVector(solution, [2*player_state_dimension for i in 1:horizon])
-
-    solution
-
 end
