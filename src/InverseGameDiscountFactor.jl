@@ -43,6 +43,7 @@ using ParametricMCPs: ParametricMCPs
 using Makie: Makie
 using Colors: @colorant_str
 using JLD2: JLD2
+using Statistics: std
 
 using Infiltrator
 
@@ -69,7 +70,7 @@ function main(;
         [-1, 2.5, 0.1, -0.2],
         [1, 2.8, 0.0, 0.0],
     ]),
-    goal = mortar([[0.0, -2.7, 0.5], [2.7, 1, 0.75]]),
+    goal = mortar([[0.0, -2.7, 0.9], [2.7, 1, 0.9]]),
     plot_please = true,
     simulate_please = true
 )
@@ -86,7 +87,13 @@ function main(;
     """
     environment = PolygonEnvironment(6, 8)
     game = n_player_collision_avoidance(2; environment, min_distance = 1.2)
-    horizon = convert(Int64,ceil(log(1e-4)/(log(min(goal[Block(1)][3], goal[Block(2)][3])))))
+
+    if min(goal[Block(1)][3], goal[Block(2)][3]) == 1
+        horizon = 75
+    else
+        horizon = convert(Int64, ceil(log(1e-4)/(log(min(goal[Block(1)][3], goal[Block(2)][3])))))
+    end
+
     turn_length = 2
     solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(goal, 1))
     mcp_game = solver.mcp_game
@@ -104,9 +111,16 @@ function main(;
     println("Initial State Guess: ", initial_state_guess)
     println("Context State Guess: ", context_state_guess)
 
+    observation_model = (; σ = 0.1, expected_observation = x -> x .+ observation_model.σ * randn(length(x)))
+
     for_sol = reconstruct_solution(forward_solution, game.game, horizon)
 
-    context_state_estimation, last_solution, i_, solving_info, time_exec = solve_inverse_mcp_game(mcp_game, initial_state, for_sol, context_state_guess, horizon; max_grad_steps = 500)
+    for_sol = observation_model.expected_observation(for_sol)
+
+    # @infiltrate
+
+    context_state_estimation, last_solution, i_, solving_info, time_exec = solve_inverse_mcp_game(mcp_game, initial_state, for_sol, context_state_guess, horizon; 
+                                                                            max_grad_steps = 500)
 
     println("Context State Estimation: ", context_state_estimation)
     sol_error = norm_sqr(reconstruct_solution(forward_solution, game.game, horizon) - reconstruct_solution(last_solution, game.game, horizon))
@@ -182,5 +196,79 @@ function main(;
     end
     (; sol_error, context_state_estimation)
 end
+
+function GenerateNoiseGraph(
+    initial_state = mortar([
+        [-1, 2.5, 0.1, -0.2],
+        [1, 2.8, 0.0, 0.0],
+    ]),
+    goal = mortar([[0.0, -2.7, 0.9], [2.7, 1, 0.9]]),
+    rng = Random.MersenneTwister(1),
+)
+
+    environment = PolygonEnvironment(6, 8)
+    game = n_player_collision_avoidance(2; environment, min_distance = 1.2)
+
+    if min(goal[Block(1)][3], goal[Block(2)][3]) == 1
+        horizon = 75
+    else
+        horizon = convert(Int64, ceil(log(1e-4)/(log(min(goal[Block(1)][3], goal[Block(2)][3])))))
+    end
+
+    turn_length = 2
+    solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(goal, 1))
+    mcp_game = solver.mcp_game
+
+    forward_solution = solve_mcp_game(mcp_game, initial_state, goal; verbose = true)
+
+    σs = [0.01*i for i in 0:10]
+
+    errors = []
+
+    for σ in σs
+
+        observation_model = (; σ = σ, expected_observation = x -> x .+ observation_model.σ * randn(rng, length(x)))
+
+        error = []
+
+        for i in 0:10
+            for_sol = reconstruct_solution(forward_solution, game.game, horizon)
+            for_sol = observation_model.expected_observation(for_sol)
+
+            initial_state_guess, context_state_guess = sample_initial_states_and_context(game, horizon, rng, 0.08)
+
+            context_state_guess[1] = 0
+            context_state_guess[2] = -2.7
+
+            context_state_guess[4] = 2.7
+            context_state_guess[5] = 1
+
+            context_state_estimation, last_solution, i_, solving_info, time_exec = solve_inverse_mcp_game(mcp_game, initial_state, for_sol, context_state_guess, horizon; 
+                                                                            max_grad_steps = 150)
+
+            sol_error = norm_sqr(reconstruct_solution(forward_solution, game.game, horizon) - reconstruct_solution(last_solution, game.game, horizon))
+        
+            push!(error, sol_error)
+        end
+        push!(errors, error)
+    end
+
+    fig1 = GLMakie.Figure()
+    ax1 = GLMakie.Axis(fig1[1, 1])
+
+    for i in 1:11
+        GLMakie.scatter!(ax1, σs[i], mean(errors[i]), color = :red)
+
+        stdev = Statistics.std(errors[i])
+
+        errbar = stdev/sqrt(11)
+
+        GLMakie.errorbar!(ax1, σs[i], mean(errors[i]), yerrors = errbar, color = :red)
+    end
+
+    GLMakie.save("NoiseGraph.png", fig1)
+
+end
+
 
 end
