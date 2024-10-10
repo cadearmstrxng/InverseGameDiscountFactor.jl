@@ -33,7 +33,8 @@ using PATHSolver: PATHSolver
 using LinearAlgebra: I, norm_sqr, pinv, ColumnNorm, qr, norm
 using Random: Random
 using ProgressMeter: ProgressMeter
-using GLMakie: GLMakie
+# using GLMakie: GLMakie
+using CairoMakie
 using Symbolics: Symbolics, @variables, scalarize
 using ChainRulesCore: ChainRulesCore
 using ForwardDiff: ForwardDiff
@@ -43,7 +44,7 @@ using ParametricMCPs: ParametricMCPs
 using Makie: Makie
 using Colors: @colorant_str
 using JLD2: JLD2
-using Statistics: std
+using Statistics
 
 using Infiltrator
 
@@ -65,7 +66,6 @@ function main(;
     #     [-2.8, -1, -0.27, 0.1],
     # ]),
     # goal = mortar([[0.0, -2.7, 1], [2, -2.8, 1], [2.7, 1, 1], [2.7, -1.1, 1]])
-
     initial_state = mortar([
         [-1, 2.5, 0.1, -0.2],
         [1, 2.8, 0.0, 0.0],
@@ -85,6 +85,7 @@ function main(;
     """
     An example of the MCP game solver
     """
+    CairoMakie.activate!();
     environment = PolygonEnvironment(6, 8)
     game = n_player_collision_avoidance(2; environment, min_distance = 1.2)
 
@@ -133,19 +134,19 @@ function main(;
         inv_solution = reconstruct_solution(last_solution, game.game, horizon)
         # @infiltrate
 
-        fig1 = GLMakie.Figure()
-        ax1 = GLMakie.Axis(fig1[1, 1])
+        fig1 = CairoMakie.Figure()
+        ax1 = CairoMakie.Axis(fig1[1, 1])
 
         for ii in 1:horizon
-            GLMakie.scatter!(ax1, for_solution[Block(ii)][1], for_solution[Block(ii)][2], color = :red)
-            GLMakie.scatter!(ax1, for_solution[Block(ii)][5], for_solution[Block(ii)][6], color = :blue)
-            GLMakie.scatter!(ax1, inv_solution[Block(ii)][1], inv_solution[Block(ii)][2], color = :purple)
-            GLMakie.scatter!(ax1, inv_solution[Block(ii)][5], inv_solution[Block(ii)][6], color = :magenta)
+            CairoMakie.scatter!(ax1, for_solution[Block(ii)][1], for_solution[Block(ii)][2], color = :red)
+            CairoMakie.scatter!(ax1, for_solution[Block(ii)][5], for_solution[Block(ii)][6], color = :blue)
+            CairoMakie.scatter!(ax1, inv_solution[Block(ii)][1], inv_solution[Block(ii)][2], color = :purple)
+            CairoMakie.scatter!(ax1, inv_solution[Block(ii)][5], inv_solution[Block(ii)][6], color = :magenta)
             # # GLMakie.scatter!(ax, x[9],x[10], color = :purple)
             # GLMakie.scatter!(ax, x[13],x[14], color = :magenta)
         end
 
-        GLMakie.save("SolutionPlot.png", fig1)
+        CairoMakie.save("SolutionPlot.png", fig1)
     end
 
 
@@ -164,8 +165,7 @@ function main(;
                 get_info = (γ, x, t) ->
                     (ProgressMeter.next!(progress); γ.receding_horizon_strategy),
             )
-        end     
-      
+        end
         if context_state_estimation[3] > 1
             context_state_estimation[3] = 1
         end
@@ -205,6 +205,8 @@ function GenerateNoiseGraph(
     goal = mortar([[0.0, -2.7, 0.9], [2.7, 1, 0.9]]),
     rng = Random.MersenneTwister(1),
 )
+    num_trials = 1;
+    CairoMakie.activate!();
 
     environment = PolygonEnvironment(6, 8)
     game = n_player_collision_avoidance(2; environment, min_distance = 1.2)
@@ -220,55 +222,42 @@ function GenerateNoiseGraph(
     mcp_game = solver.mcp_game
 
     forward_solution = solve_mcp_game(mcp_game, initial_state, goal; verbose = true)
+    for_sol = reconstruct_solution(forward_solution, game.game, horizon)
 
     σs = [0.01*i for i in 0:10]
+    # σs = [0.01]
 
-    errors = []
+    context_state_guess = sample_initial_states_and_context(game, horizon, rng, 0.08)[2]
+    context_state_guess[1] = 0.0
+    context_state_guess[2] = -2.7
+    context_state_guess[4] = 2.7
+    context_state_guess[5] = 1.0
 
-    for σ in σs
+    errors = [[
+        norm_sqr(
+            for_sol - 
+            reconstruct_solution(
+                solve_inverse_mcp_game(
+                    mcp_game,
+                    initial_state,
+                    for_sol .+ σ * randn(rng, length(for_sol)),
+                    context_state_guess,
+                    horizon;
+                    max_grad_steps = 150)[2],
+                game.game,
+                horizon)) for _ in num_trials] for σ in eachindex(σs)]
 
-        observation_model = (; σ = σ, expected_observation = x -> x .+ observation_model.σ * randn(rng, length(x)))
+    fig1 = CairoMakie.Figure()
+    ax1 = CairoMakie.Axis(fig1[1, 1])
 
-        error = []
-
-        for i in 0:10
-            for_sol = reconstruct_solution(forward_solution, game.game, horizon)
-            for_sol = observation_model.expected_observation(for_sol)
-
-            initial_state_guess, context_state_guess = sample_initial_states_and_context(game, horizon, rng, 0.08)
-
-            context_state_guess[1] = 0
-            context_state_guess[2] = -2.7
-
-            context_state_guess[4] = 2.7
-            context_state_guess[5] = 1
-
-            context_state_estimation, last_solution, i_, solving_info, time_exec = solve_inverse_mcp_game(mcp_game, initial_state, for_sol, context_state_guess, horizon; 
-                                                                            max_grad_steps = 150)
-
-            sol_error = norm_sqr(reconstruct_solution(forward_solution, game.game, horizon) - reconstruct_solution(last_solution, game.game, horizon))
-        
-            push!(error, sol_error)
-        end
-        push!(errors, error)
-    end
-
-    fig1 = GLMakie.Figure()
-    ax1 = GLMakie.Axis(fig1[1, 1])
-
-    for i in 1:11
-        GLMakie.scatter!(ax1, σs[i], mean(errors[i]), color = :red)
-
-        stdev = Statistics.std(errors[i])
-
-        errbar = stdev/sqrt(11)
-
-        GLMakie.errorbar!(ax1, σs[i], mean(errors[i]), yerrors = errbar, color = :red)
-    end
-
-    GLMakie.save("NoiseGraph.png", fig1)
+    mean_errors = [Statistics.mean(error) for error in errors]
+    stds = [Statistics.std(error) for error in errors]
+    variances = [std / sqrt(length(error)) for (std, error) in zip(stds, errors)]
+    # Originally, in errorbars, we are plotting variance? but std seems more likely?
+    CairoMakie.scatter!(ax1, σs, mean_errors, color = :red)
+    CairoMakie.errorbars!(ax1, σs, mean_errors, stds, color = :red)
+    
+    CairoMakie.save("NoiseGraph.png", fig1)
 
 end
-
-
 end
