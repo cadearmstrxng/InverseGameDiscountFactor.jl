@@ -58,14 +58,7 @@ include("solve.jl")
 include("baseline/inverse_MCP_solver.jl")
 
 
-function main(; 
-    # initial_state = mortar([
-    #     [-1, 2.5, 0.1, -0.2],
-    #     [1, 2.8, 0.0, 0.0],
-    #     [-2.8, 1, 0.2, 0.1],
-    #     [-2.8, -1, -0.27, 0.1],
-    # ]),
-    # goal = mortar([[0.0, -2.7, 1], [2, -2.8, 1], [2.7, 1, 1], [2.7, -1.1, 1]])
+function main(;
     initial_state = mortar([
         [-1, 2.5, 0.1, -0.2],
         [1, 2.8, 0.0, 0.0],
@@ -205,7 +198,7 @@ function GenerateNoiseGraph(
     goal = mortar([[0.0, -2.7, 0.9], [2.7, 1, 0.9]]),
     rng = Random.MersenneTwister(1),
 )
-    num_trials = 1;
+    num_trials = 10;
     CairoMakie.activate!();
 
     environment = PolygonEnvironment(6, 8)
@@ -224,8 +217,8 @@ function GenerateNoiseGraph(
     forward_solution = solve_mcp_game(mcp_game, initial_state, goal; verbose = true)
     for_sol = reconstruct_solution(forward_solution, game.game, horizon)
 
-    # σs = [0.01*i for i in 0:10]
-    σs = [0.01]
+    σs = [0.01*i for i in 0:10]
+    # σs = [0.01]
 
     context_state_guess = sample_initial_states_and_context(game, horizon, rng, 0.08)[2]
     context_state_guess[1] = 0.0
@@ -233,9 +226,9 @@ function GenerateNoiseGraph(
     context_state_guess[4] = 2.7
     context_state_guess[5] = 1.0
 
-    # TODO: check percentage of non-converging solver attempts
-    # try perturbing initial state
-    # check if noise makes initial state infeasible
+    # TODO: check percentage of non-converging solver attempts ✓
+    # try perturbing initial state ✓
+    # check if noise makes initial state infeasible 
     # different random seeds
 
     # errors = [[
@@ -251,10 +244,17 @@ function GenerateNoiseGraph(
     #                 max_grad_steps = 150)[2],
     #             game.game,
     #             horizon)) for _ in num_trials] for σ in eachindex(σs)]
-    errors = [[]]
-    for σ in eachindex(σs)
+    errors = Array{Float64}(undef, length(σs), num_trials)
+    failure_counter = 0
+    num_attempts_if_failed = 3
+    for (idx, σ) in enumerate(σs)
         for i in 1:num_trials
-            push!(errors[end], norm_sqr(
+            println("std: ", σ, " trial: ", i)
+            attempts = 1
+            println("\tattempt: ", attempts)
+            while (attempts < num_attempts_if_failed)
+                try
+                    error = norm_sqr(
                         for_sol - 
                         reconstruct_solution(
                             solve_inverse_mcp_game(
@@ -265,17 +265,30 @@ function GenerateNoiseGraph(
                                 horizon;
                                 max_grad_steps = 150)[2],
                             game.game,
-                            horizon)))
+                            horizon))
+                    errors[idx, i] = error
+                    attempts = num_attempts_if_failed + 1
+                    break
+                catch
+                    println("\tfailed")
+                    attempts += 1
+                end
+            end
+            if attempts == num_attempts_if_failed
+                failure_counter += 1
+            end
         end
-        push!(errors, [])
+        # push!(errors, [])
     end
+
+    println("Failure Counter: ", failure_counter, " / ", num_trials * length(σs))
 
     fig1 = CairoMakie.Figure()
     ax1 = CairoMakie.Axis(fig1[1, 1])
 
-    mean_errors = [Statistics.mean(error) for error in errors]
-    stds = [Statistics.std(error) for error in errors]
-    variances = [std / sqrt(length(error)) for (std, error) in zip(stds, errors)]
+    mean_errors = [Statistics.mean(errors[i, :]) for i in 1:size(errors, 1)]
+    stds = [Statistics.std(errors[i, :]) for i in 1:size(errors, 1)]
+    # variances = [std / sqrt(length(error)) for (std, error) in zip(stds, errors)]
     # Originally, in errorbars, we are plotting variance? but std seems more likely?
     CairoMakie.scatter!(ax1, σs, mean_errors, color = :red)
     CairoMakie.errorbars!(ax1, σs, mean_errors, stds, color = :red)
