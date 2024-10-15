@@ -105,15 +105,17 @@ function main(;
     println("Initial State Guess: ", initial_state_guess)
     println("Context State Guess: ", context_state_guess)
 
-    observation_model = (; σ = 0.1, expected_observation = x -> x .+ observation_model.σ * randn(length(x)))
+    observation_model_noisy = (; σ = 0.1, expected_observation = x -> x[1:2] .+ observation_model_noisy.σ * randn(length(x[1:2])))
+    observation_model_inverse = (; σ = 0.0, expected_observation = x -> x[1:2])
 
     for_sol = reconstruct_solution(forward_solution, game.game, horizon)
 
-    for_sol = observation_model.expected_observation(for_sol)
+    for_sol = observation_model_noisy.expected_observation(for_sol)
 
     # @infiltrate
 
-    context_state_estimation, last_solution, i_, solving_info, time_exec = solve_inverse_mcp_game(mcp_game, initial_state, for_sol, context_state_guess, horizon; 
+    context_state_estimation, last_solution, i_, solving_info, time_exec = solve_inverse_mcp_game(mcp_game, initial_state, for_sol, context_state_guess, horizon;
+                                                                            observation_model = observation_model_inverse,         
                                                                             max_grad_steps = 500)
 
     println("Context State Estimation: ", context_state_estimation)
@@ -260,9 +262,10 @@ function GenerateNoiseGraph(
                             solve_inverse_mcp_game(
                                 mcp_game,
                                 initial_state,
-                                for_sol .+ σ * randn(rng, length(for_sol)),
+                                for_sol[1:2] .+ σ * randn(rng, length(for_sol[1:2])),
                                 context_state_guess,
                                 horizon;
+                                (; expected_observation = x -> x[1:2]),
                                 max_grad_steps = 150)[2],
                             game.game,
                             horizon))
