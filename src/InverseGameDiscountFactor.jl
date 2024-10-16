@@ -265,7 +265,7 @@ function GenerateNoiseGraph(
                                 for_sol[1:2] .+ σ * randn(rng, length(for_sol[1:2])),
                                 context_state_guess,
                                 horizon;
-                                (; expected_observation = x -> x[1:2]),
+                                observation_model = (; expected_observation = x -> x[1:2]),
                                 max_grad_steps = 150)[2],
                             game.game,
                             horizon))
