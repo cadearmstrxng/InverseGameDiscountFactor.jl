@@ -45,6 +45,7 @@ using Makie: Makie
 using Colors: @colorant_str
 using JLD2: JLD2
 using Statistics
+using ParametricMCPs
 
 using Infiltrator
 
@@ -249,20 +250,57 @@ function GenerateNoiseGraph(
     errors = Array{Float64}(undef, length(σs), num_trials)
     failure_counter = 0
     num_attempts_if_failed = 3
+
+    parametric_observation_function = (σ) -> (x) -> x[1:2] .+ σ * randn(rng, length(x[1:2]))
+    max_likelihood_observation = (x) -> x[1:2]
+    f = (x) -> norm_sqr(max_likelihood_observation(x) - raw_observation)
+
+
+    # Ls = map(zip(1:N, fs, gs, hs)) do (i, f, g, h)
+    #     f - λs[Block(i)]' * g - μs[Block(i)]' * h - λ̃' * g̃ - μ̃' * h̃
+    # end
+    # # Build F = [∇ₓLs, gs, hs, g̃, h̃]'.
+    # ∇ₓLs = map(zip(Ls, blocks(xs))) do (L, x)
+    #     Symbolics.gradient(L, x)
+    # end
+    # F = [reduce(vcat, ∇ₓLs); reduce(vcat, gs); reduce(vcat, hs);g̃;h̃]
+
+
+    warm_start_mcp = ParametricMCPs.ParametricMCP(
+                        f, # gotta be wrong
+                        [-Inf for _ in 1:size(forwards_solution.primals, 1)],
+                        [Inf for _ in 1:size(forwards_solution.primals, 1)],
+                        length(context_state_guess),
+                    )
+    
     for (idx, σ) in enumerate(σs)
+        observation_function = parametric_observation_function(σ)
         for i in 1:num_trials
             println("std: ", σ, " trial: ", i)
             attempts = 1
             println("\tattempt: ", attempts)
+
             while (attempts < num_attempts_if_failed)
                 try
+                    raw_observation = observation_function(for_sol)
+                    
+                    warm_start_sol = ParametricMCPs.solve( # where did feasibility constraints go?
+                        warm_start_mcp, # need to instantiate, probably min statement
+                        context_state_guess; # parameter_value
+                        initial_guess = zeros(size(forwards_solution.primals)), # initial_guess?
+                        verbose = false, # verbose
+                        cumulative_iteration_limit = 100000,
+                        proximal_perturbation = 1e-2,
+                        use_basics = true,
+                        use_start = true,
+                    )
                     error = norm_sqr(
                         for_sol - 
                         reconstruct_solution(
                             solve_inverse_mcp_game(
                                 mcp_game,
                                 initial_state,
-                                for_sol[1:2] .+ σ * randn(rng, length(for_sol[1:2])),
+                                warm_start_sol,
                                 context_state_guess,
                                 horizon;
                                 observation_model = (; expected_observation = x -> x[1:2]),
@@ -296,7 +334,7 @@ function GenerateNoiseGraph(
     CairoMakie.scatter!(ax1, σs, mean_errors, color = :red)
     CairoMakie.errorbars!(ax1, σs, mean_errors, stds, color = :red)
     
-    CairoMakie.save("NoiseGraph.png", fig1)
+    CairoMakie.save("NoiseGraph_warm_start.png", fig1)
 
 end
 end
