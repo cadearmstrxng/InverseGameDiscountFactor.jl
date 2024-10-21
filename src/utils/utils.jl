@@ -249,6 +249,12 @@ function initial_state_feasibility(game, horizon, initial_state, initial_states,
     return true
 end
 
+"""
+Structure of output is as follows:
+
+ - [[x₁¹; x₂¹];[x₁²; x₂²];...;[x₁ᵀ; x₂ᵀ]] where xᵢʲ is the state of player i at time j in block vectors for each time
+
+"""
 function reconstruct_solution(solution, game, horizon)
     num_player = num_players(game)
     player_state_dimension = convert(Int64, state_dim(game.dynamics)/num_player)
