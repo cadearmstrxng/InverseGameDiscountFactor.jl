@@ -1,6 +1,7 @@
 using TrajectoryGamesBase:
     GeneralSumCostStructure, TrajectoryGameCost
 using Infiltrator
+using Symbolics
 
 export warm_start
 
