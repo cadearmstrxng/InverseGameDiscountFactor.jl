@@ -57,6 +57,7 @@ include("utils/utils.jl")
 include("problem_formulation.jl")
 include("solve.jl")
 include("baseline/inverse_MCP_solver.jl")
+include("utils/WarmStart.jl")
 
 
 function main(;
@@ -107,17 +108,17 @@ function main(;
     println("Context State Guess: ", context_state_guess)
 
     observation_model_noisy = (; σ = 0.1, expected_observation = x -> x[1:2] .+ observation_model_noisy.σ * randn(length(x[1:2])))
-    observation_model_inverse = (; σ = 0.0, expected_observation = x -> x[1:2])
+    observation_model_inverse = (; σ = 0.0, expected_observation = x -> x)
 
     for_sol = reconstruct_solution(forward_solution, game.game, horizon)
 
-    for_sol = observation_model_noisy.expected_observation(for_sol)
+    for_sol = observation_model_inverse.expected_observation(for_sol)
 
-    # @infiltrate
+    warm_start_sol = warm_start(for_sol, initial_state, horizon; observation_model = observation_model_inverse)
 
     context_state_estimation, last_solution, i_, solving_info, time_exec = solve_inverse_mcp_game(mcp_game, initial_state, for_sol, context_state_guess, horizon;
                                                                             observation_model = observation_model_inverse,         
-                                                                            max_grad_steps = 500)
+                                                                            max_grad_steps = 500, last_solution = warm_start_sol)
 
     println("Context State Estimation: ", context_state_estimation)
     sol_error = norm_sqr(reconstruct_solution(forward_solution, game.game, horizon) - reconstruct_solution(last_solution, game.game, horizon))
