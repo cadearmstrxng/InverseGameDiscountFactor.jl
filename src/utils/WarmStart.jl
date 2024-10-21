@@ -285,7 +285,7 @@ function warm_start(y, initial_state, horizon; observation_model = (; σ = 0.0, 
     solver = MCPCoupledOptimizationSolverWarmStart(game.game, y, horizon)
     mcp_game = solver.mcp_game
 
-    @infiltrate
+    # @infiltrate
 
     solve_mcp_game(mcp_game, initial_state, nothing; verbose = true)
 
