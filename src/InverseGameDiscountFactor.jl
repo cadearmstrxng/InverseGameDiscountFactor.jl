@@ -89,6 +89,7 @@ function main(;
     else
         horizon = convert(Int64, ceil(log(1e-4)/(log(min(goal[Block(1)][3], goal[Block(2)][3])))))
     end
+    horizon = 5
 
     turn_length = 2
     solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(goal, 1))
@@ -116,9 +117,22 @@ function main(;
 
     warm_start_sol = warm_start(for_sol, initial_state, horizon; observation_model = observation_model_inverse)
 
-    context_state_estimation, last_solution, i_, solving_info, time_exec = solve_inverse_mcp_game(mcp_game, initial_state, for_sol, context_state_guess, horizon;
-                                                                            observation_model = observation_model_inverse,         
-                                                                            max_grad_steps = 500, last_solution = warm_start_sol)
+    # println("length of warm_start_sol: ", length(warm_start_sol))
+    # println("length of warm_start_sol[1]: ", length(warm_start_sol[1]))
+    # println("length of warm_start_sol[2][1]: ", length(warm_start_sol[2][1]))
+    # println("length of warm_start_sol[2][2]: ", length(warm_start_sol[2][2]))
+
+    context_state_estimation, last_solution, i_, solving_info, time_exec = 
+        solve_inverse_mcp_game(
+            mcp_game,
+            initial_state,
+            for_sol,
+            context_state_guess,
+            horizon;
+            observation_model = observation_model_inverse,         
+            max_grad_steps = 500,
+            last_solution = warm_start_sol
+        )
 
     println("Context State Estimation: ", context_state_estimation)
     sol_error = norm_sqr(reconstruct_solution(forward_solution, game.game, horizon) - reconstruct_solution(last_solution, game.game, horizon))

@@ -1,5 +1,9 @@
 using TrajectoryGamesBase:
-    GeneralSumCostStructure, TrajectoryGameCost
+    GeneralSumCostStructure,
+    TrajectoryGameCost,
+    TrajectoryGame, # TODO: fix invalid redifinition of constant
+    TrajectoryGamesBase
+using ParametricMCPs
 using Infiltrator
 using Symbolics
 
@@ -288,8 +292,32 @@ function warm_start(y, initial_state, horizon; observation_model = (; σ = 0.0, 
 
     # @infiltrate
 
-    solve_mcp_game(mcp_game, initial_state, nothing; verbose = true)
+    (; primals, variables, status, info) = 
+        solve_mcp_game(
+            mcp_game,
+            initial_state,
+            nothing;
+            verbose = false
+        )
+    
+    warm_start_duals = 
+        zeros(
+            length(mcp_game.parametric_mcp.lower_bounds) - 
+            length(primals)
+        )
 
+    expanded_variables = map(1:num_players(mcp_game.game)) do ii
+        vcat(variables[ii], copy(warm_start_duals))
+    end
+    # println("length of expanded vars: ", length(expanded_variables))
+    # println("length of expanded vars[1]: ", length(expanded_variables[1]))
+    # println("length of expanded vars[2]: ", length(expanded_variables[2]))
+
+    expanded_primals = map(1:num_players(mcp_game.game)) do ii
+        expanded_variables[mcp_game.index_sets.τ_idx_set[ii]]
+    end
+
+    (;expanded_primals, expanded_variables, status, info)
 end
 
 
