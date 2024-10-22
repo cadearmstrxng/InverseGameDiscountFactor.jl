@@ -24,7 +24,8 @@ function warm_start_game(num_players;
     observation_model = (; σ = 0.0, expected_observation = identity),
     dynamics = planar_double_integrator(;
         state_bounds = (; lb = [-Inf, -Inf, -0.8, -0.8], ub = [Inf, Inf, 0.8, 0.8]),
-        control_bounds = (; lb = [-10, -10], ub = [10, 10]),)
+        control_bounds = (; lb = [-10, -10], ub = [10, 10]),),
+    partial_observation_state_size = -1
     )
 
     cost = let
@@ -41,7 +42,7 @@ function warm_start_game(num_players;
 
         function warm_start_cost(x,y)
             T = convert(Int64,size(y)[1]/size(y[Block(1)])[1])
-            state_size = size(x[1][Block(1)])[1]
+            state_size = partial_observation_state_size < 0 ? size(x[1][Block(1)])[1] : partial_observation_state_size
             num_players = convert(Int64,size(y[Block(1)])[1]//state_size)
 
             [warm_start_cost_for_player(i, x, y, T, state_size) for i in 1:num_players]
@@ -279,18 +280,19 @@ end
 
 
 function warm_start(y, initial_state, horizon; observation_model = (; σ = 0.0, expected_observation = identity), 
-                    num_players = 2)
-    println("\twarm start called")
+                    num_players = 2, partial_observation_state_size = -1)
     environment = NullEnv()
-    game = warm_start_game(num_players; environment, observation_model = observation_model)
+    game = warm_start_game(
+        num_players;
+        environment,
+        observation_model = observation_model,
+        partial_observation_state_size = partial_observation_state_size)
 
     # @infiltrate
 
     turn_length = 2
     solver = MCPCoupledOptimizationSolverWarmStart(game.game, y, horizon)
     mcp_game = solver.mcp_game
-
-    println("\tinit successful")
 
     solve_mcp_game(
         mcp_game,
@@ -301,7 +303,6 @@ function warm_start(y, initial_state, horizon; observation_model = (; σ = 0.0, 
 end
 
 function expand_warm_start(warm_start_sol, mcp_game)
-    println("\texpanding warm start sol")
     variables = warm_start_sol[2]
     index_sets = mcp_game.index_sets
     expanded_duals = zeros(

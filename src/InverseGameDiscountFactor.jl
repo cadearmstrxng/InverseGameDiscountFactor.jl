@@ -238,6 +238,7 @@ function GenerateNoiseGraph(
 
     forward_solution = solve_mcp_game(mcp_game, initial_state, goal; verbose = true)
     for_sol = reconstruct_solution(forward_solution, game.game, horizon)
+    # Just holds states, [ [[] = p1 state [] = p2 state] ... horizon ]
 
     σs = [0.01*i for i in 0:10]
     # σs = [0.01]
@@ -265,14 +266,9 @@ function GenerateNoiseGraph(
     failure_counter = 0
     num_attempts_if_failed = 3
 
-    warm_start_observation_model = (; σ = 0.0, expected_observation = x -> x)
+    # warm_start_observation_model = (; σ = 0.0, expected_observation = x -> x)
     expected_partial_observation_model = (; expected_observation = x -> x[1:2])
-    partial_observations = (x) -> [ # TODO: get partial observations
-        vcat(
-            [x[Block(i)][(j - 1) * player_state_dimension + 1 : (j - 1) * player_state_dimension + 2]
-            for j in 1:2
-            ])
-        for i in x.blocksizes]
+    partial_observations = (σ) -> (x) -> vcat(x[1:2], x[5:6]) + σ * randn(rng, 4)
 
     for (idx, σ) in enumerate(σs)
         for i in 1:num_trials
@@ -281,20 +277,16 @@ function GenerateNoiseGraph(
             while (attempts <= num_attempts_if_failed)
                 println("\tattempt: ", attempts)
                 try
-                    println("\ttrying warm start")
-                    ws = warm_start(
-                        partial_observations(for_sol),
-                        initial_state,
-                        horizon;
-                        observation_model = expected_partial_observation_model)
-
-                    println("\twarm start sol calculated")
-
                     warm_start_sol = 
                     expand_warm_start(
-                        ws,
+                        warm_start(
+                            draw_observations(for_sol, partial_observations(σ)),
+                            initial_state,
+                            horizon;
+                            observation_model = expected_partial_observation_model,
+                            partial_observation_state_size = 2),
                         mcp_game)
-                        
+                    println("\twarm start successful")
                     error = norm_sqr(
                         for_sol - 
                         reconstruct_solution(
@@ -311,7 +303,8 @@ function GenerateNoiseGraph(
                             horizon))
                     errors[idx, i] = error
                     break
-                catch
+                catch e
+                    rethrow(e)
                     println("\tfailed")
                     attempts += 1
                 end
@@ -337,5 +330,18 @@ function GenerateNoiseGraph(
     
     CairoMakie.save("NoiseGraph_warm_start.png", fig1)
 
+end
+
+#observation_model should  be full_state observation, indexed by time not by player
+function draw_observations(full_state_trajectory, observation_model; num_players = 2)
+    observation_length = length(observation_model(full_state_trajectory[Block(1)]))
+    # observations = []
+    # for full_state_time_slice in full_state_trajectory.blocks
+    #     push!(observations, observation_model(full_state_time_slice))
+    # end
+    BlockVector(
+        vcat(
+            [observation_model(state) for state in full_state_trajectory.blocks]...),
+        [observation_length for _ in 1:length(full_state_trajectory.blocks)])
 end
 end
