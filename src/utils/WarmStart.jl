@@ -4,7 +4,7 @@ using TrajectoryGamesBase:
     TrajectoryGame, # TODO: fix invalid redifinition of constant
     TrajectoryGamesBase
 using ParametricMCPs
-using Infiltrator
+# using Infiltrator
 using Symbolics
 
 export warm_start
@@ -280,7 +280,7 @@ end
 
 function warm_start(y, initial_state, horizon; observation_model = (; σ = 0.0, expected_observation = identity), 
                     num_players = 2)
-
+    println("\twarm start called")
     environment = NullEnv()
     game = warm_start_game(num_players; environment, observation_model = observation_model)
 
@@ -290,34 +290,32 @@ function warm_start(y, initial_state, horizon; observation_model = (; σ = 0.0, 
     solver = MCPCoupledOptimizationSolverWarmStart(game.game, y, horizon)
     mcp_game = solver.mcp_game
 
-    # @infiltrate
+    println("\tinit successful")
 
-    (; primals, variables, status, info) = 
-        solve_mcp_game(
-            mcp_game,
-            initial_state,
-            nothing;
-            verbose = false
-        )
-    
-    warm_start_duals = 
-        zeros(
-            length(mcp_game.parametric_mcp.lower_bounds) - 
-            length(primals)
-        )
+    solve_mcp_game(
+        mcp_game,
+        initial_state,
+        nothing;
+        verbose = false
+    )
+end
 
-    expanded_variables = map(1:num_players(mcp_game.game)) do ii
-        vcat(variables[ii], copy(warm_start_duals))
+function expand_warm_start(warm_start_sol, mcp_game)
+    println("\texpanding warm start sol")
+    variables = warm_start_sol[2]
+    index_sets = mcp_game.index_sets
+    expanded_duals = zeros(
+        length(mcp_game.parametric_mcp.lower_bounds) - 
+        length(variables)
+    )
+
+    expanded_variables = vcat(variables, copy(expanded_duals))
+
+    expanded_primals = []
+    for ii in 1:num_players(mcp_game.game)
+        push!(expanded_primals, expanded_variables[index_sets.τ_idx_set[ii]])
     end
-    # println("length of expanded vars: ", length(expanded_variables))
-    # println("length of expanded vars[1]: ", length(expanded_variables[1]))
-    # println("length of expanded vars[2]: ", length(expanded_variables[2]))
-
-    expanded_primals = map(1:num_players(mcp_game.game)) do ii
-        expanded_variables[mcp_game.index_sets.τ_idx_set[ii]]
-    end
-
-    (;expanded_primals, expanded_variables, status, info)
+    (; primals = expanded_primals, variables = expanded_variables, status = warm_start_sol[3], info = warm_start_sol[4])
 end
 
 

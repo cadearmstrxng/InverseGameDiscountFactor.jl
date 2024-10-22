@@ -115,12 +115,14 @@ function main(;
 
     for_sol = observation_model_inverse.expected_observation(for_sol)
 
-    warm_start_sol = warm_start(for_sol, initial_state, horizon; observation_model = observation_model_inverse)
-
-    # println("length of warm_start_sol: ", length(warm_start_sol))
-    # println("length of warm_start_sol[1]: ", length(warm_start_sol[1]))
-    # println("length of warm_start_sol[2][1]: ", length(warm_start_sol[2][1]))
-    # println("length of warm_start_sol[2][2]: ", length(warm_start_sol[2][2]))
+    warm_start_sol = 
+        expand_warm_start(
+            warm_start(
+                for_sol,
+                initial_state,
+                horizon;
+                observation_model = observation_model_inverse),
+            mcp_game)
 
     context_state_estimation, last_solution, i_, solving_info, time_exec = 
         solve_inverse_mcp_game(
@@ -227,10 +229,12 @@ function GenerateNoiseGraph(
     else
         horizon = convert(Int64, ceil(log(1e-4)/(log(min(goal[Block(1)][3], goal[Block(2)][3])))))
     end
+    horizon = 5
 
     turn_length = 2
     solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(goal, 1))
     mcp_game = solver.mcp_game
+    player_state_dimension = convert(Int64, state_dim(game.game.dynamics)/2)
 
     forward_solution = solve_mcp_game(mcp_game, initial_state, goal; verbose = true)
     for_sol = reconstruct_solution(forward_solution, game.game, horizon)
@@ -262,22 +266,35 @@ function GenerateNoiseGraph(
     num_attempts_if_failed = 3
 
     warm_start_observation_model = (; σ = 0.0, expected_observation = x -> x)
-    full_solver_observation_model = (; expected_observation = x -> x[1:2])
+    expected_partial_observation_model = (; expected_observation = x -> x[1:2])
+    partial_observations = (x) -> [ # TODO: get partial observations
+        vcat(
+            [x[Block(i)][(j - 1) * player_state_dimension + 1 : (j - 1) * player_state_dimension + 2]
+            for j in 1:2
+            ])
+        for i in x.blocksizes]
 
     for (idx, σ) in enumerate(σs)
         for i in 1:num_trials
             println("std: ", σ, " trial: ", i)
             attempts = 1
-            println("\tattempt: ", attempts)
-
-            while (attempts < num_attempts_if_failed)
+            while (attempts <= num_attempts_if_failed)
+                println("\tattempt: ", attempts)
                 try
-                    warm_start_sol = warm_start(
-                        for_sol,
+                    println("\ttrying warm start")
+                    ws = warm_start(
+                        partial_observations(for_sol),
                         initial_state,
                         horizon;
-                        observation_model = warm_start_observation_model)
+                        observation_model = expected_partial_observation_model)
 
+                    println("\twarm start sol calculated")
+
+                    warm_start_sol = 
+                    expand_warm_start(
+                        ws,
+                        mcp_game)
+                        
                     error = norm_sqr(
                         for_sol - 
                         reconstruct_solution(
@@ -287,20 +304,19 @@ function GenerateNoiseGraph(
                                 for_sol,
                                 context_state_guess,
                                 horizon;
-                                # observation_model = full_solver_observation_model,
+                                observation_model = expected_partial_observation_model,
                                 max_grad_steps = 150,
                                 last_solution = warm_start_sol)[2],
                             game.game,
                             horizon))
                     errors[idx, i] = error
-                    attempts = num_attempts_if_failed + 1
                     break
                 catch
                     println("\tfailed")
                     attempts += 1
                 end
             end
-            if attempts == num_attempts_if_failed
+            if attempts > num_attempts_if_failed
                 failure_counter += 1
             end
         end
