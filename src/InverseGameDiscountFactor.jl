@@ -222,6 +222,7 @@ function GenerateNoiseGraph(
 
     environment = PolygonEnvironment(6, 8)
     game = n_player_collision_avoidance(2; environment, min_distance = 1.2)
+    nmypc_game = n_player_collision_avoidance(2; environment, min_distance = 1.2, myopic = false)
 
     if min(goal[Block(1)][3], goal[Block(2)][3]) == 1
         horizon = 75
@@ -233,11 +234,15 @@ function GenerateNoiseGraph(
 
     turn_length = 2
     solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(goal, 1))
+    nmypc_solver = MCPCoupledOptimizationSolver(nmypc_game.game, horizon, blocksizes(goal, 1))
     mcp_game = solver.mcp_game
+    nmypc_mcp_game = nmypc_solver.mcp_game
     player_state_dimension = convert(Int64, state_dim(game.game.dynamics)/2)
 
     forward_solution = solve_mcp_game(mcp_game, initial_state, goal; verbose = true)
+    # nmypc_forward_solution = solve_mcp_game(nmypc_mcp_game, initial_state, goal; verbose = true)
     for_sol = reconstruct_solution(forward_solution, game.game, horizon)
+    # nmypc_for_sol = reconstruct_solution(nmypc_forward_solution, nmypc_game.game, horizon)
     # Just holds states, [ [[] = p1 state [] = p2 state] ... horizon ]
 
     σs = [0.01*i for i in 0:10]
@@ -248,6 +253,13 @@ function GenerateNoiseGraph(
     context_state_guess[2] = -2.7
     context_state_guess[4] = 2.7
     context_state_guess[5] = 1.0
+
+    nmypc_context_state_guess = sample_initial_states_and_context(nmypc_game, horizon, rng, 0.08)[2]
+    nmypc_context_state_guess[1] = 0.0
+    nmypc_context_state_guess[2] = -2.7
+    nmypc_context_state_guess[3] = 1
+    nmypc_context_state_guess[4] = 2.7
+    nmypc_context_state_guess[5] = 1.0
 
     # errors = [[
     #     norm_sqr(
@@ -263,6 +275,7 @@ function GenerateNoiseGraph(
     #             game.game,
     #             horizon)) for _ in num_trials] for σ in eachindex(σs)]
     errors = Array{Float64}(undef, length(σs), num_trials)
+    nmypc_errors = Array{Float64}(undef, length(σs), num_trials)
     failure_counter = 0
     num_attempts_if_failed = 3
 
@@ -290,7 +303,6 @@ function GenerateNoiseGraph(
                             observation_model = per_player_expected_partial_observation_model,
                             partial_observation_state_size = 2),
                         mcp_game)
-                    println("\twarm start successful")
                     inv_game_sol = solve_inverse_mcp_game(
                         mcp_game,
                         initial_state,
@@ -307,6 +319,37 @@ function GenerateNoiseGraph(
                     error = norm_sqr(for_sol - reconstructed_sol)
                     # println("context state: ", context_state_guess) # .951916339835734 as gamma every time
                     errors[idx, i] = error
+                    println("\tmyopic solver done")
+
+                    nmypc_observed_trajectory = draw_observations(
+                        for_sol,
+                        partial_observation_function_generator(σ))
+                    nmypc_warm_start_sol = 
+                        expand_warm_start(
+                            warm_start(
+                                nmypc_observed_trajectory,
+                                initial_state,
+                                horizon;
+                                observation_model = per_player_expected_partial_observation_model,
+                                partial_observation_state_size = 2),
+                            nmypc_mcp_game
+                        )
+                    nmypc_inv_game_sol = solve_inverse_mcp_game(
+                        nmypc_mcp_game,
+                        initial_state,
+                        observed_trajectory,
+                        nmypc_context_state_guess,
+                        horizon;
+                        observation_model = expected_partial_observation_model,
+                        max_grad_steps = 150,
+                        last_solution = nmypc_warm_start_sol)
+                    nmypc_reconstructed_sol = reconstruct_solution(
+                            nmypc_inv_game_sol[2],
+                            nmypc_game.game,
+                            horizon)
+                    nmypc_error = norm_sqr(for_sol - nmypc_reconstructed_sol)
+                    nmypc_errors[idx, i] = nmypc_error
+                    println("\tnon-myopic solver done")
                     break
                 catch e
                     rethrow(e)
@@ -328,10 +371,16 @@ function GenerateNoiseGraph(
 
     mean_errors = [Statistics.mean(errors[i, :]) for i in 1:size(errors, 1)]
     stds = [Statistics.std(errors[i, :]) for i in 1:size(errors, 1)]
+
+    nmypc_mean_errors = [Statistics.mean(nmypc_errors[i, :]) for i in 1:size(nmypc_errors, 1)]
+    nmypc_stds = [Statistics.std(nmypc_errors[i, :]) for i in 1:size(nmypc_errors, 1)]
     # variances = [std / sqrt(length(error)) for (std, error) in zip(stds, errors)]
     # Originally, in errorbars, we are plotting variance? but std seems more likely?
     CairoMakie.scatter!(ax1, σs, mean_errors, color = :red)
     CairoMakie.errorbars!(ax1, σs, mean_errors, stds, color = :red)
+
+    CairoMakie.scatter!(ax1, σs, nmypc_mean_errors, color = :blue)
+    CairoMakie.errorbars!(ax1, σs, nmypc_mean_errors, stds, color = :blue)
     
     CairoMakie.save("NoiseGraph_warm_start.png", fig1)
 
