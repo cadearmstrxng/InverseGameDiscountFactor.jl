@@ -1,7 +1,7 @@
 using TrajectoryGamesBase:
     GeneralSumCostStructure,
     TrajectoryGameCost,
-    TrajectoryGame, # TODO: fix invalid redifinition of constant
+    TrajectoryGame,
     TrajectoryGamesBase
 using ParametricMCPs
 # using Infiltrator
@@ -278,7 +278,11 @@ function MCPCoupledOptimizationSolverWarmStart(game::TrajectoryGame, observed_tr
     MCPCoupledOptimizationSolver(mcp_game)
 end
 
-
+"""
+TODO: observation model handled differently than inverse mcp solver.
+Solver handles it on a full game basis: τs_solution = observation_model.expected_observation(τs_solution)
+We do observations per-player.
+"""
 function warm_start(y, initial_state, horizon; observation_model = (; σ = 0.0, expected_observation = identity), 
                     num_players = 2, partial_observation_state_size = -1)
     environment = NullEnv()
