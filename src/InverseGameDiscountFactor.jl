@@ -218,7 +218,6 @@ function GenerateNoiseGraph(
     goal = mortar([[0.0, -2.7, 0.9], [2.7, 1, 0.9]]),
     rng = Random.MersenneTwister(1),
 )
-    num_trials = 10;
     CairoMakie.activate!();
 
     environment = PolygonEnvironment(6, 8)
@@ -229,6 +228,8 @@ function GenerateNoiseGraph(
     else
         horizon = convert(Int64, ceil(log(1e-4)/(log(min(goal[Block(1)][3], goal[Block(2)][3])))))
     end
+    # horizon = 5
+    num_trials = 10
 
     turn_length = 2
     solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(goal, 1))
@@ -265,10 +266,9 @@ function GenerateNoiseGraph(
     failure_counter = 0
     num_attempts_if_failed = 3
 
-    inverse_game_solver_obs_model = (; σ = 0.0, expected_observation = x -> x)
-    expected_partial_observation_model = (; expected_observation = x -> x[1:2])
     partial_observation_function_generator = (σ) -> (x) -> vcat(x[1:2], x[5:6]) + σ * randn(rng, 4)
-    # inverse_game_solver_obs_model = (; expected_observation = (x) -> get_observed_trajectory(x, (y) -> y[1:2]), σ = 0.0)
+    per_player_expected_partial_observation_model = (; expected_observation = x -> x[1:2])
+    expected_partial_observation_model = (; expected_observation = (x) -> vcat(x[1:2], x[5:6]) )
 
 
     for (idx, σ) in enumerate(σs)
@@ -277,35 +277,39 @@ function GenerateNoiseGraph(
             attempts = 1
             while (attempts <= num_attempts_if_failed)
                 println("\tattempt: ", attempts)
+                observed_trajectory = draw_observations(
+                    for_sol,
+                    partial_observation_function_generator(σ))
                 try
                     warm_start_sol = 
                     expand_warm_start(
                         warm_start(
-                            draw_observations(for_sol,
-                                partial_observation_function_generator(σ)),
+                            observed_trajectory,
                             initial_state,
                             horizon;
-                            observation_model = expected_partial_observation_model,
+                            observation_model = per_player_expected_partial_observation_model,
                             partial_observation_state_size = 2),
                         mcp_game)
                     println("\twarm start successful")
-                    error = norm_sqr(
-                        for_sol - 
-                        reconstruct_solution(
-                            solve_inverse_mcp_game(
-                                mcp_game,
-                                initial_state,
-                                for_sol,
-                                context_state_guess,
-                                horizon;
-                                observation_model = inverse_game_solver_obs_model,
-                                max_grad_steps = 150,
-                                last_solution = warm_start_sol)[2],
+                    inv_game_sol = solve_inverse_mcp_game(
+                        mcp_game,
+                        initial_state,
+                        observed_trajectory,
+                        context_state_guess,
+                        horizon;
+                        observation_model = expected_partial_observation_model,
+                        max_grad_steps = 150,
+                        last_solution = warm_start_sol)
+                    reconstructed_sol = reconstruct_solution(
+                            inv_game_sol[2],
                             game.game,
-                            horizon))
+                            horizon)
+                    error = norm_sqr(for_sol - reconstructed_sol)
+                    # println("context state: ", context_state_guess) # .951916339835734 as gamma every time
                     errors[idx, i] = error
                     break
                 catch e
+                    rethrow(e)
                     println("\tfailed")
                     attempts += 1
                 end
