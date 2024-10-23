@@ -229,7 +229,6 @@ function GenerateNoiseGraph(
     else
         horizon = convert(Int64, ceil(log(1e-4)/(log(min(goal[Block(1)][3], goal[Block(2)][3])))))
     end
-    horizon = 5
 
     turn_length = 2
     solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(goal, 1))
@@ -266,9 +265,11 @@ function GenerateNoiseGraph(
     failure_counter = 0
     num_attempts_if_failed = 3
 
-    # warm_start_observation_model = (; σ = 0.0, expected_observation = x -> x)
+    inverse_game_solver_obs_model = (; σ = 0.0, expected_observation = x -> x)
     expected_partial_observation_model = (; expected_observation = x -> x[1:2])
-    partial_observations = (σ) -> (x) -> vcat(x[1:2], x[5:6]) + σ * randn(rng, 4)
+    partial_observation_function_generator = (σ) -> (x) -> vcat(x[1:2], x[5:6]) + σ * randn(rng, 4)
+    # inverse_game_solver_obs_model = (; expected_observation = (x) -> get_observed_trajectory(x, (y) -> y[1:2]), σ = 0.0)
+
 
     for (idx, σ) in enumerate(σs)
         for i in 1:num_trials
@@ -280,7 +281,8 @@ function GenerateNoiseGraph(
                     warm_start_sol = 
                     expand_warm_start(
                         warm_start(
-                            draw_observations(for_sol, partial_observations(σ)),
+                            draw_observations(for_sol,
+                                partial_observation_function_generator(σ)),
                             initial_state,
                             horizon;
                             observation_model = expected_partial_observation_model,
@@ -296,7 +298,7 @@ function GenerateNoiseGraph(
                                 for_sol,
                                 context_state_guess,
                                 horizon;
-                                observation_model = expected_partial_observation_model,
+                                observation_model = inverse_game_solver_obs_model,
                                 max_grad_steps = 150,
                                 last_solution = warm_start_sol)[2],
                             game.game,
@@ -304,7 +306,6 @@ function GenerateNoiseGraph(
                     errors[idx, i] = error
                     break
                 catch e
-                    rethrow(e)
                     println("\tfailed")
                     attempts += 1
                 end
@@ -343,5 +344,15 @@ function draw_observations(full_state_trajectory, observation_model; num_players
         vcat(
             [observation_model(state) for state in full_state_trajectory.blocks]...),
         [observation_length for _ in 1:length(full_state_trajectory.blocks)])
+end
+
+function get_observed_trajectory(trajectory, observation_model)
+    observations = []
+    observation_length = length(observation_model(trajectory[Block(1)]))
+    for full_state_time_slice in trajectory.blocks
+        push!(observations, observation_model(full_state_time_slice))
+    end
+    BlockVector(vcat(observations...),
+        [observation_length for _ in eachindex(trajectory.blocks)])
 end
 end
