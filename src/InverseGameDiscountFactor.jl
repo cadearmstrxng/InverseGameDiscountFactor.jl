@@ -376,11 +376,11 @@ function GenerateNoiseGraph(
     nmypc_stds = [Statistics.std(nmypc_errors[i, :]) for i in 1:size(nmypc_errors, 1)]
     # variances = [std / sqrt(length(error)) for (std, error) in zip(stds, errors)]
     # Originally, in errorbars, we are plotting variance? but std seems more likely?
-    CairoMakie.scatter!(ax1, σs, mean_errors, color = :red)
-    CairoMakie.errorbars!(ax1, σs, mean_errors, stds, color = :red)
+    CairoMakie.scatter!(ax1, σs, mean_errors, color = (:red, 0,5))
+    CairoMakie.errorbars!(ax1, σs, mean_errors, stds, color = (:red, 0,5))
 
-    CairoMakie.scatter!(ax1, σs, nmypc_mean_errors, color = :blue)
-    CairoMakie.errorbars!(ax1, σs, nmypc_mean_errors, stds, color = :blue)
+    CairoMakie.scatter!(ax1, σs, nmypc_mean_errors, color = (:blue, 0,5))
+    CairoMakie.errorbars!(ax1, σs, nmypc_mean_errors, nmypc_stds, color = (:blue, 0,5))
     
     CairoMakie.save("NoiseGraph_warm_start.png", fig1)
 
