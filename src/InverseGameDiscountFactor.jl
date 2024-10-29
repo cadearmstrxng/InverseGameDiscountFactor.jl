@@ -216,7 +216,7 @@ function GenerateNoiseGraph(
         [1, 2.8, 0.0, 0.0],
     ]),
     goal = mortar([[0.0, -2.7, 0.9], [2.7, 1, 0.9]]),
-    rng = Random.MersenneTwister(1),
+    rng = Random.MersenneTwister(42),
 )
     CairoMakie.activate!();
 
@@ -229,8 +229,7 @@ function GenerateNoiseGraph(
     else
         horizon = convert(Int64, ceil(log(1e-4)/(log(min(goal[Block(1)][3], goal[Block(2)][3])))))
     end
-    # horizon = 5
-    num_trials = 10
+    num_trials = 20
 
     turn_length = 2
     solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(goal, 1))
@@ -245,7 +244,7 @@ function GenerateNoiseGraph(
     # nmypc_for_sol = reconstruct_solution(nmypc_forward_solution, nmypc_game.game, horizon)
     # Just holds states, [ [[] = p1 state [] = p2 state] ... horizon ]
 
-    σs = [0.01*i for i in 0:10]
+    σs = [0.01*i for i in 0:0.5:10]
     # σs = [0.01]
 
     context_state_guess = sample_initial_states_and_context(game, horizon, rng, 0.08)[2]
@@ -365,6 +364,23 @@ function GenerateNoiseGraph(
     end
 
     println("Failure Counter: ", failure_counter, " / ", num_trials * length(σs))
+
+    open("experiments.txt", "w") do file
+        write(file, "our errors, then baseline errors. the rows are different noise levels, and the columns are different trials\n")
+        for i in 1:size(errors, 1)
+            write(file, string(σs[i]) * ": ")
+            # write(file, "\t")
+            write(file, string(errors[i, :]))
+            write(file, "\n")
+        end
+        write(file, "\n")
+        for i in 1:size(nmypc_errors, 1)
+            write(file, string(σs[i]) * ": ")
+            # write(file, "\t")
+            write(file, string(nmypc_errors[i, :]))
+            write(file, "\n")
+        end
+    end
 
     fig1 = CairoMakie.Figure()
     ax1 = CairoMakie.Axis(fig1[1, 1])
