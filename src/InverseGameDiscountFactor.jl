@@ -229,7 +229,7 @@ function GenerateNoiseGraph(
     else
         horizon = convert(Int64, ceil(log(1e-4)/(log(min(goal[Block(1)][3], goal[Block(2)][3])))))
     end
-    num_trials = 20
+    num_trials = 10
 
     turn_length = 2
     solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(goal, 1))
@@ -244,7 +244,7 @@ function GenerateNoiseGraph(
     # nmypc_for_sol = reconstruct_solution(nmypc_forward_solution, nmypc_game.game, horizon)
     # Just holds states, [ [[] = p1 state [] = p2 state] ... horizon ]
 
-    σs = [0.01*i for i in 0:0.5:10]
+    σs = [0.01*i for i in 0:1:10]
     # σs = [0.01]
 
     context_state_guess = sample_initial_states_and_context(game, horizon, rng, 0.08)[2]
@@ -320,19 +320,19 @@ function GenerateNoiseGraph(
                     errors[idx, i] = error
                     println("\tmyopic solver done")
 
-                    nmypc_observed_trajectory = draw_observations(
-                        for_sol,
-                        partial_observation_function_generator(σ))
-                    nmypc_warm_start_sol = 
-                        expand_warm_start(
-                            warm_start(
-                                nmypc_observed_trajectory,
-                                initial_state,
-                                horizon;
-                                observation_model = per_player_expected_partial_observation_model,
-                                partial_observation_state_size = 2),
-                            nmypc_mcp_game
-                        )
+                    # nmypc_observed_trajectory = 
+                    # nmypc_warm_start_sol = 
+                    #     expand_warm_start(
+                    #         warm_start(
+                    #             draw_observations(
+                    #                 for_sol,
+                    #                 partial_observation_function_generator(σ)),
+                    #             initial_state,
+                    #             horizon;
+                    #             observation_model = per_player_expected_partial_observation_model,
+                    #             partial_observation_state_size = 2),
+                    #         nmypc_mcp_game
+                    #     )
                     nmypc_inv_game_sol = solve_inverse_mcp_game(
                         nmypc_mcp_game,
                         initial_state,
@@ -341,7 +341,17 @@ function GenerateNoiseGraph(
                         horizon;
                         observation_model = expected_partial_observation_model,
                         max_grad_steps = 150,
-                        last_solution = nmypc_warm_start_sol)
+                        last_solution = expand_warm_start(
+                                            warm_start(
+                                                draw_observations(
+                                                    for_sol,
+                                                    partial_observation_function_generator(σ)),
+                                                initial_state,
+                                                horizon;
+                                                observation_model = per_player_expected_partial_observation_model,
+                                                partial_observation_state_size = 2),
+                                            nmypc_mcp_game
+                                        ))
                     nmypc_reconstructed_sol = reconstruct_solution(
                             nmypc_inv_game_sol[2],
                             nmypc_game.game,
@@ -349,6 +359,7 @@ function GenerateNoiseGraph(
                     nmypc_error = norm_sqr(for_sol - nmypc_reconstructed_sol)
                     nmypc_errors[idx, i] = nmypc_error
                     println("\tnon-myopic solver done")
+                    
                     break
                 catch e
                     rethrow(e)
@@ -358,6 +369,9 @@ function GenerateNoiseGraph(
             end
             if attempts > num_attempts_if_failed
                 failure_counter += 1
+            end
+            if σ <= 0.005
+                break
             end
         end
         # push!(errors, [])
