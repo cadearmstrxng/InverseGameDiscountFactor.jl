@@ -216,7 +216,7 @@ function GenerateNoiseGraph(
         [1, 2.8, 0.0, 0.0],
     ]),
     goal = mortar([[0.0, -2.7, 0.9], [2.7, 1, 0.9]]),
-    rng = Random.MersenneTwister(42),
+    rng = Random.MersenneTwister(237842),
 )
     CairoMakie.activate!();
 
@@ -229,7 +229,7 @@ function GenerateNoiseGraph(
     else
         horizon = convert(Int64, ceil(log(1e-4)/(log(min(goal[Block(1)][3], goal[Block(2)][3])))))
     end
-    # horizon = 5
+    horizon = 5
     num_trials = 3
 
     turn_length = 2
@@ -245,12 +245,13 @@ function GenerateNoiseGraph(
     # baseline_for_sol = reconstruct_solution(baseline_forward_solution, baseline_game.game, horizon)
     # Just holds states, [ [[] = p1 state [] = p2 state] ... horizon ]
 
-    σs = [0.005*i for i in 0:10]
+    σs = [0.01*i for i in 0:10]
     # σs = [0.01]
 
     context_state_guess = sample_initial_states_and_context(game, horizon, rng, 0.08)[2]
     context_state_guess[1] = 0.0
     context_state_guess[2] = -2.7
+    context_state_guess[3] = 1
     context_state_guess[4] = 2.7
     context_state_guess[5] = 1.0
 
@@ -388,6 +389,7 @@ function GenerateNoiseGraph(
 
     fig1 = CairoMakie.Figure()
     ax1 = CairoMakie.Axis(fig1[1, 1])
+    # ax2 = CairoMakie.Axis(fig1[2, 1])
 
     mean_errors = [Statistics.mean(errors[i, :]) for i in 1:size(errors, 1)]
     stds = [Statistics.std(errors[i, :]) for i in 1:size(errors, 1)]
@@ -396,12 +398,14 @@ function GenerateNoiseGraph(
     baseline_stds = [Statistics.std(baseline_errors[i, :]) for i in 1:size(baseline_errors, 1)]
     # variances = [std / sqrt(length(error)) for (std, error) in zip(stds, errors)]
     # Originally, in errorbars, we are plotting variance? but std seems more likely?
-    CairoMakie.scatter!(ax1, σs, mean_errors, color = (:red, 0.5))
-    CairoMakie.errorbars!(ax1, σs, mean_errors, stds, color = (:red, 0.5))
+    our_method = CairoMakie.scatter!(ax1, σs, mean_errors, color = (:blue, 0.5))
+    CairoMakie.errorbars!(ax1, σs, mean_errors, stds, color = (:blue, 0.5))
 
-    CairoMakie.scatter!(ax1, σs, baseline_mean_errors, color = (:blue, 0.5))
-    CairoMakie.errorbars!(ax1, σs, baseline_mean_errors, baseline_stds, color = (:blue, 0.5))
+    baseline = CairoMakie.scatter!(ax1, σs, baseline_mean_errors, color = (:red, 0.5))
+    CairoMakie.errorbars!(ax1, σs, baseline_mean_errors, baseline_stds, color = (:red, 0.5))
     
+    CairoMakie.axislegend(ax1, [our_method, baseline], ["Our Method", "Baseline"], position = :lt)
+
     CairoMakie.save("NoiseGraph_warm_start.png", fig1)
 
 end
