@@ -229,7 +229,8 @@ function GenerateNoiseGraph(
     else
         horizon = convert(Int64, ceil(log(1e-4)/(log(min(goal[Block(1)][3], goal[Block(2)][3])))))
     end
-    num_trials = 10
+    # horizon = 5
+    num_trials = 40
 
     turn_length = 2
     solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(goal, 1))
@@ -244,7 +245,7 @@ function GenerateNoiseGraph(
     # nmypc_for_sol = reconstruct_solution(nmypc_forward_solution, nmypc_game.game, horizon)
     # Just holds states, [ [[] = p1 state [] = p2 state] ... horizon ]
 
-    σs = [0.01*i for i in 0:1:10]
+    σs = [0.005*i for i in 0:10]
     # σs = [0.01]
 
     context_state_guess = sample_initial_states_and_context(game, horizon, rng, 0.08)[2]
@@ -285,10 +286,10 @@ function GenerateNoiseGraph(
 
     for (idx, σ) in enumerate(σs)
         for i in 1:num_trials
-            println("std: ", σ, " trial: ", i)
+            # println("std: ", σ, " trial: ", i)
             attempts = 1
             while (attempts <= num_attempts_if_failed)
-                println("\tattempt: ", attempts)
+                # println("\tattempt: ", attempts)
                 observed_trajectory = draw_observations(
                     for_sol,
                     partial_observation_function_generator(σ))
@@ -318,7 +319,7 @@ function GenerateNoiseGraph(
                     error = norm_sqr(for_sol - reconstructed_sol)
                     # println("context state: ", context_state_guess) # .951916339835734 as gamma every time
                     errors[idx, i] = error
-                    println("\tmyopic solver done")
+                    # println("\tmyopic solver done")
 
                     # nmypc_observed_trajectory = 
                     # nmypc_warm_start_sol = 
@@ -358,8 +359,7 @@ function GenerateNoiseGraph(
                             horizon)
                     nmypc_error = norm_sqr(for_sol - nmypc_reconstructed_sol)
                     nmypc_errors[idx, i] = nmypc_error
-                    println("\tnon-myopic solver done")
-                    
+                    # println("\tnon-myopic solver done")
                     break
                 catch e
                     rethrow(e)
