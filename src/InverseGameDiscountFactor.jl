@@ -251,18 +251,20 @@ function GenerateNoiseGraph(
     # σs = [0.01]
 
     context_state_guess = sample_initial_states_and_context(game, horizon, rng, 0.08)[2]
-    context_state_guess[1] = 0.0
-    context_state_guess[2] = -2.7
+
+    
+    context_state_guess[1] = goal[1]
+    context_state_guess[2] = goal[2]
     context_state_guess[3] = 1
-    context_state_guess[4] = 2.7
-    context_state_guess[5] = 1.0
+    context_state_guess[4] = goal[4]
+    context_state_guess[5] = goal[5]
 
     baseline_context_state_guess = sample_initial_states_and_context(game, horizon, rng, 0.08)[2]
-    baseline_context_state_guess[1] = 0.0
-    baseline_context_state_guess[2] = -2.7
+    baseline_context_state_guess[1] = goal[1]
+    baseline_context_state_guess[2] = goal[2]
     baseline_context_state_guess[3] = 1
-    baseline_context_state_guess[4] = 2.7
-    baseline_context_state_guess[5] = 1.0
+    baseline_context_state_guess[4] = goal[4]
+    baseline_context_state_guess[5] = goal[5]
     
     errors = Array{Float64}(undef, length(σs), num_trials)
     baseline_errors = Array{Float64}(undef, length(σs), num_trials)
