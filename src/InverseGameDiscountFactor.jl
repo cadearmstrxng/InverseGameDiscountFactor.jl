@@ -62,10 +62,10 @@ include("utils/WarmStart.jl")
 
 function main(;
     initial_state = mortar([
-        [-1, 2.5, 0.1, -0.2],
-        [1, 2.8, 0.0, 0.0],
+        [0, 2, 0.1, -0.2],
+        [2.5, 2, 0.0, 0.0],
     ]),
-    goal = mortar([[0.0, -2.7, 0.9], [2.7, 1, 0.9]]),
+    goal = mortar([[2, 0, 0.95], [0, 0, 0.9]]),
     plot_please = true,
     simulate_please = true
 )
@@ -82,14 +82,15 @@ function main(;
     """
     CairoMakie.activate!();
     environment = PolygonEnvironment(6, 8)
-    game = n_player_collision_avoidance(2; environment, min_distance = 1.2)
+    game = n_player_collision_avoidance(2; environment, min_distance = 0.5, collision_avoidance_coefficient = 5.0)
 
     if min(goal[Block(1)][3], goal[Block(2)][3]) == 1
         horizon = 75
     else
         horizon = convert(Int64, ceil(log(1e-4)/(log(min(goal[Block(1)][3], goal[Block(2)][3])))))
     end
-    horizon = 5
+    # horizon = 5
+    println("horion: ", horizon)
 
     turn_length = 2
     solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(goal, 1))
@@ -99,11 +100,11 @@ function main(;
 
     initial_state_guess, context_state_guess = sample_initial_states_and_context(game, horizon, Random.MersenneTwister(1), 0.08)
 
-    context_state_guess[1] = 0
-    context_state_guess[2] = -2.7
+    context_state_guess[1] = goal[1]
+    context_state_guess[2] = goal[2]
 
-    context_state_guess[4] = 2.7
-    context_state_guess[5] = 1
+    context_state_guess[4] = goal[4]
+    context_state_guess[5] = goal[5]
 
     println("Initial State Guess: ", initial_state_guess)
     println("Context State Guess: ", context_state_guess)
@@ -160,6 +161,7 @@ function main(;
         end
 
         CairoMakie.save("SolutionPlot.png", fig1)
+        #TODO: do legend
     end
 
 
@@ -212,16 +214,16 @@ end
 
 function GenerateNoiseGraph(
     initial_state = mortar([
-        [-1, 2.5, 0.1, -0.2],
-        [1, 2.8, 0.0, 0.0],
+        [0, 2, 0.1, -0.2],
+        [2.5, 2, 0.0, 0.0],
     ]),
-    goal = mortar([[0.0, -2.7, 0.9], [2.7, 1, 0.9]]),
+    goal = mortar([[2, 0, 0.95], [0, 0, 0.9]]),
     rng = Random.MersenneTwister(237842),
 )
     CairoMakie.activate!();
 
     environment = PolygonEnvironment(6, 8)
-    game = n_player_collision_avoidance(2; environment, min_distance = 1.2)
+    game = n_player_collision_avoidance(2; environment, min_distance = 0.5, collision_avoidance_coefficient = 5.0)
     # baseline_game = n_player_collision_avoidance(2; environment, min_distance = 1.2, myopic = false)
 
     if min(goal[Block(1)][3], goal[Block(2)][3]) == 1
@@ -229,8 +231,8 @@ function GenerateNoiseGraph(
     else
         horizon = convert(Int64, ceil(log(1e-4)/(log(min(goal[Block(1)][3], goal[Block(2)][3])))))
     end
-    horizon = 5
-    num_trials = 3
+    # horizon = 5
+    num_trials = 40
 
     turn_length = 2
     solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(goal, 1))
@@ -245,7 +247,7 @@ function GenerateNoiseGraph(
     # baseline_for_sol = reconstruct_solution(baseline_forward_solution, baseline_game.game, horizon)
     # Just holds states, [ [[] = p1 state [] = p2 state] ... horizon ]
 
-    σs = [0.01*i for i in 0:10]
+    σs = [0.005*i for i in 0:10]
     # σs = [0.01]
 
     context_state_guess = sample_initial_states_and_context(game, horizon, rng, 0.08)[2]
@@ -406,7 +408,7 @@ function GenerateNoiseGraph(
     
     CairoMakie.axislegend(ax1, [our_method, baseline], ["Our Method", "Baseline"], position = :lt)
 
-    CairoMakie.save("NoiseGraph_warm_start.png", fig1)
+    CairoMakie.save("NoiseGraph_v2.png", fig1)
 
 end
 
@@ -443,4 +445,5 @@ function thread_test()
         println(i, "^2, ", jjj[i], " by thread ", Threads.threadid())
     end
 end
+GenerateNoiseGraph()
 end
