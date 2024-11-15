@@ -283,10 +283,10 @@ function GenerateNoiseGraph(
     for idx in eachindex(σs)
         σ = σs[idx]
         for i in 1:num_trials
-            # println("std: ", σ, " trial: ", i, " thread: ", Threads.threadid())
+            println("std: ", σ, " trial: ", i, " thread: ", Threads.threadid())
             attempts = 1
             while (attempts <= num_attempts_if_failed)
-                # println("\tattempt: ", attempts)
+                println("\tattempt: ", attempts)
                 observed_trajectory = draw_observations(
                     for_sol,
                     partial_observation_function_generator(σ))
@@ -340,9 +340,8 @@ function GenerateNoiseGraph(
                     baseline_errors[idx, i] = baseline_error
                     # println("\tnon-myopic solver done")
 
-                    # TODO: not sure how to get actual context state...
-                    parameter_error[idx, i] = norm_sqr(inv_game_sol[1] - context_state_guess)
-                    baseline_parameter_error[idx, i] = norm_sqr(baseline_inv_game_sol[1] - context_state_guess)
+                    parameter_error[idx, i] = norm_sqr(inv_game_sol[1] - goal)
+                    baseline_parameter_error[idx, i] = norm_sqr(baseline_inv_game_sol[1] - goal)
                     break
                 catch e
                     # rethrow(e)
@@ -359,7 +358,7 @@ function GenerateNoiseGraph(
 
     println("Failure Counter: ", failure_counter, " / ", num_trials * length(σs))
 
-    open("experiments.tmp.txt", "w") do file
+    open("experiments.tmp2.txt", "w+") do file
         write(file, "our errors, then baseline errors. the rows are different noise levels, and the columns are different trials\n")
         for i in 1:size(errors, 1)
             write(file, string(σs[i]) * ": ")
@@ -375,7 +374,7 @@ function GenerateNoiseGraph(
             write(file, "\n")
         end
 
-        write(file, "parameter errors:")
+        write(file, "parameter errors:\n")
         for i in 1:size(parameter_error, 1)
             write(file, string(σs[i]) * ": ")
             # write(file, "\t")
@@ -447,5 +446,5 @@ function thread_test()
         println(i, "^2, ", jjj[i], " by thread ", Threads.threadid())
     end
 end
-GenerateNoiseGraph()
+# GenerateNoiseGraph()
 end
