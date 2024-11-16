@@ -1,13 +1,13 @@
 using Infiltrator
 
 function solve_inverse_mcp_game(
-    mcp_game::MCPGame,
+    game,
     initial_state,
     τs_observed,
     initial_estimation,
     horizon;
     observation_model = (; σ = 0.0, expected_observation = identity),
-    max_grad_steps = 150, lr = 1e-3, last_solution = nothing,
+    max_grad_steps = 150, lr = 1e-3, last_solution = nothing, discount_threshold = 1e-4
 )
     function observe_trajectory(x)
         vcat([observation_model.expected_observation(state_t) for state_t in x.blocks]...)
@@ -38,6 +38,8 @@ function solve_inverse_mcp_game(
         end
         norm_sqr(τs_observed - observed_τs_solution)
     end
+    solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(initial_estimation, 1))
+    mcp_game = solver.mcp_game
     num_player = num_players(mcp_game.game)
     infeasible_counter = 0
     solving_info = []
@@ -75,6 +77,9 @@ function solve_inverse_mcp_game(
         end
         context_state_estimation -= objective_update
         initial_state -= x0_update
+        horizon = convert(Int64, ceil(log(discount_threshold)/(log(max([context_state_estimation[Block(i)][3] for i in 1:num_player])))))
+        solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(context_state_estimation, 1))
+        mcp_game = solver.mcp_game
     end
     (; context_state_estimation, last_solution, i_, solving_info, time_exec)
 end
