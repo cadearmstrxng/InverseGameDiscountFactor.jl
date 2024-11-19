@@ -1,7 +1,7 @@
 using Infiltrator
 
 function solve_inverse_mcp_game(
-    game,
+    solvers_list,
     initial_state,
     τs_observed,
     initial_estimation,
@@ -38,9 +38,8 @@ function solve_inverse_mcp_game(
         end
         norm_sqr(τs_observed - observed_τs_solution)
     end
-    solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(initial_estimation, 1))
-    mcp_game = solver.mcp_game
-    num_player = num_players(mcp_game.game)
+    solver = solvers_list[horizon]
+    num_player = num_players(solver.mcp_game.game)
     infeasible_counter = 0
     solving_info = []
     context_state_estimation = initial_estimation
@@ -78,7 +77,7 @@ function solve_inverse_mcp_game(
         context_state_estimation -= objective_update
         initial_state -= x0_update
         horizon = convert(Int64, ceil(log(discount_threshold)/(log(max([context_state_estimation[Block(i)][3] for i in 1:num_player])))))
-        solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(context_state_estimation, 1))
+        solver = solver_list[horizon]
         mcp_game = solver.mcp_game
     end
     (; context_state_estimation, last_solution, i_, solving_info, time_exec)

@@ -84,19 +84,25 @@ function main(;
     environment = PolygonEnvironment(6, 8)
     game = n_player_collision_avoidance(2; environment, min_distance = 0.5, collision_avoidance_coefficient = 5.0)
 
-    if min(goal[Block(1)][3], goal[Block(2)][3]) == 1
+    if max(goal[Block(1)][3], goal[Block(2)][3]) == 1
         horizon = 75
     else
-        horizon = convert(Int64, ceil(log(1e-4)/(log(min(goal[Block(1)][3], goal[Block(2)][3])))))
+        horizon = convert(Int64, ceil(log(1e-4)/(log(max(goal[Block(1)][3], goal[Block(2)][3])))))
     end
     # horizon = 5
     println("horion: ", horizon)
 
     turn_length = 2
-    solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(goal, 1))
-    mcp_game = solver.mcp_game
+    solvers = []
+    mcp_games = []
+    for t in horizon
+        push!(solvers, MCPCoupledOptimizationSolver(game.game, t, blocksizes(goal, 1)))
+        push!(mcp_games, solvers[t].mcp_game)
+    end
+    gt_solver = solvers[horizon]
+    gt_mcp_game = gt_solver.mcp_game
 
-    forward_solution = solve_mcp_game(mcp_game, initial_state, goal; verbose = true)
+    forward_solution = solve_mcp_game(gt_mcp_game, initial_state, goal; verbose = true)
 
     initial_state_guess, context_state_guess = sample_initial_states_and_context(game, horizon, Random.MersenneTwister(1), 0.08)
 
@@ -127,7 +133,7 @@ function main(;
 
     context_state_estimation, last_solution, i_, solving_info, time_exec = 
         solve_inverse_mcp_game(
-            mcp_game,
+            solvers,
             initial_state,
             for_sol,
             context_state_guess,
