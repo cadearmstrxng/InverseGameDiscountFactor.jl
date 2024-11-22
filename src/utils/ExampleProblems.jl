@@ -119,7 +119,7 @@ function n_player_collision_avoidance(
             #     max(0.0, min_distance + 0.2 * min_distance - norm(x[Block(i)][1:2] - x[Block(paired_player)][1:2]))^2 # with coefficient of 500
             # end
 
-            cost = [(myopic ? context_state[3] ^ t : 1) * max(0.0, min_distance + 0.2 * min_distance - norm(x[Block(i)][1:2] - x[Block(paired_player)][1:2]))^2 for paired_player in [1:(i - 1); (i + 1):num_players]]
+            cost = [max(0.0, min_distance + 0.2 * min_distance - norm(x[Block(i)][1:2] - x[Block(paired_player)][1:2]))^2 for paired_player in [1:(i - 1); (i + 1):num_players]]
             sum(cost) 
         end
         function cost_for_player(i, xs, us, context_state, T)
