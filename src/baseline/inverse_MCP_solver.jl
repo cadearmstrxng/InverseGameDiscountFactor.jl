@@ -31,7 +31,7 @@ function solve_inverse_mcp_game(
         τs_solution = reconstruct_solution(solution, mcp_game.game, horizon)
         observed_τs_solution = observe_trajectory(τs_solution)
 
-        @infiltrate
+        # @infiltrate
         
         if solution.status == PATHSolver.MCP_Solved
             infeasible_counter = 0
