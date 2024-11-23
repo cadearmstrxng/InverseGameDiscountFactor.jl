@@ -4,8 +4,9 @@ using TrajectoryGamesBase:
     TrajectoryGame,
     TrajectoryGamesBase
 using ParametricMCPs
-# using Infiltrator
+using Infiltrator
 using Symbolics
+using BlockArrays: Block, BlockVector, mortar, blocksize
 
 export warm_start
 
@@ -34,16 +35,18 @@ function warm_start_game(num_players;
             c = []
             for t in 1:T
                 # @infiltrate
-                push!(c,norm_sqr(observation_model.expected_observation(x[t+1][Block(i)]) - y[Block(t)][((i-1)*state_size+1):(i*state_size)]))
+                push!(c,norm_sqr(observation_model.expected_observation(x[t+1])[i*state_size-1:i*state_size] - y[Block(t)][i*state_size-1:i*state_size]))
             end
 
             return sum(c)
         end
 
         function warm_start_cost(x,y)
-            T = convert(Int64,size(y)[1]/size(y[Block(1)])[1])
+            T = convert(Int64,size(x)[1]-1)
             state_size = partial_observation_state_size < 0 ? size(x[1][Block(1)])[1] : partial_observation_state_size
-            num_players = convert(Int64,size(y[Block(1)])[1]//state_size)
+            num_players = blocksize(x[1], 1)
+
+            # @infiltrate
 
             [warm_start_cost_for_player(i, x, y, T, state_size) for i in 1:num_players]
         end

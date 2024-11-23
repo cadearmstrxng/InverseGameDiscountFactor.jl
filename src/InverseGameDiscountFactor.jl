@@ -89,7 +89,7 @@ function main(;
     else
         horizon = convert(Int64, ceil(log(1e-4)/(log(max(hidden_params[Block(1)][3], hidden_params[Block(2)][3]))) * 4/3))
     end
-    horizon = 50
+    horizon = 5
     println("horizon: ", horizon)
 
     turn_length = 2
@@ -109,13 +109,24 @@ function main(;
     println("Initial State Guess: ", initial_state_guess)
     println("Context State Guess: ", context_state_guess)
 
-    observation_model_noisy = (; σ = 0.1, expected_observation = x -> x[1:2] .+ observation_model_noisy.σ * randn(length(x[1:2])))
+    observation_model_noisy = (; σ = 0.1, expected_observation = x -> vcat([x[4*i-3:4*i-2] .+ observation_model_noisy.σ * randn(length(x[i:i+1])) for i in 1:num_players(game.game)]...))
     # observation_model_inverse = (; σ = 0.0, expected_observation = x -> x)
-    observation_model_inverse = (; σ = 0.0, expected_observation = x -> vcat(x[1:2], x[5:6]))
+    observation_model_warm_start = (; σ = 0.0, expected_observation = x -> vcat([x[4*i-3:4*i-2] for i in 1:num_players(game.game)]...))
+
+    function inverse_expected_observation(x)
+        # new_x = [x[i].value for i in 1:length(x)]
+        # @infiltrate
+        vcat([x[4*i-3:4*i-2] for i in 1:num_players(game.game)]...)
+    end
+
+    observation_model_inverse = (; σ = 0.0, expected_observation = x -> inverse_expected_observation(x))
 
     for_sol = reconstruct_solution(forward_solution, game.game, horizon)
+    # @infiltrate
 
-    for_sol = observation_model_inverse.expected_observation(for_sol)
+    for_sol = vcat([observation_model_noisy.expected_observation(state_t) for state_t in for_sol.blocks]...)
+    for_sol = BlockVector(for_sol, [4 for _ in 1:horizon])
+    # @infiltrate
 
     warm_start_sol = 
         expand_warm_start(
@@ -123,7 +134,7 @@ function main(;
                 for_sol,
                 initial_state,
                 horizon;
-                observation_model = observation_model_inverse,
+                observation_model = observation_model_warm_start,
                 partial_observation_state_size = 2),
             mcp_game)
 
