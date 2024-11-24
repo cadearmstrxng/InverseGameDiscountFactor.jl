@@ -65,7 +65,7 @@ function main(;
         [0, 2, 0.1, -0.2],
         [2.5, 2, 0.0, 0.0],
     ]),
-    hidden_params = mortar([[2, 0, 0.95], [0, 0, 0.9]]),
+    hidden_params = mortar([[2, 0, 0.6], [0, 0, 0.6]]),
     plot_please = true,
     simulate_please = true
 )
@@ -83,50 +83,44 @@ function main(;
     CairoMakie.activate!();
     environment = PolygonEnvironment(6, 8)
     game = n_player_collision_avoidance(2; environment, min_distance = 0.5, collision_avoidance_coefficient = 5.0)
+    baseline_game = n_player_collision_avoidance(2; environment, min_distance = 0.5, collision_avoidance_coefficient = 5.0, myopic = false)
 
     if max(hidden_params[Block(1)][3], hidden_params[Block(2)][3]) == 1
         horizon = 75
     else
         horizon = convert(Int64, ceil(log(1e-4)/(log(max(hidden_params[Block(1)][3], hidden_params[Block(2)][3]))) * 4/3))
     end
-    horizon = 5
+    horizon = 25
     println("horizon: ", horizon)
 
     turn_length = 2
     solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(hidden_params, 1))
+    baseline_solver = MCPCoupledOptimizationSolver(baseline_game.game, horizon, [2, 2])
     mcp_game = solver.mcp_game
+    baseline_mcp_game = baseline_solver.mcp_game
 
-    forward_solution = solve_mcp_game(mcp_game, initial_state, hidden_params; verbose = true)
-
-    initial_state_guess, context_state_guess = sample_initial_states_and_context(game, horizon, Random.MersenneTwister(1), 0.08)
-
-    # context_state_guess[1] = hidden_params[1]
-    # context_state_guess[2] = hidden_params[2]
-
-    # context_state_guess[4] = hidden_params[4]
-    # context_state_guess[5] = hidden_params[5]
-
-    println("Initial State Guess: ", initial_state_guess)
-    println("Context State Guess: ", context_state_guess)
+    forward_solution = solve_mcp_game(mcp_game, initial_state, hidden_params; verbose = false)
+    for_sol = reconstruct_solution(forward_solution, game.game, horizon)
 
     observation_model_noisy = (; σ = 0.1, expected_observation = x -> vcat([x[4*i-3:4*i-2] .+ observation_model_noisy.σ * randn(length(x[i:i+1])) for i in 1:num_players(game.game)]...))
     # observation_model_inverse = (; σ = 0.0, expected_observation = x -> x)
     observation_model_warm_start = (; σ = 0.0, expected_observation = x -> vcat([x[4*i-3:4*i-2] for i in 1:num_players(game.game)]...))
 
+    for_sol = vcat([observation_model_noisy.expected_observation(state_t) for state_t in for_sol.blocks]...)
+    for_sol = BlockVector(for_sol, [4 for _ in 1:horizon])
+
+    _, context_state_guess = sample_initial_states_and_context(game, horizon, Random.MersenneTwister(1), 0.08)
+    context_state_guess[1:2] = for_sol[Block(horizon)][1:2]
+    context_state_guess[4:5] = for_sol[Block(horizon)][3:4]
+    baseline_context_state_guess = vcat(context_state_guess[1:2], context_state_guess[4:5])
+
+
+
     function inverse_expected_observation(x)
-        # new_x = [x[i].value for i in 1:length(x)]
-        # @infiltrate
         vcat([x[4*i-3:4*i-2] for i in 1:num_players(game.game)]...)
     end
 
     observation_model_inverse = (; σ = 0.0, expected_observation = x -> inverse_expected_observation(x))
-
-    for_sol = reconstruct_solution(forward_solution, game.game, horizon)
-    # @infiltrate
-
-    for_sol = vcat([observation_model_noisy.expected_observation(state_t) for state_t in for_sol.blocks]...)
-    for_sol = BlockVector(for_sol, [4 for _ in 1:horizon])
-    # @infiltrate
 
     warm_start_sol = 
         expand_warm_start(
@@ -150,25 +144,56 @@ function main(;
             last_solution = warm_start_sol
         )
 
-    println("Context State Estimation: ", context_state_estimation)
-    sol_error = norm_sqr(reconstruct_solution(forward_solution, game.game, horizon) - reconstruct_solution(last_solution, game.game, horizon))
-    # @infiltrate
+        baseline_context_state_estimation, baseline_last_solution, baseline_i_, baseline_solving_info, baseline_time_exec = 
+        solve_inverse_mcp_game(
+            baseline_mcp_game,
+            initial_state,
+            for_sol,
+            baseline_context_state_guess,
+            horizon;
+            observation_model = observation_model_inverse,         
+            max_grad_steps = 500,
+            last_solution = warm_start_sol
+        )
+
+    # println("Context State Estimation: ", context_state_estimation)
+    inv_sol = solve_mcp_game(mcp_game, initial_state, context_state_estimation; verbose = false)
+    sol_error = norm_sqr(reconstruct_solution(forward_solution, game.game, horizon) 
+        - reconstruct_solution(inv_sol, game.game, horizon))
+
+    baseline_sol_to_params = vcat(baseline_context_state_estimation[1:2], [1.0], baseline_context_state_estimation[3:4], [1.0])
+
+    baseline_sol = solve_mcp_game(mcp_game, initial_state, baseline_sol_to_params; verbose = false)
+    baseline_sol_error = norm_sqr(reconstruct_solution(forward_solution, game.game, horizon)
+        - reconstruct_solution(baseline_sol, game.game, horizon))
     println("Solution Error: ", sol_error)
+    println("Recovered Parameters: ", context_state_estimation)
+    println("Baseline Solution Error: ", baseline_sol_error)
+    println("Baseline Recovered Parameters: ", baseline_sol_to_params)
 
 
     if plot_please
         for_solution = reconstruct_solution(forward_solution, game.game, horizon)
-        inv_solution = reconstruct_solution(last_solution, game.game, horizon)
+        inv_solution = reconstruct_solution(inv_sol, game.game, horizon)
+        warm_solution = reconstruct_solution(warm_start_sol, game.game, horizon)
+        baseline_solution = reconstruct_solution(baseline_sol, game.game, horizon)
         # @infiltrate
 
         fig1 = CairoMakie.Figure()
         ax1 = CairoMakie.Axis(fig1[1, 1])
 
         for ii in 1:horizon
+            CairoMakie.scatter!(ax1, for_solution[Block(ii)][1], for_solution[Block(ii)][2], color = (:gray, 0.75))
             CairoMakie.scatter!(ax1, for_solution[Block(ii)][1], for_solution[Block(ii)][2], color = :red)
             CairoMakie.scatter!(ax1, for_solution[Block(ii)][5], for_solution[Block(ii)][6], color = :blue)
             CairoMakie.scatter!(ax1, inv_solution[Block(ii)][1], inv_solution[Block(ii)][2], color = :purple)
             CairoMakie.scatter!(ax1, inv_solution[Block(ii)][5], inv_solution[Block(ii)][6], color = :magenta)
+            # CairoMakie.scatter!(ax1, warm_solution[Block(ii)][1], warm_solution[Block(ii)][2], color = :green)
+            # CairoMakie.scatter!(ax1, warm_solution[Block(ii)][5], warm_solution[Block(ii)][6], color = :yellow)
+            CairoMakie.scatter!(ax1, baseline_solution[Block(ii)][1], baseline_solution[Block(ii)][2], color = :orange)
+            CairoMakie.scatter!(ax1, baseline_solution[Block(ii)][5], baseline_solution[Block(ii)][6], color = :brown)
+
+            # CairoMakie.legend(fig[2,1], [ax1], ["Forward Solution", "Inverse Solution", "Warm Start Solution", "Baseline Solution"])
             # # GLMakie.scatter!(ax, x[9],x[10], color = :purple)
             # GLMakie.scatter!(ax, x[13],x[14], color = :magenta)
         end
@@ -230,7 +255,7 @@ function GenerateNoiseGraph(
         [0, 2, 0.1, -0.2],
         [2.5, 2, 0.0, 0.0],
     ]),
-    hidden_params = mortar([[2, 0, 0.95], [0, 0, 0.9]]),
+    hidden_params = mortar([[2, 0, 0.6], [0, 0, 0.6]]),
     rng = Random.MersenneTwister(1),
 )
     CairoMakie.activate!();
@@ -239,46 +264,41 @@ function GenerateNoiseGraph(
     game = n_player_collision_avoidance(2; environment, min_distance = 0.5, collision_avoidance_coefficient = 5.0)
     baseline_game = n_player_collision_avoidance(2; environment, min_distance = 0.5, collision_avoidance_coefficient = 5.0, myopic = false)
 
-    if min(hidden_params[Block(1)][3], hidden_params[Block(2)][3]) == 1
-        horizon = 75
-    else
-        horizon = convert(Int64, ceil(log(1e-4)/(log(min(hidden_params[Block(1)][3], hidden_params[Block(2)][3])))))
-    end
-    horizon = 50
+    horizon = 25
     num_trials = 1
 
-    turn_length = 2
     solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(hidden_params, 1))
     baseline_solver = MCPCoupledOptimizationSolver(baseline_game.game, horizon, [2, 2])
-
     mcp_game = solver.mcp_game
     baseline_mcp_game = baseline_solver.mcp_game
 
-    player_state_dimension = convert(Int64, state_dim(game.game.dynamics)/2)
+    forward_solution = solve_mcp_game(mcp_game, initial_state, hidden_params; verbose = false)
+    for_sol1 = reconstruct_solution(forward_solution, game.game, horizon)
 
-    forward_solution = solve_mcp_game(mcp_game, initial_state, hidden_params; verbose = true)
-    # baseline_forward_solution = solve_mcp_game(baseline_mcp_game, initial_state, hidden_params; verbose = true)
-    for_sol = reconstruct_solution(forward_solution, game.game, horizon)
-    # baseline_for_sol = reconstruct_solution(baseline_forward_solution, baseline_game.game, horizon)
-    # Just holds states, [ [[] = p1 state [] = p2 state] ... horizon ]
+    observation_model_generator = (σ) -> x -> vcat([x[4*i-3:4*i-2] .+ σ * randn(length(x[i:i+1])) for i in 1:num_players(game.game)]...)
 
-    # σs = [0.01*i for i in 0:1]
-    σs = [0.0]
+    function get_observed_trajectory(σ)
+        observation_model_noisy = observation_model_generator(σ)
+        temp = vcat([observation_model_noisy(state_t) for state_t in for_sol1.blocks]...)
+        BlockVector(temp, [4 for _ in 1:horizon])
+    end
 
-    context_state_guess = sample_initial_states_and_context(game, horizon, rng, 0.08)[2]
-    context_state_guess[3] = 1.0
-    context_state_guess[6] = 1.0
-    println("context_state_guess: ", context_state_guess)
+    σs = [0.01*i for i in 0:5]
+    # σs = [0.0]
 
-    baseline_context_state_guess = sample_initial_states_and_context(game, horizon, rng, 0.08, myopic=false)[2]
-    baseline_context_state_guess[1:2] = context_state_guess[1:2]
-    baseline_context_state_guess[3:4] = context_state_guess[4:5]
-    println("baseline_context_state_guess: ", baseline_context_state_guess)
+    _, context_state_guess = sample_initial_states_and_context(game, horizon, Random.MersenneTwister(1), 0.08)
+    context_state_guess[1:2] = for_sol[Block(horizon)][1:2]
+    context_state_guess[4:5] = for_sol[Block(horizon)][3:4]
+    baseline_context_state_guess = vcat(context_state_guess[1:2], context_state_guess[4:5])
+    println("Context State Guess: ", context_state_guess)
+
+    function inverse_expected_observation(x)
+        vcat([x[4*i-3:4*i-2] for i in 1:num_players(game.game)]...)
+    end
 
     errors = Array{Float64}(undef, length(σs), num_trials)
     baseline_errors = Array{Float64}(undef, length(σs), num_trials)
     
-
     parameter_error = Array{Float64}(undef, length(σs), num_trials)
     baseline_parameter_error = Array{Float64}(undef, length(σs), num_trials)
 
@@ -292,15 +312,9 @@ function GenerateNoiseGraph(
 
     recovered_params = []
     baseline_recovered_params = []
-
-    partial_observation_function_generator = (σ) -> (x) -> vcat(x[1:2], x[5:6]) + σ * randn(rng, 4)
-    per_player_expected_partial_observation_model = (; expected_observation = x -> x[1:2])
-    expected_partial_observation_model = (; expected_observation = (x) -> vcat(x[1:2], x[5:6]) )
-    observation_model_inverse = (; σ = 0.0, expected_observation = x -> x)
     
     failure_counter = 0
     num_attempts_if_failed = 3
-    # σ_indices = enumerate(σs)
 
     for idx in eachindex(σs)
         σ = σs[idx]
@@ -309,88 +323,66 @@ function GenerateNoiseGraph(
             attempts = 1
             while (attempts <= num_attempts_if_failed)
                 println("\tattempt: ", attempts)
-                # observed_trajectory = draw_observations(
-                #     for_sol,
-                #     partial_observation_function_generator(σ))
-                observed_trajectory = for_sol
+                observed_trajectory = get_observed_trajectory(σ)
                 try
-                    inv_game_sol = solve_inverse_mcp_game(
-                        mcp_game,
-                        initial_state,
-                        observed_trajectory,
-                        context_state_guess,
-                        horizon;
-                        # observation_model = expected_partial_observation_model,
-                        observation_model = observation_model_inverse,
-                        max_grad_steps = 500,
-                        last_solution = expand_warm_start(
-                                            warm_start(
-                                                observed_trajectory,
-                                                initial_state,
-                                                horizon;
-                                                # observation_model = per_player_expected_partial_observation_model,
-                                                observation_model = observation_model_inverse,
-                                                # partial_observation_state_size = 2),
-                                            ),
-                                            mcp_game))
-                    reconstructed_sol = reconstruct_solution(
-                            inv_game_sol[2],
-                            game.game,
-                            horizon)
+                    warm_start_sol = 
+                        expand_warm_start(
+                            warm_start(
+                                for_sol,
+                                initial_state,
+                                horizon;
+                                observation_model = observation_model_warm_start,
+                                partial_observation_state_size = 2),
+                            mcp_game)
+
+                    context_state_estimation, last_solution, i_, solving_info, time_exec = 
+                        solve_inverse_mcp_game(
+                            mcp_game,
+                            initial_state,
+                            for_sol,
+                            context_state_guess,
+                            horizon;
+                            observation_model = observation_model_inverse,         
+                            max_grad_steps = 500,
+                            last_solution = warm_start_sol
+                        )
                     println("\tmyopic solver done")
-                    baseline_inv_game_sol = solve_inverse_mcp_game(
-                        baseline_mcp_game,
-                        initial_state,
-                        observed_trajectory,
-                        baseline_context_state_guess,
-                        horizon;
-                        # observation_model = expected_partial_observation_model,
-                        observation_model = observation_model_inverse,
-                        max_grad_steps = 150,
-                        last_solution = expand_warm_start(
-                                            warm_start(
-                                                observed_trajectory,
-                                                initial_state,
-                                                horizon;
-                                                # observation_model = per_player_expected_partial_observation_model,
-                                                observation_model = observation_model_inverse,
-                                                # partial_observation_state_size = 2),
-                                            ),
-                                                baseline_mcp_game))
-                    baseline_reconstructed_sol = reconstruct_solution(
-                            baseline_inv_game_sol[2],
-                            baseline_game.game,
-                            horizon)
-                    baseline_error = norm_sqr(for_sol - baseline_reconstructed_sol)
-                    baseline_errors[idx, i] = baseline_error
+
+                    baseline_context_state_estimation, baseline_last_solution, baseline_i_, baseline_solving_info, baseline_time_exec = 
+                        solve_inverse_mcp_game(
+                            baseline_mcp_game,
+                            initial_state,
+                            for_sol,
+                            baseline_context_state_guess,
+                            horizon;
+                            observation_model = observation_model_inverse,         
+                            max_grad_steps = 500,
+                            last_solution = warm_start_sol
+                        )
                     println("\tbaseline solver done")
 
-                    # parameter_error[idx, i] = norm_sqr(inv_game_sol[1] - hidden_params)
-                    # baseline_parameter_error[idx, i] = norm_sqr(baseline_inv_game_sol[1] - hidden_params)
+                    inv_sol = solve_mcp_game(mcp_game, initial_state, context_state_estimation; verbose = false)
+                    sol_error = norm_sqr(reconstruct_solution(forward_solution, game.game, horizon) 
+                        - reconstruct_solution(inv_sol, game.game, horizon))
 
-                    # parameter_cosine_error[idx, i] = sum(inv_game_sol[1] .* hidden_params) / (norm(inv_game_sol[1]) * norm(hidden_params))
-                    baseline_params = expand_baseline_params(baseline_inv_game_sol[1])
-
-                    recovered_params = push!(recovered_params, inv_game_sol[1])
-                    baseline_recovered_params = push!(baseline_recovered_params, baseline_params)
+                    baseline_sol_to_params = vcat(baseline_context_state_estimation[1:2], [1.0], baseline_context_state_estimation[3:4], [1.0])
+                    baseline_sol = solve_mcp_game(mcp_game, initial_state, baseline_sol_to_params; verbose = false)
+                    baseline_sol_error = norm_sqr(reconstruct_solution(forward_solution, game.game, horizon)
+                        - reconstruct_solution(baseline_sol, game.game, horizon))
 
                     # Graphing updates
-                    errors[idx, i] = norm_sqr(for_sol - reconstructed_sol)
-                    baseline_errors[idx, i] = norm_sqr(for_sol - baseline_reconstructed_sol)
+                    errors[idx, i] = sol_error
+                    baseline_errors[idx, i] = baseline_sol_error
 
-                    parameter_error[idx, i] = norm_sqr(inv_game_sol[1] - hidden_params)
-                    baseline_parameter_error[idx, i] = norm_sqr(baseline_params - hidden_params)
+                    parameter_error[idx, i] = norm_sqr(context_state_estimation - hidden_params)
+                    baseline_parameter_error[idx, i] = norm_sqr(baseline_sol_to_params - hidden_params)
 
-                    parameter_cosine_error[idx, i] = sum(inv_game_sol[1] .* hidden_params) / (norm(inv_game_sol[1]) * norm(hidden_params))
-                    baseline_parameter_cosine_error[idx, i] = sum(baseline_params .* hidden_params) / (norm(baseline_params) * norm(hidden_params))
+                    parameter_cosine_error[idx, i] = sum(context_state_estimation .* hidden_params) / (norm(context_state_estimation) * norm(hidden_params))
+                    baseline_parameter_cosine_error[idx, i] = sum(baseline_context_state_estimation .* hidden_params) / (norm(baseline_context_state_estimation) * norm(hidden_params))
 
                     push!(observed_trajectories, observed_trajectory)
                     push!(recovered_traj, reconstructed_sol)
                     push!(baseline_recovered_traj, baseline_reconstructed_sol)
-                    
-                    # for_solution = reconstruct_solution(forward_solution, game.game, horizon)
-                    # inv_solution = reconstruct_solution(last_solution, game.game, horizon)
-                    # @infiltrate
 
                     fig1 = CairoMakie.Figure()
                     ax1 = CairoMakie.Axis(fig1[1, 1])
