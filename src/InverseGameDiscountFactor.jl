@@ -265,7 +265,7 @@ function GenerateNoiseGraph(
     baseline_game = n_player_collision_avoidance(2; environment, min_distance = 0.5, collision_avoidance_coefficient = 5.0, myopic = false)
 
     horizon = 25
-    num_trials = 1
+    num_trials = 40
 
     solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(hidden_params, 1))
     baseline_solver = MCPCoupledOptimizationSolver(baseline_game.game, horizon, [2, 2])
@@ -321,6 +321,7 @@ function GenerateNoiseGraph(
 
     for idx in eachindex(σs)
         σ = σs[idx]
+        graphed = false
         for i in 1:num_trials
             println("std: ", σ, " trial: ", i, " thread: ", Threads.threadid())
             attempts = 1
@@ -390,18 +391,20 @@ function GenerateNoiseGraph(
                     fig1 = CairoMakie.Figure()
                     ax1 = CairoMakie.Axis(fig1[1, 1])
 
-                    for ii in 1:horizon
-                        CairoMakie.scatter!(ax1, for_sol1[Block(ii)][1], for_sol1[Block(ii)][2], color = :red)
-                        CairoMakie.scatter!(ax1, for_sol1[Block(ii)][5], for_sol1[Block(ii)][6], color = :blue)
-                        # CairoMakie.scatter!(ax1, observed_trajectory[Block(ii)][1], observed_trajectory[Block(ii)][2], color = (:red, 0.5))
-                        # CairoMakie.scatter!(ax1, observed_trajectory[Block(ii)][5], observed_trajectory[Block(ii)][6], color = (:blue, 0.5))
-                        CairoMakie.scatter!(ax1, inv_reconstructed_sol[Block(ii)][1], inv_reconstructed_sol[Block(ii)][2], color = :purple)
-                        CairoMakie.scatter!(ax1, inv_reconstructed_sol[Block(ii)][5], inv_reconstructed_sol[Block(ii)][6], color = :magenta)
-                        CairoMakie.scatter!(ax1, baseline_reconstructed_sol[Block(ii)][1], baseline_reconstructed_sol[Block(ii)][2], color = :orange)
-                        CairoMakie.scatter!(ax1, baseline_reconstructed_sol[Block(ii)][5], baseline_reconstructed_sol[Block(ii)][6], color = :brown)
+                    if !graphed
+                        graphed = true
+                        for ii in 1:horizon
+                            CairoMakie.scatter!(ax1, for_sol1[Block(ii)][1], for_sol1[Block(ii)][2], color = :red)
+                            CairoMakie.scatter!(ax1, for_sol1[Block(ii)][5], for_sol1[Block(ii)][6], color = :blue)
+                            # CairoMakie.scatter!(ax1, observed_trajectory[Block(ii)][1], observed_trajectory[Block(ii)][2], color = (:red, 0.5))
+                            # CairoMakie.scatter!(ax1, observed_trajectory[Block(ii)][5], observed_trajectory[Block(ii)][6], color = (:blue, 0.5))
+                            CairoMakie.scatter!(ax1, inv_reconstructed_sol[Block(ii)][1], inv_reconstructed_sol[Block(ii)][2], color = :purple)
+                            CairoMakie.scatter!(ax1, inv_reconstructed_sol[Block(ii)][5], inv_reconstructed_sol[Block(ii)][6], color = :magenta)
+                            CairoMakie.scatter!(ax1, baseline_reconstructed_sol[Block(ii)][1], baseline_reconstructed_sol[Block(ii)][2], color = :orange)
+                            CairoMakie.scatter!(ax1, baseline_reconstructed_sol[Block(ii)][5], baseline_reconstructed_sol[Block(ii)][6], color = :brown)
+                        end
+                        CairoMakie.save("./Graphs/SolutionPlot"* string(i) *".png", fig1)
                     end
-
-                    CairoMakie.save("SolutionPlot"* string(i) *".png", fig1)
                     break
                 catch e
                     rethrow(e)
