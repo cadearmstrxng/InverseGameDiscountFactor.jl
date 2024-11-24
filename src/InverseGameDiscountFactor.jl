@@ -276,14 +276,17 @@ function GenerateNoiseGraph(
     for_sol1 = reconstruct_solution(forward_solution, game.game, horizon)
 
     observation_model_generator = (σ) -> x -> vcat([x[4*i-3:4*i-2] .+ σ * randn(length(x[i:i+1])) for i in 1:num_players(game.game)]...)
-
+    observation_model_warm_start = (; σ = 0.0, expected_observation = x -> vcat([x[4*i-3:4*i-2] for i in 1:num_players(game.game)]...))
+    observation_model_inverse = (; σ = 0.0, expected_observation = x -> vcat([x[4*i-3:4*i-2] for i in 1:num_players(game.game)]...))
     function get_observed_trajectory(σ)
         observation_model_noisy = observation_model_generator(σ)
         temp = vcat([observation_model_noisy(state_t) for state_t in for_sol1.blocks]...)
         BlockVector(temp, [4 for _ in 1:horizon])
     end
 
-    σs = [0.01*i for i in 0:5]
+    for_sol = get_observed_trajectory(0.0)
+
+    σs = [0.01*i for i in 0:10]
     # σs = [0.0]
 
     _, context_state_guess = sample_initial_states_and_context(game, horizon, Random.MersenneTwister(1), 0.08)
@@ -328,7 +331,7 @@ function GenerateNoiseGraph(
                     warm_start_sol = 
                         expand_warm_start(
                             warm_start(
-                                for_sol,
+                                observed_trajectory,
                                 initial_state,
                                 horizon;
                                 observation_model = observation_model_warm_start,
@@ -339,7 +342,7 @@ function GenerateNoiseGraph(
                         solve_inverse_mcp_game(
                             mcp_game,
                             initial_state,
-                            for_sol,
+                            observed_trajectory,
                             context_state_guess,
                             horizon;
                             observation_model = observation_model_inverse,         
@@ -352,7 +355,7 @@ function GenerateNoiseGraph(
                         solve_inverse_mcp_game(
                             baseline_mcp_game,
                             initial_state,
-                            for_sol,
+                            observed_trajectory,
                             baseline_context_state_guess,
                             horizon;
                             observation_model = observation_model_inverse,         
@@ -362,13 +365,13 @@ function GenerateNoiseGraph(
                     println("\tbaseline solver done")
 
                     inv_sol = solve_mcp_game(mcp_game, initial_state, context_state_estimation; verbose = false)
-                    sol_error = norm_sqr(reconstruct_solution(forward_solution, game.game, horizon) 
-                        - reconstruct_solution(inv_sol, game.game, horizon))
+                    inv_reconstructed_sol = reconstruct_solution(inv_sol, game.game, horizon)
+                    sol_error = norm_sqr(for_sol1 - inv_reconstructed_sol)
 
                     baseline_sol_to_params = vcat(baseline_context_state_estimation[1:2], [1.0], baseline_context_state_estimation[3:4], [1.0])
                     baseline_sol = solve_mcp_game(mcp_game, initial_state, baseline_sol_to_params; verbose = false)
-                    baseline_sol_error = norm_sqr(reconstruct_solution(forward_solution, game.game, horizon)
-                        - reconstruct_solution(baseline_sol, game.game, horizon))
+                    baseline_reconstructed_sol = reconstruct_solution(baseline_sol, game.game, horizon)
+                    baseline_sol_error = norm_sqr(for_sol1 - baseline_reconstructed_sol)
 
                     # Graphing updates
                     errors[idx, i] = sol_error
@@ -378,22 +381,24 @@ function GenerateNoiseGraph(
                     baseline_parameter_error[idx, i] = norm_sqr(baseline_sol_to_params - hidden_params)
 
                     parameter_cosine_error[idx, i] = sum(context_state_estimation .* hidden_params) / (norm(context_state_estimation) * norm(hidden_params))
-                    baseline_parameter_cosine_error[idx, i] = sum(baseline_context_state_estimation .* hidden_params) / (norm(baseline_context_state_estimation) * norm(hidden_params))
+                    baseline_parameter_cosine_error[idx, i] = sum(baseline_sol_to_params .* hidden_params) / (norm(baseline_sol_to_params) * norm(hidden_params))
 
                     push!(observed_trajectories, observed_trajectory)
-                    push!(recovered_traj, reconstructed_sol)
+                    push!(recovered_traj, inv_reconstructed_sol)
                     push!(baseline_recovered_traj, baseline_reconstructed_sol)
 
                     fig1 = CairoMakie.Figure()
                     ax1 = CairoMakie.Axis(fig1[1, 1])
 
                     for ii in 1:horizon
-                        CairoMakie.scatter!(ax1, for_sol[Block(ii)][1], for_sol[Block(ii)][2], color = :red)
-                        CairoMakie.scatter!(ax1, for_sol[Block(ii)][5], for_sol[Block(ii)][6], color = :blue)
-                        CairoMakie.scatter!(ax1, reconstructed_sol[Block(ii)][1], reconstructed_sol[Block(ii)][2], color = :purple)
-                        CairoMakie.scatter!(ax1, reconstructed_sol[Block(ii)][5], reconstructed_sol[Block(ii)][6], color = :magenta)
-                        # # GLMakie.scatter!(ax, x[9],x[10], color = :purple)
-                        # GLMakie.scatter!(ax, x[13],x[14], color = :magenta)
+                        CairoMakie.scatter!(ax1, for_sol1[Block(ii)][1], for_sol1[Block(ii)][2], color = :red)
+                        CairoMakie.scatter!(ax1, for_sol1[Block(ii)][5], for_sol1[Block(ii)][6], color = :blue)
+                        # CairoMakie.scatter!(ax1, observed_trajectory[Block(ii)][1], observed_trajectory[Block(ii)][2], color = (:red, 0.5))
+                        # CairoMakie.scatter!(ax1, observed_trajectory[Block(ii)][5], observed_trajectory[Block(ii)][6], color = (:blue, 0.5))
+                        CairoMakie.scatter!(ax1, inv_reconstructed_sol[Block(ii)][1], inv_reconstructed_sol[Block(ii)][2], color = :purple)
+                        CairoMakie.scatter!(ax1, inv_reconstructed_sol[Block(ii)][5], inv_reconstructed_sol[Block(ii)][6], color = :magenta)
+                        CairoMakie.scatter!(ax1, baseline_reconstructed_sol[Block(ii)][1], baseline_reconstructed_sol[Block(ii)][2], color = :orange)
+                        CairoMakie.scatter!(ax1, baseline_reconstructed_sol[Block(ii)][5], baseline_reconstructed_sol[Block(ii)][6], color = :brown)
                     end
 
                     CairoMakie.save("SolutionPlot"* string(i) *".png", fig1)
