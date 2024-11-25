@@ -198,7 +198,7 @@ function plot_episode_trajectories()
 end
 
 function sample_initial_states_and_context(game, horizon, rng, collision_radius; 
-    x0_range = 0.5, max_velocity = 0.5)
+    x0_range = 0.5, max_velocity = 0.5, myopic = true)
     println("Sampling initial states and goals...")
 
     game = game.game
@@ -217,7 +217,11 @@ function sample_initial_states_and_context(game, horizon, rng, collision_radius;
         end
         push!(initial_states, initial_state)
         # context_state = [px goal, py goal, discount factor]
-        context_state = [rand(rng) * 2, rand(rng) * 2, rand(rng)]
+        if myopic
+            context_state = [rand(rng) * 2, rand(rng) * 2, rand(rng)]
+        else
+            context_state = [rand(rng) * 2, rand(rng) * 2]
+        end
         push!(context_states, context_state)
     end
     initial_states = mortar(initial_states)
@@ -249,11 +253,17 @@ function initial_state_feasibility(game, horizon, initial_state, initial_states,
     return true
 end
 
+"""
+Structure of output is as follows:
+
+ - [[x₁¹; x₂¹];[x₁²; x₂²];...;[x₁ᵀ; x₂ᵀ]] where xᵢʲ is the state of player i at time j in block vectors for each time
+
+"""
 function reconstruct_solution(solution, game, horizon)
     num_player = num_players(game)
     player_state_dimension = convert(Int64, state_dim(game.dynamics)/num_player)
 
-    if typeof(solution) == NamedTuple{(:primals, :variables, :status), Tuple{Vector{Vector{ForwardDiff.Dual{Nothing, Float64, 14}}}, Vector{Float64}, PATHSolver.MCP_Termination}}
+    if typeof(solution) == NamedTuple{(:primals, :variables, :status), Tuple{Vector{Vector{ForwardDiff.Dual{Nothing, Float64, 14}}}, Vector{Float64}, PATHSolver.MCP_Termination}} || typeof(solution) == NamedTuple{(:primals, :variables, :status), Tuple{Vector{Vector{ForwardDiff.Dual{Nothing, Float64, 12}}}, Vector{Float64}, PATHSolver.MCP_Termination}}
         primals = solution.primals
         solution = []
         for primal in primals
