@@ -265,7 +265,7 @@ function GenerateNoiseGraph(
     baseline_game = n_player_collision_avoidance(2; environment, min_distance = 0.5, collision_avoidance_coefficient = 5.0, myopic = false)
 
     horizon = 25
-    num_trials = 40
+    num_trials = 50
 
     solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(hidden_params, 1))
     baseline_solver = MCPCoupledOptimizationSolver(baseline_game.game, horizon, [2, 2])
@@ -286,7 +286,7 @@ function GenerateNoiseGraph(
 
     for_sol = get_observed_trajectory(0.0)
 
-    σs = [0.01*i for i in 0:10]
+    σs = [0.002*i for i in 0:50]
     # σs = [0.0]
 
     _, context_state_guess = sample_initial_states_and_context(game, horizon, Random.MersenneTwister(1), 0.08)
@@ -387,6 +387,8 @@ function GenerateNoiseGraph(
                     push!(observed_trajectories, observed_trajectory)
                     push!(recovered_traj, inv_reconstructed_sol)
                     push!(baseline_recovered_traj, baseline_reconstructed_sol)
+                    push!(recovered_params, context_state_estimation)
+                    push!(baseline_recovered_params, baseline_sol_to_params)
 
                     fig1 = CairoMakie.Figure()
                     ax1 = CairoMakie.Axis(fig1[1, 1])
