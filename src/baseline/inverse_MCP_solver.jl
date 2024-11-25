@@ -1,14 +1,17 @@
 using Infiltrator
 
 function solve_inverse_mcp_game(
-    mcp_game::MCPGame,
+    mcp_game,
     initial_state,
     τs_observed,
     initial_estimation,
     horizon;
     observation_model = (; σ = 0.0, expected_observation = identity),
-    max_grad_steps = 150, lr = 1e-3, last_solution = nothing,
+    max_grad_steps = 150, lr = 1e-3, last_solution = nothing, discount_threshold = 1e-4
 )
+    function observe_trajectory(x)
+        vcat([observation_model.expected_observation(state_t) for state_t in x.blocks]...)
+    end
     """
     solve inverse game
 
@@ -26,7 +29,8 @@ function solve_inverse_mcp_game(
         last_solution = solution.status == PATHSolver.MCP_Solved ? (; primals = ForwardDiff.value.(solution.primals),
         variables = ForwardDiff.value.(solution.variables), status = solution.status) : nothing
         τs_solution = reconstruct_solution(solution, mcp_game.game, horizon)
-        τs_solution = observation_model.expected_observation(τs_solution)
+        observed_τs_solution = observe_trajectory(τs_solution)
+
         # @infiltrate
         
         if solution.status == PATHSolver.MCP_Solved
@@ -34,8 +38,7 @@ function solve_inverse_mcp_game(
         else
             infeasible_counter += 1
         end
-        # @infiltrate
-        norm_sqr(τs_observed - τs_solution)
+        norm_sqr(τs_observed - observed_τs_solution)
     end
     num_player = num_players(mcp_game.game)
     infeasible_counter = 0

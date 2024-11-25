@@ -99,10 +99,11 @@ function n_player_collision_avoidance(
         state_bounds = (; lb = [-Inf, -Inf, -0.8, -0.8], ub = [Inf, Inf, 0.8, 0.8]),
         control_bounds = (; lb = [-10, -10], ub = [10, 10]),
     ),
+    myopic = true
 )
     cost = let
         function target_cost(x, context_state, t)
-            (context_state[3] ^ t) * norm_sqr(x[1:2] - context_state[1:2])
+            (myopic ? context_state[3] ^ t : 1) * norm_sqr(x[1:2] - context_state[1:2])
 
             # norm_sqr(x[1:2] - context_state[1:2])
 
@@ -110,7 +111,7 @@ function n_player_collision_avoidance(
         end
         function control_cost(u, context_state, t)
             # norm_sqr(u)
-            norm_sqr(u) * context_state[3] ^ t
+            norm_sqr(u) * (myopic ? context_state[3] ^ t : 1)
         end
         function collision_cost(x, i, context_state, t)
             # cost = map([1:(i - 1); (i + 1):num_players]) do paired_player
@@ -118,7 +119,7 @@ function n_player_collision_avoidance(
             #     max(0.0, min_distance + 0.2 * min_distance - norm(x[Block(i)][1:2] - x[Block(paired_player)][1:2]))^2 # with coefficient of 500
             # end
 
-            cost = [(context_state[3] ^ t) * max(0.0, min_distance + 0.2 * min_distance - norm(x[Block(i)][1:2] - x[Block(paired_player)][1:2]))^2 for paired_player in [1:(i - 1); (i + 1):num_players]]
+            cost = [max(0.0, min_distance + 0.2 * min_distance - norm(x[Block(i)][1:2] - x[Block(paired_player)][1:2]))^2 for paired_player in [1:(i - 1); (i + 1):num_players]]
             sum(cost) 
         end
         function cost_for_player(i, xs, us, context_state, T)
