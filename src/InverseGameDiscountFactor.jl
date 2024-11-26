@@ -275,19 +275,22 @@ function GenerateNoiseGraph(
     forward_solution = solve_mcp_game(mcp_game, initial_state, hidden_params; verbose = false)
     for_sol1 = reconstruct_solution(forward_solution, game.game, horizon)
 
-    observation_model_generator = (σ) -> x -> vcat([x[4*i-3:4*i-2] .+ σ * randn(length(x[i:i+1])) for i in 1:num_players(game.game)]...)
-    observation_model_warm_start = (; σ = 0.0, expected_observation = x -> vcat([x[4*i-3:4*i-2] for i in 1:num_players(game.game)]...))
-    observation_model_inverse = (; σ = 0.0, expected_observation = x -> vcat([x[4*i-3:4*i-2] for i in 1:num_players(game.game)]...))
+    # observation_model_generator = (σ) -> x -> vcat([x[4*i-3:4*i-2] .+ σ * randn(length(x[i:i+1])) for i in 1:num_players(game.game)]...)
+    observation_model_generator = (σ) -> x -> x .+ σ * randn(length(x))
+    # observation_model_warm_start = (; σ = 0.0, expected_observation = x -> vcat([x[4*i-3:4*i-2] for i in 1:num_players(game.game)]...))
+    observation_model_warm_start = (; σ = 0.0, expected_observation = x -> x)
+    # observation_model_inverse = (; σ = 0.0, expected_observation = x -> vcat([x[4*i-3:4*i-2] for i in 1:num_players(game.game)]...))
+    observation_model_inverse = (; σ = 0.0, expected_observation = x -> x)
     function get_observed_trajectory(σ)
         observation_model_noisy = observation_model_generator(σ)
         temp = vcat([observation_model_noisy(state_t) for state_t in for_sol1.blocks]...)
-        BlockVector(temp, [4 for _ in 1:horizon])
+        # BlockVector(temp, [4 for _ in 1:horizon])
+        BlockVector(temp, [8 for _ in 1:horizon])
     end
 
     for_sol = get_observed_trajectory(0.0)
 
     σs = [0.002*i for i in 0:50]
-    # σs = [0.0]
 
     _, context_state_guess = sample_initial_states_and_context(game, horizon, Random.MersenneTwister(1), 0.08)
     context_state_guess[1:2] = for_sol[Block(horizon)][1:2]
@@ -296,7 +299,8 @@ function GenerateNoiseGraph(
     println("Context State Guess: ", context_state_guess)
 
     function inverse_expected_observation(x)
-        vcat([x[4*i-3:4*i-2] for i in 1:num_players(game.game)]...)
+        # vcat([x[4*i-3:4*i-2] for i in 1:num_players(game.game)]...)
+        x
     end
 
     errors = Array{Float64}(undef, length(σs), num_trials)
@@ -336,7 +340,8 @@ function GenerateNoiseGraph(
                                 initial_state,
                                 horizon;
                                 observation_model = observation_model_warm_start,
-                                partial_observation_state_size = 2),
+                                # partial_observation_state_size = 2),
+                                partial_observation_state_size = 4),
                             mcp_game)
 
                     context_state_estimation, last_solution, i_, solving_info, time_exec = 
@@ -374,15 +379,18 @@ function GenerateNoiseGraph(
                     baseline_reconstructed_sol = reconstruct_solution(baseline_sol, game.game, horizon)
                     baseline_sol_error = norm_sqr(for_sol1 - baseline_reconstructed_sol)
 
+                    goals = mortar([hidden_params[1:2], hidden_params[4:5]])
+                    estimated_goals = mortar([context_state_estimation[1:2], context_state_estimation[4:5]])
+
                     # Graphing updates
                     errors[idx, i] = sol_error
                     baseline_errors[idx, i] = baseline_sol_error
 
-                    parameter_error[idx, i] = norm_sqr(context_state_estimation - hidden_params)
-                    baseline_parameter_error[idx, i] = norm_sqr(baseline_sol_to_params - hidden_params)
+                    parameter_error[idx, i] = norm_sqr(estimated_goals - goals)
+                    baseline_parameter_error[idx, i] = norm_sqr(baseline_context_state_estimation - goals)
 
-                    parameter_cosine_error[idx, i] = sum(context_state_estimation .* hidden_params) / (norm(context_state_estimation) * norm(hidden_params))
-                    baseline_parameter_cosine_error[idx, i] = sum(baseline_sol_to_params .* hidden_params) / (norm(baseline_sol_to_params) * norm(hidden_params))
+                    # parameter_cosine_error[idx, i] = sum(context_state_estimation .* goals) / (norm(context_state_estimation) * norm(hidden_params))
+                    # baseline_parameter_cosine_error[idx, i] = sum(baseline_sol_to_params .* goals) / (norm(baseline_sol_to_params) * norm(hidden_params))
 
                     push!(observed_trajectories, observed_trajectory)
                     push!(recovered_traj, inv_reconstructed_sol)
@@ -390,11 +398,10 @@ function GenerateNoiseGraph(
                     push!(recovered_params, context_state_estimation)
                     push!(baseline_recovered_params, baseline_sol_to_params)
 
-                    fig1 = CairoMakie.Figure()
-                    ax1 = CairoMakie.Axis(fig1[1, 1])
-
                     if !graphed
                         graphed = true
+                        fig1 = CairoMakie.Figure()
+                        ax1 = CairoMakie.Axis(fig1[1, 1])
                         for ii in 1:horizon
                             CairoMakie.scatter!(ax1, for_sol1[Block(ii)][1], for_sol1[Block(ii)][2], color = :red)
                             CairoMakie.scatter!(ax1, for_sol1[Block(ii)][5], for_sol1[Block(ii)][6], color = :blue)
@@ -405,7 +412,7 @@ function GenerateNoiseGraph(
                             CairoMakie.scatter!(ax1, baseline_reconstructed_sol[Block(ii)][1], baseline_reconstructed_sol[Block(ii)][2], color = :orange)
                             CairoMakie.scatter!(ax1, baseline_reconstructed_sol[Block(ii)][5], baseline_reconstructed_sol[Block(ii)][6], color = :brown)
                         end
-                        CairoMakie.save("./Graphs/SolutionPlot"* string(i) *".png", fig1)
+                        CairoMakie.save("./Graphs/SolutionPlot"* string(σ) *".png", fig1)
                     end
                     break
                 catch e
@@ -423,7 +430,7 @@ function GenerateNoiseGraph(
 
     println("Failure Counter: ", failure_counter, " / ", num_trials * length(σs))
 
-    open("experiments.tmp2.txt", "w+") do file
+    open("experiments/full state/experiment.result.txt", "w+") do file
         write(file, "\nground truth:\n")
         write(file, string(hidden_params))
 
@@ -445,11 +452,11 @@ function GenerateNoiseGraph(
         write(file, "\nbaseline parameter errors:\n")
         write(file, string(baseline_parameter_error))
 
-        write(file, "\nparameter cosine errors:\n")
-        write(file, string(parameter_cosine_error))
+        # write(file, "\nparameter cosine errors:\n")
+        # write(file, string(parameter_cosine_error))
 
-        write(file, "\nbaseline parameter cosine errors:\n")
-        write(file, string(baseline_parameter_cosine_error))
+        # write(file, "\nbaseline parameter cosine errors:\n")
+        # write(file, string(baseline_parameter_cosine_error))
 
         write(file, "\nobserved trajectories:\n")
         write(file, string(observed_trajectories))
@@ -504,6 +511,8 @@ function graph(
     parameter_cosine_error,
     baseline_parameter_cosine_error,
     σs)
+    prefix = "experiments/full state/"
+
     fig1 = CairoMakie.Figure()
     ax1 = CairoMakie.Axis(fig1[1, 1])
 
@@ -520,7 +529,7 @@ function graph(
     CairoMakie.errorbars!(ax1, σs, baseline_mean_errors, baseline_stds, color = (:red, 0.75))
 
     CairoMakie.axislegend(ax1, [our_method, baseline], ["Our Method", "Baseline"], position = :lt)
-    CairoMakie.save("NoiseGraph.png", fig1)
+    CairoMakie.save(prefix*"NoiseGraph.png", fig1)
 
 
     fig2 = CairoMakie.Figure()
@@ -539,7 +548,7 @@ function graph(
     CairoMakie.errorbars!(ax2, σs, baseline_mean_parameter_errors, baseline_parameter_stds, color = (:red, 0.75))
 
     CairoMakie.axislegend(ax2, [our_method, baseline], ["Our Method", "Baseline"], position = :lt)
-    CairoMakie.save("ParameterErrorGraph.png", fig2)
+    CairoMakie.save(prefix*"ParameterErrorGraph.png", fig2)
 
 
     fig3 = CairoMakie.Figure()
@@ -558,7 +567,7 @@ function graph(
     CairoMakie.errorbars!(ax3, σs, baseline_mean_parameter_cosine_errors, baseline_parameter_cosine_stds, color = (:red, 0.75))
 
     CairoMakie.axislegend(ax3, [our_method, baseline], ["Our Method", "Baseline"], position = :lt)
-    CairoMakie.save("ParameterCosineErrorGraph.png", fig3)
+    CairoMakie.save(prefix*"ParameterCosineErrorGraph.png", fig3)
 end
 
 end
