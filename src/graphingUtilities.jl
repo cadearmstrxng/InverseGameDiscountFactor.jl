@@ -241,6 +241,10 @@ function GeneratePartialStateGraphs(;
     discount_stds = [std([norm(ground_truth_parameters[discount_indices] - recovered_parameters[i][j][discount_indices]) for j in 1:num_trials]) for i in noise_levels]
     our_method = CairoMakie.scatter!(ax5, noise_levels, discount_errors, color = (:blue, 0.75))
     CairoMakie.errorbars!(ax5, noise_levels, discount_errors, discount_stds, color = (:blue, 0.75))
+    mean_discounts = [mean(recovered_parameters[i][j][discount_indices]) for i in noise_levels, j in 1:num_trials]
+    discount_std = [std(recovered_parameters[i][j][discount_indices]) for i in noise_levels, j in 1:num_trials]
+    baseline_discount_errors = [mean([norm(ground_truth_parameters[discount_indices] - baseline_recovered_parameters[i][j][discount_indices]) for j in 1:num_trials]) for i in noise_levels]
+    baseline_discount_stds = [std([norm(ground_truth_parameters[discount_indices] - baseline_recovered_parameters[i][j][discount_indices]) for j in 1:num_trials]) for i in noise_levels]
     CairoMakie.save(directory*"DiscountError.png", fig5)
 
     # environment = PolygonEnvironment(6, 8)
