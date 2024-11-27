@@ -577,4 +577,90 @@ function graph(
     CairoMakie.save(prefix*"ParameterCosineErrorGraph.png", fig3)
 end
 
+function problemLandscape(
+    initial_state = mortar([
+        [0, 2, 0.1, -0.2],
+        [2.5, 2, 0.0, 0.0],
+    ]),
+    hidden_params = mortar([[2, 0, 0.6], [0, 0, 0.6]]),
+)
+    horizon = 25
+    environment = PolygonEnvironment(6, 8)
+    game = n_player_collision_avoidance(2; environment, min_distance = 0.5, collision_avoidance_coefficient = 5.0)
+    solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(hidden_params, 1))
+    mcp_game = solver.mcp_game
+
+    forward_solution = solve_mcp_game(mcp_game, initial_state, hidden_params; verbose = false)
+    for_sol = reconstruct_solution(forward_solution, game.game, horizon)
+
+    context_state_guess = copy(hidden_params)
+
+    granularity = 150
+    left_point1 = .58
+    right_point1 = 0.65
+
+    left_point2 = .95
+    right_point2 = 1.05
+
+    gammas1 = [round(i*((right_point1 - left_point1)/granularity) + left_point1, sigdigits=7) for i in left_point1:(right_point1 - left_point1)/granularity:right_point1]
+    gammas2 = [round(i*((right_point2 - left_point2)/granularity) + left_point2, sigdigits=7) for i in left_point2:(right_point2 - left_point2)/granularity:right_point2]
+    println("Gammas1: ", gammas1)
+    println("Gammas2: ", gammas2)
+    costs = Array{Float64}(undef, length(gammas1), length(gammas2))
+
+    function likelihood_cost(τs_observed, context_state_estimation, initial_state)
+        solution = solve_mcp_game(mcp_game, initial_state, 
+            context_state_estimation;verbose=false)
+
+        if solution.status != PATHSolver.MCP_Solved
+            @info "Inner solve did not converge properly, re-initializing..."
+            solution = solve_mcp_game(mcp_game, initial_state, 
+                context_state_estimation; initial_guess = nothing)
+        end
+        # push!(solving_info, solution.info)
+        # last_solution = solution.status == PATHSolver.MCP_Solved ? (; primals = ForwardDiff.value.(solution.primals),
+        # variables = ForwardDiff.value.(solution.variables), status = solution.status) : nothing
+        τs_solution = reconstruct_solution(solution, mcp_game.game, horizon)
+        observed_τs_solution = τs_solution
+    
+        # @infiltrate
+        
+        # if solution.status == PATHSolver.MCP_Solved
+        #     infeasible_counter = 0
+        # else
+        #     infeasible_counter += 1
+        # end
+        # @infiltrate
+        norm_sqr(τs_observed - observed_τs_solution)
+    end
+
+    for i in eachindex(gammas1)
+        context_state_guess[3] = gammas1[i]
+        for j in eachindex(gammas2)
+            context_state_guess[6] = gammas2[j]
+            # @infiltrate
+            costs[i, j] = likelihood_cost(for_sol, context_state_guess, initial_state)
+        end        
+    end
+
+    fig1 = CairoMakie.Figure()
+    ax1 = CairoMakie.Axis(fig1[1, 1],
+    # xticks = (1:length(gammas), gammas),
+    xlabel = "Gamma P1",
+    # yticks = (1:length(gammas), gammas),
+    ylabel = "Gamma P2")
+
+    CairoMakie.heatmap!(ax1,gammas1,gammas2, costs, colormap = :viridis)
+    # CairoMakie.Colorbar(fig1[1, 2], ax1, label = "Cost")
+    # Colorbar(fig1[1, 2], limits = (min(costs...), max(costs...)), colormap = :viridis)
+    # CairoMakie.xlabel!(ax1, "Gamma P1")
+    # CairoMakie.ylabel!(ax1, "Gamma P2")
+    # CairoMakie.Legend(fig1[2, 1], [ax1], ["Cost"])
+
+    # println(costs)
+
+    CairoMakie.save("ProblemLandscape.png", fig1)
+
+end
+
 end
