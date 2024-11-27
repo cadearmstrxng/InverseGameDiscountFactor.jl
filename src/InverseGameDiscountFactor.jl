@@ -88,9 +88,9 @@ function main(;
     if max(hidden_params[Block(1)][3], hidden_params[Block(2)][3]) == 1
         horizon = 75
     else
-        horizon = convert(Int64, ceil(log(1e-4)/(log(max(hidden_params[Block(1)][3], hidden_params[Block(2)][3]))) * 4/3))
+        horizon = convert(Int64, ceil(log(1e-4)/(log(max(hidden_params[Block(1)][3], hidden_params[Block(2)][3])))))
     end
-    horizon = 25
+    # horizon = 50
     println("horizon: ", horizon)
 
     turn_length = 2
@@ -106,15 +106,18 @@ function main(;
     # observation_model_inverse = (; σ = 0.0, expected_observation = x -> x)
     observation_model_warm_start = (; σ = 0.0, expected_observation = x -> vcat([x[4*i-3:4*i-2] for i in 1:num_players(game.game)]...))
 
-    for_sol = vcat([observation_model_noisy.expected_observation(state_t) for state_t in for_sol.blocks]...)
-    for_sol = BlockVector(for_sol, [4 for _ in 1:horizon])
+    # for_sol = vcat([observation_model_noisy.expected_observation(state_t) for state_t in for_sol.blocks]...)
+    # for_sol = BlockVector(for_sol, [4 for _ in 1:horizon])
 
     _, context_state_guess = sample_initial_states_and_context(game, horizon, Random.MersenneTwister(1), 0.08)
-    context_state_guess[1:2] = for_sol[Block(horizon)][1:2]
-    context_state_guess[4:5] = for_sol[Block(horizon)][3:4]
+    # context_state_guess[1:2] = for_sol[Block(horizon)][1:2]
+    # # context_state_guess[3] = 0.6
+    # context_state_guess[4:5] = for_sol[Block(horizon)][3:4]
+    # # context_state_guess[6] = 0.6
+    context_state_guess = hidden_params
     baseline_context_state_guess = vcat(context_state_guess[1:2], context_state_guess[4:5])
 
-
+    print("Context State Guess: ", context_state_guess)
 
     function inverse_expected_observation(x)
         vcat([x[4*i-3:4*i-2] for i in 1:num_players(game.game)]...)
@@ -128,8 +131,9 @@ function main(;
                 for_sol,
                 initial_state,
                 horizon;
-                observation_model = observation_model_warm_start,
-                partial_observation_state_size = 2),
+                # observation_model = observation_model_warm_start,
+                # partial_observation_state_size = 2
+                ),
             mcp_game)
 
     context_state_estimation, last_solution, i_, solving_info, time_exec = 
@@ -139,7 +143,7 @@ function main(;
             for_sol,
             context_state_guess,
             horizon;
-            observation_model = observation_model_inverse,         
+            # observation_model = observation_model_inverse,         
             max_grad_steps = 500,
             last_solution = warm_start_sol
         )
@@ -151,7 +155,7 @@ function main(;
             for_sol,
             baseline_context_state_guess,
             horizon;
-            observation_model = observation_model_inverse,         
+            # observation_model = observation_model_inverse,         
             max_grad_steps = 500,
             last_solution = warm_start_sol
         )
@@ -255,7 +259,7 @@ function GenerateNoiseGraph(
         [0, 2, 0.1, -0.2],
         [2.5, 2, 0.0, 0.0],
     ]),
-    hidden_params = mortar([[2, 0, 0.6], [0, 0, 0.6]]),
+    hidden_params = mortar([[2, 0, 0.95], [0, 0, 0.9]]),
     rng = Random.MersenneTwister(1),
 )
     CairoMakie.activate!();
@@ -264,8 +268,9 @@ function GenerateNoiseGraph(
     game = n_player_collision_avoidance(2; environment, min_distance = 0.5, collision_avoidance_coefficient = 5.0)
     baseline_game = n_player_collision_avoidance(2; environment, min_distance = 0.5, collision_avoidance_coefficient = 5.0, myopic = false)
 
+    # horizon = convert(Int64, ceil(log(1e-4)/(log(max(hidden_params[Block(1)][3], hidden_params[Block(2)][3])))))
     horizon = 25
-    num_trials = 50
+    num_trials = 1
 
     solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(hidden_params, 1))
     baseline_solver = MCPCoupledOptimizationSolver(baseline_game.game, horizon, [2, 2])
@@ -290,12 +295,14 @@ function GenerateNoiseGraph(
 
     for_sol = get_observed_trajectory(0.0)
 
-    σs = [0.002*i for i in 0:50]
+    # σs = [0.002*i for i in 0:50]
+    σs = [0.01]
 
     _, context_state_guess = sample_initial_states_and_context(game, horizon, Random.MersenneTwister(1), 0.08)
     context_state_guess[1:2] = for_sol[Block(horizon)][1:2]
-    context_state_guess[4:5] = for_sol[Block(horizon)][3:4]
-    baseline_context_state_guess = vcat(context_state_guess[1:2], context_state_guess[4:5])
+    context_state_guess[4:5] = for_sol[Block(horizon)][5:6] # MAKE SURE TO CHANGE 5:6 TO 3:4 FOR PARTIAL STATE
+    # @infiltrate
+    baseline_context_state_guess = vcat(for_sol[Block(horizon)][1:2], for_sol[Block(horizon)][5:6])
     println("Context State Guess: ", context_state_guess)
 
     function inverse_expected_observation(x)
