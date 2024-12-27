@@ -58,14 +58,15 @@ include("problem_formulation.jl")
 include("solve.jl")
 include("baseline/inverse_MCP_solver.jl")
 include("utils/WarmStart.jl")
+include("graphingUtilities.jl")
 
 
 function main(;
     initial_state = mortar([
-        [0, 2, 0.1, -0.2],
-        [2.5, 2, 0.0, 0.0],
+        [0.5, 1.65, 0.1, -0.2],
+        [1.4, 1.6, 0.0, 0.0],
     ]),
-    hidden_params = mortar([[2, 0, 0.6], [0, 0, 0.6]]),
+    hidden_params = mortar([[1.45, 0.3, 0.95], [0.55, 0.25, 0.9]]),
     plot_please = true,
     simulate_please = true
 )
@@ -90,8 +91,9 @@ function main(;
     else
         horizon = convert(Int64, ceil(log(1e-4)/(log(max(hidden_params[Block(1)][3], hidden_params[Block(2)][3])))))
     end
-    # horizon = 50
+    horizon = 50
     println("horizon: ", horizon)
+    println("context_state:", hidden_params)
 
     turn_length = 2
     solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(hidden_params, 1))
@@ -102,6 +104,22 @@ function main(;
     forward_solution = solve_mcp_game(mcp_game, initial_state, hidden_params; verbose = false)
     for_sol = reconstruct_solution(forward_solution, game.game, horizon)
 
+    # fig = Figure()
+
+    # ax = Axis(fig[1,1])
+
+    # for ii in 1:horizon
+    #     CairoMakie.scatter!(ax, for_sol[Block(ii)][1], for_sol[Block(ii)][2], color = :red)
+    #     CairoMakie.scatter!(ax, for_sol[Block(ii)][5], for_sol[Block(ii)][6], color = :blue)
+    # end
+
+    # println("last positions:", for_sol[Block(horizon)][1:2],for_sol[Block(horizon)][5:6])
+
+    # return fig
+
+
+    # break
+
     observation_model_noisy = (; σ = 0.1, expected_observation = x -> vcat([x[4*i-3:4*i-2] .+ observation_model_noisy.σ * randn(length(x[i:i+1])) for i in 1:num_players(game.game)]...))
     # observation_model_inverse = (; σ = 0.0, expected_observation = x -> x)
     observation_model_warm_start = (; σ = 0.0, expected_observation = x -> vcat([x[4*i-3:4*i-2] for i in 1:num_players(game.game)]...))
@@ -110,14 +128,14 @@ function main(;
     # for_sol = BlockVector(for_sol, [4 for _ in 1:horizon])
 
     _, context_state_guess = sample_initial_states_and_context(game, horizon, Random.MersenneTwister(1), 0.08)
-    # context_state_guess[1:2] = for_sol[Block(horizon)][1:2]
+    context_state_guess[1:2] = for_sol[Block(horizon)][1:2]
     # # context_state_guess[3] = 0.6
-    # context_state_guess[4:5] = for_sol[Block(horizon)][3:4]
+    context_state_guess[4:5] = for_sol[Block(horizon)][5:6]
     # # context_state_guess[6] = 0.6
-    context_state_guess = hidden_params
+    # context_state_guess = hidden_params
     baseline_context_state_guess = vcat(context_state_guess[1:2], context_state_guess[4:5])
 
-    print("Context State Guess: ", context_state_guess)
+    println("Context State Guess: ", context_state_guess)
 
     function inverse_expected_observation(x)
         vcat([x[4*i-3:4*i-2] for i in 1:num_players(game.game)]...)

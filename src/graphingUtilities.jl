@@ -34,6 +34,175 @@ using TrajectoryGamesBase:
     rollout,
     ProductDynamics
 
+export GenerateFrontPageFigure
+
+function GenerateFrontPageFigure(
+    initial_state = mortar([
+        [0.5, 1.65, 0.1, -0.2],
+        [1.4, 1.6, 0.0, 0.0],
+    ]),
+    hidden_params = mortar([[1.45, 0.3, 0.95], [0.55, 0.25, 0.9]]),
+)
+
+    CairoMakie.activate!();
+    environment = PolygonEnvironment(6, 8)
+    game = n_player_collision_avoidance(2; environment, min_distance = 0.5, collision_avoidance_coefficient = 5.0)
+    baseline_game = n_player_collision_avoidance(2; environment, min_distance = 0.5, collision_avoidance_coefficient = 5.0, myopic = false)
+
+    if max(hidden_params[Block(1)][3], hidden_params[Block(2)][3]) == 1
+        horizon = 75
+    else
+        horizon = convert(Int64, ceil(log(1e-4)/(log(max(hidden_params[Block(1)][3], hidden_params[Block(2)][3])))))
+    end
+    horizon = 50
+
+    turn_length = 2
+    solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(hidden_params, 1))
+    baseline_solver = MCPCoupledOptimizationSolver(baseline_game.game, horizon, [2, 2])
+    mcp_game = solver.mcp_game
+    baseline_mcp_game = baseline_solver.mcp_game
+
+    forward_solution = solve_mcp_game(mcp_game, initial_state, hidden_params; verbose = false)
+    for_solution = reconstruct_solution(forward_solution, game.game, horizon)
+
+    context_state_estimation = mortar([[1.480559515058807, 0.33095477218790573, 0.9487914269199791], [0.518935331080876, 0.2737633025260197, 0.8973704964094965]])
+
+    baseline_context_state_estimation = mortar([[1.4802915250244733, 0.2814143611765102, 1.0], [0.5327075874529416, 0.1794895383095173, 1.0]])
+
+    inv_sol = solve_mcp_game(mcp_game, initial_state, context_state_estimation; verbose = false)
+    inv_solution = reconstruct_solution(inv_sol, game.game, horizon)
+
+    baseline_sol = solve_mcp_game(mcp_game, initial_state, baseline_context_state_estimation; verbose = false)
+    baseline_solution = reconstruct_solution(baseline_sol, game.game, horizon)
+
+    observation_model_noisy = (; σ = 0.03, expected_observation = x -> x .+ observation_model_noisy.σ * randn(length(x)))
+    noisy_solution = vcat([observation_model_noisy.expected_observation(state_t) for state_t in for_solution.blocks]...)
+    noisy_solution = BlockVector(noisy_solution, [8 for _ in 1:horizon])
+
+    fig = CairoMakie.Figure(resolution = (620,641))
+    image_data = CairoMakie.load("C:\\Users\\Owner\\Documents\\Research Summer 2024\\InverseGameDiscountFactor.jl\\src\\dean_keeton_whitis.png")
+    ax1 = Axis(fig[1,1], aspect = DataAspect())
+    x = 2
+    y = x*641/620
+    image!(ax1, 0..x, 0..y, rotr90(image_data); interpolation = false)
+    snapshot_time = 10
+
+    player1xForward = Float64[]
+    player1yForward = Float64[]
+    player2xForward = Float64[]
+    player2yForward = Float64[]
+    player1xInverse = Float64[]
+    player1yInverse = Float64[]
+    player2xInverse = Float64[]
+    player2yInverse = Float64[]
+    player1xBaseline = Float64[]
+    player1yBaseline = Float64[]
+    player2xBaseline = Float64[]
+    player2yBaseline = Float64[]
+
+    for ii in 1:30
+        push!(player1xForward, for_solution[Block(ii)][1])
+        push!(player1yForward, for_solution[Block(ii)][2])
+        push!(player2xForward, for_solution[Block(ii)][5])
+        push!(player2yForward, for_solution[Block(ii)][6])
+        push!(player1xInverse, inv_solution[Block(ii)][1])
+        push!(player1yInverse, inv_solution[Block(ii)][2])
+        push!(player2xInverse, inv_solution[Block(ii)][5])
+        push!(player2yInverse, inv_solution[Block(ii)][6])
+        push!(player1xBaseline, baseline_solution[Block(ii)][1])
+        push!(player1yBaseline, baseline_solution[Block(ii)][2])
+        push!(player2xBaseline, baseline_solution[Block(ii)][5])
+        push!(player2yBaseline, baseline_solution[Block(ii)][6])
+    end
+
+    # lines!(ax1, player1xForward,player1yForward, color = :crimson)
+    # lines!(ax1, player2xForward, player2yForward, color = :cyan)
+
+    # p1_inv_angles = [atan(inv_solution[Block(ii)][2] - inv_solution[Block(ii-1)][2], inv_solution[Block(ii)][1] - inv_solution[Block(ii-1)][1]) for ii in 2:30]
+    # p2_inv_angles = [atan(inv_solution[Block(ii)][6] - inv_solution[Block(ii-1)][6], inv_solution[Block(ii)][5] - inv_solution[Block(ii-1)][5]) for ii in 2:30]
+    # p1_inv_angles = vcat(p1_inv_angles, p1_inv_angles[end])
+    # p2_inv_angles = vcat(p2_inv_angles, p2_inv_angles[end])
+    # p1_baseline_angles = [atan(baseline_solution[Block(ii)][2] - baseline_solution[Block(ii-1)][2], baseline_solution[Block(ii)][1] - baseline_solution[Block(ii-1)][1]) for ii in 2:30]
+    # p2_baseline_angles = [atan(baseline_solution[Block(ii)][6] - baseline_solution[Block(ii-1)][6], baseline_solution[Block(ii)][5] - baseline_solution[Block(ii-1)][5]) for ii in 2:30]
+    # p1_baseline_angles = vcat(p1_baseline_angles, p1_baseline_angles[end])
+    # p2_baseline_angles = vcat(p2_baseline_angles, p2_baseline_angles[end])
+
+
+    for ii in 1:30
+        # scatter!(ax1, [for_solution[Block(ii)][1]], [for_solution[Block(ii)][2]], color = :crimson)
+        # scatter!(ax1, [for_solution[Block(ii)][5]], [for_solution[Block(ii)][6]], color = :cyan)
+        scatter!(ax1, [noisy_solution[Block(ii)][1]], [noisy_solution[Block(ii)][2]], color = :crimson, alpha = 0.5)
+        scatter!(ax1, [noisy_solution[Block(ii)][5]], [noisy_solution[Block(ii)][6]], color = :dodgerblue, alpha = 0.5)
+        # scatter!(ax1, [baseline_solution[Block(ii)][1]], [baseline_solution[Block(ii)][2]], color = :tomato4, marker = :rtriangle, rotations = p1_baseline_angles[ii-1])
+        # scatter!(ax1, [baseline_solution[Block(ii)][5]], [baseline_solution[Block(ii)][6]], color = :cyan4, marker = :rtriangle, rotations = p2_baseline_angles[ii-1])
+        # scatter!(ax1, [inv_solution[Block(ii)][1]], [inv_solution[Block(ii)][2]], color = :gold, marker = :rtriangle, rotations = p1_inv_angles[ii-1])
+        # scatter!(ax1, [inv_solution[Block(ii)][5]], [inv_solution[Block(ii)][6]], color = :dodgerblue, marker = :rtriangle, rotations = p2_inv_angles[ii-1])    
+    end
+
+    # for ii in 1:snapshot_time-1
+    #     # scatter!(ax1, [for_solution[Block(ii)][1]], [for_solution[Block(ii)][2]], color = :transparent, strokewidth = 3, strokecolor = :crimson)
+    #     # scatter!(ax1, [for_solution[Block(ii)][5]], [for_solution[Block(ii)][6]], color = :transparent, strokewidth = 3, strokecolor = :cyan)
+    #     scatter!(ax1, [noisy_solution[Block(ii)][1]], [noisy_solution[Block(ii)][2]], color = :crimson, alpha = 0.5)
+    #     scatter!(ax1, [noisy_solution[Block(ii)][5]], [noisy_solution[Block(ii)][6]], color = :cyan, alpha = 0.5)
+    #     scatter!(ax1, [baseline_solution[Block(ii)][1]], [baseline_solution[Block(ii)][2]], color = :transparent, strokewidth = 3, strokecolor = :tomato4)
+    #     scatter!(ax1, [baseline_solution[Block(ii)][5]], [baseline_solution[Block(ii)][6]], color = :transparent, strokewidth = 3, strokecolor = :cyan4)    
+    #     scatter!(ax1, [inv_solution[Block(ii)][1]], [inv_solution[Block(ii)][2]], color = :transparent, strokewidth = 3, strokecolor = :gold)
+    #     scatter!(ax1, [inv_solution[Block(ii)][5]], [inv_solution[Block(ii)][6]], color = :transparent, strokewidth = 3, strokecolor = :dodgerblue)
+    # end
+
+    lines!(ax1, player1xBaseline, player1yBaseline, color = :tomato4, linewidth = 3)
+    lines!(ax1, player2xBaseline, player2yBaseline, color = :cyan4, linewidth = 3)
+    lines!(ax1, player1xInverse, player1yInverse, color = :gold, linewidth = 3)
+    lines!(ax1, player2xInverse, player2yInverse, color = :cyan, linewidth = 3)
+    
+
+    # arrows!(ax1, [inv_solution[Block(snapshot_time)][1]], [inv_solution[Block(snapshot_time)][2]], [inv_solution[Block(snapshot_time+2)][1]-inv_solution[Block(snapshot_time)][1]],
+    #             [inv_solution[Block(snapshot_time+2)][2]-inv_solution[Block(snapshot_time)][2]], color = :gold, markersize = 40, strokewidth = 2)
+    # arrows!(ax1, [inv_solution[Block(snapshot_time)][5]], [inv_solution[Block(snapshot_time)][6]], [inv_solution[Block(snapshot_time+2)][5]-inv_solution[Block(snapshot_time)][5]],
+    #             [inv_solution[Block(snapshot_time+2)][6]-inv_solution[Block(snapshot_time)][6]], color = :dodgerblue, markersize = 40, strokewidth = 2)
+    
+    # p1_for = scatter!(ax1, [for_solution[Block(15)][1]], [for_solution[Block(15)][2]], color = :crimson)
+    # p2_for = scatter!(ax1, [for_solution[Block(15)][5]], [for_solution[Block(15)][6]], color = :cyan)
+    p1_noisy = scatter!(ax1, [noisy_solution[Block(snapshot_time)][1]], [noisy_solution[Block(snapshot_time)][2]], color = :crimson, alpha = 0.5)
+    p2_noisy = scatter!(ax1, [noisy_solution[Block(snapshot_time)][5]], [noisy_solution[Block(snapshot_time)][6]], color = :dodgerblue, alpha = 0.5)
+    p1_baseline = scatter!(ax1, [baseline_solution[Block(snapshot_time)][1]], [baseline_solution[Block(snapshot_time)][2]], color = :tomato4, alpha = 0)
+    p2_baseline = scatter!(ax1, [baseline_solution[Block(snapshot_time)][5]], [baseline_solution[Block(snapshot_time)][6]], color = :cyan4, alpha = 0)
+    p1_inv = scatter!(ax1, [inv_solution[Block(snapshot_time)][1]], [inv_solution[Block(snapshot_time)][2]], color = :gold, alpha = 0)
+    p2_inv = scatter!(ax1, [inv_solution[Block(snapshot_time)][5]], [inv_solution[Block(snapshot_time)][6]], color = :cyan, alpha = 0)
+    p1_goal = scatter!(ax1, [hidden_params[Block(1)][1]], [hidden_params[Block(1)][2]], color = :red, marker = :star5, markersize = 23, strokewidth = 2)
+    p2_goal = scatter!(ax1, [hidden_params[Block(2)][1]], [hidden_params[Block(2)][2]], color = :deepskyblue1, marker = :star5, markersize = 23, strokewidth = 2)
+
+    player1rotation = atan(inv_solution[Block(snapshot_time+2)][2] - inv_solution[Block(snapshot_time+1)][2], inv_solution[Block(snapshot_time+2)][1] - inv_solution[Block(snapshot_time+1)][1]) - pi/2
+    player2rotation = atan(inv_solution[Block(snapshot_time+2)][6] - inv_solution[Block(snapshot_time+1)][6], inv_solution[Block(snapshot_time+2)][5] - inv_solution[Block(snapshot_time+1)][5]) - pi/2
+    
+    arrow_path = BezierPath([
+        MoveTo(Point(0, 0)),
+        LineTo(Point(0.3, -0.3)),
+        LineTo(Point(0.15, -0.3)),
+        LineTo(Point(0.3, -1)),
+        LineTo(Point(0, -0.9)),
+        LineTo(Point(-0.3, -1)),
+        LineTo(Point(-0.15, -0.3)),
+        LineTo(Point(-0.3, -0.3)),
+        ClosePath()
+    ])
+
+
+    scatter!(ax1, [inv_solution[Block(snapshot_time+2)][1]], [inv_solution[Block(snapshot_time+2)][2]], color = :orangered, marker = arrow_path, markersize = 30, strokewidth = 2, rotations = player1rotation)
+    scatter!(ax1, [inv_solution[Block(snapshot_time+2)][5]], [inv_solution[Block(snapshot_time+2)][6]], color = :skyblue1, marker = arrow_path, markersize = 30, strokewidth = 2, rotations = player2rotation)
+    scatter!(ax1, [inv_solution[Block(snapshot_time+1)][1]], [inv_solution[Block(snapshot_time+1)][2]], color = :black, marker = '1', markersize = 13)
+    scatter!(ax1, [inv_solution[Block(snapshot_time+1)][5] + 0.1/4], [inv_solution[Block(snapshot_time+1)][6]+0.1/3], color = :black, marker = '2', markersize = 13)
+    
+
+    # Legend(fig[1,2], [p1_for, p2_for, p1_inv, p2_inv, p1_baseline, p2_baseline, p1_noisy, p2_noisy], ["Agent 1 Ground Truth", "Agent 2 Ground Truth", "Agent 1 Recovered", "Agent 2 Recovered", "Agent 1 Baseline", "Agent 2 Baseline", "Agent 1 Noisy Observation", "Agent 2 Noisy Observation"])
+    Legend(fig[1,2], 
+    [p1_noisy, p1_inv, p1_baseline, p2_noisy, p2_inv, p2_baseline], 
+    ["Agent 1 Observations", "Agent 1 Recovered", "Agent 1 Baseline", "Agent 2 Observations", "Agent 2 Recovered", "Agent 2 Baseline"])
+
+    CairoMakie.save("front_page_figure.png", fig)
+end
+
+
 
 function GeneratePartialStateGraphs(;
     noise_level_increment = 0.002,
