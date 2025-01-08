@@ -10,7 +10,6 @@ using TrajectoryGamesExamples:
     planar_double_integrator,
     UnicycleDynamics,
     create_environment_axis
-    # BicycleDynamics
 using TrajectoryGamesBase:
     TrajectoryGamesBase,
     TrajectoryGame,
@@ -33,7 +32,6 @@ using PATHSolver: PATHSolver
 using LinearAlgebra: I, norm_sqr, pinv, ColumnNorm, qr, norm
 using Random: Random
 using ProgressMeter: ProgressMeter
-# using GLMakie: GLMakie
 using CairoMakie
 using Symbolics: Symbolics, @variables, scalarize
 using ChainRulesCore: ChainRulesCore
@@ -54,11 +52,11 @@ using .ExampleProblems: n_player_collision_avoidance, two_player_guidance_game, 
 
 
 include("utils/utils.jl")
-include("problem_formulation.jl")
-include("solve.jl")
+include("solver/problem_formulation.jl")
+include("solver/solve.jl")
 include("baseline/inverse_MCP_solver.jl")
-include("utils/WarmStart.jl")
-include("graphingUtilities.jl")
+include("solver/WarmStart.jl")
+include("graphing/graphingUtilities.jl")
 
 
 function main(;
