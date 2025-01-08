@@ -620,8 +620,8 @@ function problemLandscape(
     left_point2 = .95
     right_point2 = 1.05
 
-    gammas1 = [round(i*((right_point1 - left_point1)/granularity) + left_point1, sigdigits=7) for i in left_point1:(right_point1 - left_point1)/granularity:right_point1]
-    gammas2 = [round(i*((right_point2 - left_point2)/granularity) + left_point2, sigdigits=7) for i in left_point2:(right_point2 - left_point2)/granularity:right_point2]
+    gammas1 = [round(i, sigdigits=7) for i in left_point1:(right_point1 - left_point1)/granularity:right_point1]
+    gammas2 = [round(i, sigdigits=7) for i in left_point2:(right_point2 - left_point2)/granularity:right_point2]
     println("Gammas1: ", gammas1)
     println("Gammas2: ", gammas2)
     costs = Array{Float64}(undef, length(gammas1), length(gammas2))
