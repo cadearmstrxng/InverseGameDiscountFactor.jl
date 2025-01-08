@@ -17,7 +17,6 @@ using TrajectoryGamesExamples:
     planar_double_integrator,
     UnicycleDynamics,
     create_environment_axis
-    # BicycleDynamics
 using TrajectoryGamesBase:
     TrajectoryGamesBase,
     TrajectoryGame,
@@ -115,54 +114,16 @@ function GenerateFrontPageFigure(
         push!(player2yBaseline, baseline_solution[Block(ii)][6])
     end
 
-    # lines!(ax1, player1xForward,player1yForward, color = :crimson)
-    # lines!(ax1, player2xForward, player2yForward, color = :cyan)
-
-    # p1_inv_angles = [atan(inv_solution[Block(ii)][2] - inv_solution[Block(ii-1)][2], inv_solution[Block(ii)][1] - inv_solution[Block(ii-1)][1]) for ii in 2:30]
-    # p2_inv_angles = [atan(inv_solution[Block(ii)][6] - inv_solution[Block(ii-1)][6], inv_solution[Block(ii)][5] - inv_solution[Block(ii-1)][5]) for ii in 2:30]
-    # p1_inv_angles = vcat(p1_inv_angles, p1_inv_angles[end])
-    # p2_inv_angles = vcat(p2_inv_angles, p2_inv_angles[end])
-    # p1_baseline_angles = [atan(baseline_solution[Block(ii)][2] - baseline_solution[Block(ii-1)][2], baseline_solution[Block(ii)][1] - baseline_solution[Block(ii-1)][1]) for ii in 2:30]
-    # p2_baseline_angles = [atan(baseline_solution[Block(ii)][6] - baseline_solution[Block(ii-1)][6], baseline_solution[Block(ii)][5] - baseline_solution[Block(ii-1)][5]) for ii in 2:30]
-    # p1_baseline_angles = vcat(p1_baseline_angles, p1_baseline_angles[end])
-    # p2_baseline_angles = vcat(p2_baseline_angles, p2_baseline_angles[end])
-
-
     for ii in 1:30
-        # scatter!(ax1, [for_solution[Block(ii)][1]], [for_solution[Block(ii)][2]], color = :crimson)
-        # scatter!(ax1, [for_solution[Block(ii)][5]], [for_solution[Block(ii)][6]], color = :cyan)
         scatter!(ax1, [noisy_solution[Block(ii)][1]], [noisy_solution[Block(ii)][2]], color = :crimson, alpha = 0.5)
-        scatter!(ax1, [noisy_solution[Block(ii)][5]], [noisy_solution[Block(ii)][6]], color = :dodgerblue, alpha = 0.5)
-        # scatter!(ax1, [baseline_solution[Block(ii)][1]], [baseline_solution[Block(ii)][2]], color = :tomato4, marker = :rtriangle, rotations = p1_baseline_angles[ii-1])
-        # scatter!(ax1, [baseline_solution[Block(ii)][5]], [baseline_solution[Block(ii)][6]], color = :cyan4, marker = :rtriangle, rotations = p2_baseline_angles[ii-1])
-        # scatter!(ax1, [inv_solution[Block(ii)][1]], [inv_solution[Block(ii)][2]], color = :gold, marker = :rtriangle, rotations = p1_inv_angles[ii-1])
-        # scatter!(ax1, [inv_solution[Block(ii)][5]], [inv_solution[Block(ii)][6]], color = :dodgerblue, marker = :rtriangle, rotations = p2_inv_angles[ii-1])    
+        scatter!(ax1, [noisy_solution[Block(ii)][5]], [noisy_solution[Block(ii)][6]], color = :dodgerblue, alpha = 0.5)   
     end
-
-    # for ii in 1:snapshot_time-1
-    #     # scatter!(ax1, [for_solution[Block(ii)][1]], [for_solution[Block(ii)][2]], color = :transparent, strokewidth = 3, strokecolor = :crimson)
-    #     # scatter!(ax1, [for_solution[Block(ii)][5]], [for_solution[Block(ii)][6]], color = :transparent, strokewidth = 3, strokecolor = :cyan)
-    #     scatter!(ax1, [noisy_solution[Block(ii)][1]], [noisy_solution[Block(ii)][2]], color = :crimson, alpha = 0.5)
-    #     scatter!(ax1, [noisy_solution[Block(ii)][5]], [noisy_solution[Block(ii)][6]], color = :cyan, alpha = 0.5)
-    #     scatter!(ax1, [baseline_solution[Block(ii)][1]], [baseline_solution[Block(ii)][2]], color = :transparent, strokewidth = 3, strokecolor = :tomato4)
-    #     scatter!(ax1, [baseline_solution[Block(ii)][5]], [baseline_solution[Block(ii)][6]], color = :transparent, strokewidth = 3, strokecolor = :cyan4)    
-    #     scatter!(ax1, [inv_solution[Block(ii)][1]], [inv_solution[Block(ii)][2]], color = :transparent, strokewidth = 3, strokecolor = :gold)
-    #     scatter!(ax1, [inv_solution[Block(ii)][5]], [inv_solution[Block(ii)][6]], color = :transparent, strokewidth = 3, strokecolor = :dodgerblue)
-    # end
 
     lines!(ax1, player1xBaseline, player1yBaseline, color = :tomato4, linewidth = 3)
     lines!(ax1, player2xBaseline, player2yBaseline, color = :cyan4, linewidth = 3)
     lines!(ax1, player1xInverse, player1yInverse, color = :gold, linewidth = 3)
     lines!(ax1, player2xInverse, player2yInverse, color = :cyan, linewidth = 3)
     
-
-    # arrows!(ax1, [inv_solution[Block(snapshot_time)][1]], [inv_solution[Block(snapshot_time)][2]], [inv_solution[Block(snapshot_time+2)][1]-inv_solution[Block(snapshot_time)][1]],
-    #             [inv_solution[Block(snapshot_time+2)][2]-inv_solution[Block(snapshot_time)][2]], color = :gold, markersize = 40, strokewidth = 2)
-    # arrows!(ax1, [inv_solution[Block(snapshot_time)][5]], [inv_solution[Block(snapshot_time)][6]], [inv_solution[Block(snapshot_time+2)][5]-inv_solution[Block(snapshot_time)][5]],
-    #             [inv_solution[Block(snapshot_time+2)][6]-inv_solution[Block(snapshot_time)][6]], color = :dodgerblue, markersize = 40, strokewidth = 2)
-    
-    # p1_for = scatter!(ax1, [for_solution[Block(15)][1]], [for_solution[Block(15)][2]], color = :crimson)
-    # p2_for = scatter!(ax1, [for_solution[Block(15)][5]], [for_solution[Block(15)][6]], color = :cyan)
     p1_noisy = scatter!(ax1, [noisy_solution[Block(snapshot_time)][1]], [noisy_solution[Block(snapshot_time)][2]], color = :crimson, alpha = 0.5)
     p2_noisy = scatter!(ax1, [noisy_solution[Block(snapshot_time)][5]], [noisy_solution[Block(snapshot_time)][6]], color = :dodgerblue, alpha = 0.5)
     p1_baseline = scatter!(ax1, [baseline_solution[Block(snapshot_time)][1]], [baseline_solution[Block(snapshot_time)][2]], color = :tomato4, alpha = 0)
@@ -194,7 +155,6 @@ function GenerateFrontPageFigure(
     scatter!(ax1, [inv_solution[Block(snapshot_time+1)][5] + 0.1/4], [inv_solution[Block(snapshot_time+1)][6]+0.1/3], color = :black, marker = '2', markersize = 13)
     
 
-    # Legend(fig[1,2], [p1_for, p2_for, p1_inv, p2_inv, p1_baseline, p2_baseline, p1_noisy, p2_noisy], ["Agent 1 Ground Truth", "Agent 2 Ground Truth", "Agent 1 Recovered", "Agent 2 Recovered", "Agent 1 Baseline", "Agent 2 Baseline", "Agent 1 Noisy Observation", "Agent 2 Noisy Observation"])
     Legend(fig[1,2], 
     [p1_noisy, p1_inv, p1_baseline, p2_noisy, p2_inv, p2_baseline], 
     ["Agent 1 Observations", "Agent 1 Recovered", "Agent 1 Baseline", "Agent 2 Observations", "Agent 2 Recovered", "Agent 2 Baseline"])
@@ -393,7 +353,6 @@ function GeneratePartialStateGraphs(;
     CairoMakie.errorbars!(ax4, noise_levels, baseline_goal_p2_mean_errors, baseline_goal_p2_stds, color = (:orange, 0.75))
 
     CairoMakie.axislegend(ax4, [our_p1_method, our_p2_method, baseline_p1, baseline_p2], ["Our Method Player 1", "Our Method Player 2", "Baseline Player 1", "Baseline Player 2"], position = :lc)
-    # CairoMakie.Legend(fig4[1, 2], [our_p1_method, our_p2_method, baseline_p1, baseline_p2], ["Our Method Player 1", "Our Method Player 2", "Baseline Player 1", "Baseline Player 2"])
     CairoMakie.save(directory*"GoalErrorPlayer.png", fig4)
 
 
@@ -415,17 +374,5 @@ function GeneratePartialStateGraphs(;
     baseline_discount_errors = [mean([norm(ground_truth_parameters[discount_indices] - baseline_recovered_parameters[i][j][discount_indices]) for j in 1:num_trials]) for i in noise_levels]
     baseline_discount_stds = [std([norm(ground_truth_parameters[discount_indices] - baseline_recovered_parameters[i][j][discount_indices]) for j in 1:num_trials]) for i in noise_levels]
     CairoMakie.save(directory*"DiscountError.png", fig5)
-
-    # environment = PolygonEnvironment(6, 8)
-    # game = n_player_collision_avoidance(2; environment, min_distance = 0.5, collision_avoidance_coefficient = 5.0)
-    # baseline_game = n_player_collision_avoidance(2; environment, min_distance = 0.5, collision_avoidance_coefficient = 5.0, myopic = false)
-    # horizon = 25
-    # solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(hidden_params, 1))
-    # baseline_solver = MCPCoupledOptimizationSolver(baseline_game.game, horizon, [2, 2])
-    # mcp_game = solver.mcp_game
-    # baseline_mcp_game = baseline_solver.mcp_game
-
-
-    # forward_solution = solve_mcp_game(mcp_game, initial_state, hidden_params; verbose = false)
     
 end
