@@ -34,7 +34,6 @@ function warm_start_game(num_players;
         function warm_start_cost_for_player(i, x, y, T, state_size)
             c = []
             for t in 1:T
-                # @infiltrate
                 push!(c,norm_sqr(observation_model.expected_observation(x[t+1])[i*state_size-1:i*state_size] - y[Block(t)][i*state_size-1:i*state_size]))
             end
 
@@ -45,8 +44,6 @@ function warm_start_game(num_players;
             T = convert(Int64,size(x)[1]-1)
             state_size = partial_observation_state_size < 0 ? size(x[1][Block(1)])[1] : partial_observation_state_size
             num_players = blocksize(x[1], 1)
-
-            # @infiltrate
 
             [warm_start_cost_for_player(i, x, y, T, state_size) for i in 1:num_players]
         end
@@ -95,8 +92,6 @@ function WarmStartMCPGame(game, observed_trajectory, horizon)
     # convert to block structure
     x0 = BlockVector(x0, state_block_dimensions)
 
-    # @infiltrate
-
     function trajectory_from_flattened_decision_variables(flattened_z)
         states = let
             future_states = eachcol(
@@ -124,9 +119,7 @@ function WarmStartMCPGame(game, observed_trajectory, horizon)
 
     (xs, us) = trajectory_from_flattened_decision_variables(z)
     (x_idx, u_idx) = trajectory_from_flattened_decision_variables(1:problem_size)
-    # @infiltrate
     x_idx = x_idx[2:end]
-    # @infiltrate
     τ_idx_set = let
         map(1:num_player) do ii
             x_idx_single_player = [idx[Block(ii)] for idx in x_idx]
@@ -136,7 +129,6 @@ function WarmStartMCPGame(game, observed_trajectory, horizon)
     end
 
     cost_per_player = game.cost(xs, observed_trajectory) .|> scalarize
-    # @infiltrate
 
     lb = Float64[]
     ub = Float64[]
@@ -159,7 +151,6 @@ function WarmStartMCPGame(game, observed_trajectory, horizon)
                 sc = mapreduce(x -> state_box_constraints(x[Block(ii)]), vcat, xs[2:end])
                 cc = mapreduce(x -> control_box_constraints(x[Block(ii)]), vcat, us[1:end])
                 [ec; sc; cc]
-                # @infiltrate
             end
             append!(lb, fill(0.0, length(private_inequality_constraints)))
             append!(ub, fill(Inf, length(private_inequality_constraints)))
@@ -174,7 +165,6 @@ function WarmStartMCPGame(game, observed_trajectory, horizon)
     end
     for ii in 1:num_player
         dual_offset = (ii > 1) ? sum(num_private_constraints[1:(ii - 1)]) : 0
-        # @infiltrate
         local_lagrangian =
             cost_per_player[ii] -
             private_duals[(dual_offset + 1):(dual_offset + num_private_constraints[ii])]' *
@@ -294,8 +284,6 @@ function warm_start(y, initial_state, horizon; observation_model = (; σ = 0.0, 
         environment,
         observation_model = observation_model,
         partial_observation_state_size = partial_observation_state_size)
-
-    # @infiltrate
 
     turn_length = 2
     solver = MCPCoupledOptimizationSolverWarmStart(game.game, y, horizon)

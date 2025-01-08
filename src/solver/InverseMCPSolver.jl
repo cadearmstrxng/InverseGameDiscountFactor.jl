@@ -30,8 +30,6 @@ function solve_inverse_mcp_game(
         variables = ForwardDiff.value.(solution.variables), status = solution.status) : nothing
         τs_solution = reconstruct_solution(solution, mcp_game.game, horizon)
         observed_τs_solution = observe_trajectory(τs_solution)
-
-        # @infiltrate
         
         if solution.status == PATHSolver.MCP_Solved
             infeasible_counter = 0
@@ -48,10 +46,6 @@ function solve_inverse_mcp_game(
     time_exec = 0
     for i in 1:max_grad_steps
         i_ = i
-        # clip the estimation by the lower and upper bounds
-        # for ii in 1:num_player
-        #     context_state_estimation[Block(ii)] = clamp.(context_state_estimation[Block(ii)], [-0.2, 0], [0.2, 1])
-        # end
         
         # FORWARD diff
         grad_step_time = @elapsed gradient = Zygote.gradient(τs_observed, context_state_estimation, initial_state) do τs_observed, context_state_estimation, initial_state
@@ -80,82 +74,4 @@ function solve_inverse_mcp_game(
     end
     (; context_state_estimation, last_solution, i_, solving_info, time_exec)
 end
-#     (
-#     mcp_game :: MCPGame,
-#     game,
-#     τ_observed,
-#     x0;
-#     observation_index = nothing,
-#     dim_params = 3,
-#     initial_guess = nothing,
-#     prior_parmas = nothing,
-#     horizon,
-# )
-#     (; dynamics) = game
-#     if !isnothing(initial_guess)
-#         z = initial_guess.variables
-#     else # start with the observation
-#         z = zeros(length(inverse_problem.lb))
-#         control_block_dimensions =
-#             [control_dim(dynamics.subsystems[ii]) for ii in 1:num_players(game)]
-#         state_dimension = state_dim(dynamics)
-#         dummy_strategy =
-#             (x, t) -> BlockVector(zeros(sum(control_block_dimensions)), control_block_dimensions)
-#         xs = rollout(dynamics, dummy_strategy, x0, horizon + 1).xs[2:end]
-#         xs = reduce(vcat, xs)
-#         z[(dim_params + 1):(dim_params + state_dimension * horizon)] = xs
-#     end
 
-#     @infiltrate
-
-#     lb = inverse_problem.lb
-#     ub = inverse_problem.ub
-
-#     function F(n, z, f)
-#         if isnothing(prior_parmas)
-#             inverse_problem.fill_F!(f, z, x0, τ_observed)
-#         else
-#             inverse_problem.fill_F!(f, z, x0, τ_observed, prior_parmas)
-#         end
-
-#         Cint(0)
-#     end
-
-#     function J(n, nnz, z, col, len, row, data)
-#         if isnothing(prior_parmas)
-#             inverse_problem.fill_J(inverse_problem.fill_J.result_buffer, z, x0, τ_observed)
-#         else
-#             inverse_problem.fill_J(inverse_problem.fill_J.result_buffer, z, x0, τ_observed, prior_parmas)
-#         end
-#         ParametricMCPs._coo_from_sparse!(col, len, row, data, inverse_problem.fill_J.result_buffer)
-
-#         Cint(0)
-#     end
-
-#     # count the non-zeros in J matrix
-#     nnz = length(inverse_problem.fill_J.rows)
-
-#     @infiltrate
-
-#     status, variables, info = PATHSolver.solve_mcp(
-#         F,
-#         J,
-#         lb,
-#         ub,
-#         z;
-#         silent = true,
-#         nnz,
-#         cumulative_iteration_limit = 100_000,
-#         use_basics = true,
-#         use_start = true,
-#         jacobian_structure_constant = true,
-#         jacobian_data_contiguous = true,
-#         jacobian_linear_elements = inverse_problem.fill_J.constant_entries,
-#     )
-
-#     if status != PATHSolver.MCP_Solved
-#         @warn "MCP not cleanly solved. Final solver status is $(status)."
-#     end
-
-#     (; variables, status, info)
-# end

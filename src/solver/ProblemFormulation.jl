@@ -36,8 +36,6 @@ function MCPGame(game, horizon, context_state_block_dimensions = 0)
         !iszero(context_state_block_dimensions) ?
         BlockVector(context_state, context_state_block_dimensions) : nothing
 
-    # @infiltrate
-
     function trajectory_from_flattened_decision_variables(flattened_z)
         states = let
             future_states = eachcol(
@@ -66,7 +64,6 @@ function MCPGame(game, horizon, context_state_block_dimensions = 0)
     (xs, us) = trajectory_from_flattened_decision_variables(z)
     (x_idx, u_idx) = trajectory_from_flattened_decision_variables(1:problem_size)
     x_idx = x_idx[2:end]
-    # @infiltrate
     τ_idx_set = let
         map(1:num_player) do ii
             x_idx_single_player = [idx[Block(ii)] for idx in x_idx]
@@ -76,7 +73,6 @@ function MCPGame(game, horizon, context_state_block_dimensions = 0)
     end
 
     cost_per_player = game.cost(xs, us, context_state) .|> scalarize
-    # @infiltrate
 
     lb = Float64[]
     ub = Float64[]
@@ -99,7 +95,6 @@ function MCPGame(game, horizon, context_state_block_dimensions = 0)
                 sc = mapreduce(x -> state_box_constraints(x[Block(ii)]), vcat, xs[2:end])
                 cc = mapreduce(x -> control_box_constraints(x[Block(ii)]), vcat, us[1:end])
                 [ec; sc; cc]
-                # @infiltrate
             end
             append!(lb, fill(0.0, length(private_inequality_constraints)))
             append!(ub, fill(Inf, length(private_inequality_constraints)))

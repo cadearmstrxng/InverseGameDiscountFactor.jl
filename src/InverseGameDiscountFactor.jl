@@ -48,15 +48,15 @@ using ParametricMCPs
 using Infiltrator
 
 include("utils/ExampleProblems.jl")
-using .ExampleProblems: n_player_collision_avoidance, two_player_guidance_game, CollisionAvoidanceGame, HighwayGame
+using .ExampleProblems: n_player_collision_avoidance, CollisionAvoidanceGame, HighwayGame
 
 
-include("utils/utils.jl")
-include("solver/problem_formulation.jl")
-include("solver/solve.jl")
-include("baseline/inverse_MCP_solver.jl")
+include("utils/Utils.jl")
+include("solver/ProblemFormulation.jl")
+include("solver/Solve.jl")
+include("solver/InverseMCPSolver.jl")
 include("solver/WarmStart.jl")
-include("graphing/graphingUtilities.jl")
+include("graphing/GraphingUtilities.jl")
 
 
 function main(;
@@ -66,7 +66,6 @@ function main(;
     ]),
     hidden_params = mortar([[1.45, 0.3, 0.95], [0.55, 0.25, 0.9]]),
     plot_please = true,
-    simulate_please = true
 )
 
     """
@@ -185,55 +184,10 @@ function main(;
             CairoMakie.scatter!(ax1, baseline_solution[Block(ii)][1], baseline_solution[Block(ii)][2], color = :orange)
             CairoMakie.scatter!(ax1, baseline_solution[Block(ii)][5], baseline_solution[Block(ii)][6], color = :brown)
         end
-        CairoMakie.legend(fig[2,1], [ax1], ["Forward Solution", "Inverse Solution", "Warm Start Solution", "Baseline Solution"])
+        Legend(fig[2,1], [ax1], ["Forward Solution", "Inverse Solution", "Warm Start Solution", "Baseline Solution"])
         CairoMakie.save("SolutionPlot.png", fig1)
     end
 
-
-    if simulate_please
-
-        sim_steps1 = let
-            n_sim_steps = 150
-            progress = ProgressMeter.Progress(n_sim_steps)
-            receding_horizon_strategy =
-                WarmStartRecedingHorizonStrategy(; solver, game.game, turn_length, context_state = hidden_params)
-            rollout(
-                game.game.dynamics,
-                receding_horizon_strategy,
-                initial_state,
-                n_sim_steps;
-                get_info = (γ, x, t) ->
-                    (ProgressMeter.next!(progress); γ.receding_horizon_strategy),
-            )
-        end
-        if context_state_estimation[3] > 1
-            context_state_estimation[3] = 1
-        end
-        if context_state_estimation[6] > 1
-            context_state_estimation[6] = 1
-        end
-        
-        context_state_estimation = mortar([context_state_estimation[1:3], context_state_estimation[4:6]])
-
-        sim_steps2 = let
-            n_sim_steps = 150
-            progress = ProgressMeter.Progress(n_sim_steps)
-            receding_horizon_strategy =
-                WarmStartRecedingHorizonStrategy(; solver, game.game, turn_length, context_state = context_state_estimation)
-            rollout(
-                game.game.dynamics,
-                receding_horizon_strategy,
-                initial_state,
-                n_sim_steps;
-                get_info = (γ, x, t) ->
-                    (ProgressMeter.next!(progress); γ.receding_horizon_strategy),
-            )
-        end
-        
-        animate_sim_steps(game.game, sim_steps1; live = false, framerate = 20, show_turn = true, heading = "Forward Solution", filename = "ForwardSolution")
-        animate_sim_steps(game.game, sim_steps2; live = false, framerate = 20, show_turn = true, heading = "Inverse Solution", filename = "InverseSolution")
-        
-    end
     (; sol_error, context_state_estimation)
 end
 
