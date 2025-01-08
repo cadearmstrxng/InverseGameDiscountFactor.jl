@@ -102,35 +102,14 @@ function main(;
     forward_solution = solve_mcp_game(mcp_game, initial_state, hidden_params; verbose = false)
     for_sol = reconstruct_solution(forward_solution, game.game, horizon)
 
-    # fig = Figure()
-
-    # ax = Axis(fig[1,1])
-
-    # for ii in 1:horizon
-    #     CairoMakie.scatter!(ax, for_sol[Block(ii)][1], for_sol[Block(ii)][2], color = :red)
-    #     CairoMakie.scatter!(ax, for_sol[Block(ii)][5], for_sol[Block(ii)][6], color = :blue)
-    # end
-
-    # println("last positions:", for_sol[Block(horizon)][1:2],for_sol[Block(horizon)][5:6])
-
-    # return fig
-
-
-    # break
-
     observation_model_noisy = (; σ = 0.1, expected_observation = x -> vcat([x[4*i-3:4*i-2] .+ observation_model_noisy.σ * randn(length(x[i:i+1])) for i in 1:num_players(game.game)]...))
-    # observation_model_inverse = (; σ = 0.0, expected_observation = x -> x)
+    
     observation_model_warm_start = (; σ = 0.0, expected_observation = x -> vcat([x[4*i-3:4*i-2] for i in 1:num_players(game.game)]...))
-
-    # for_sol = vcat([observation_model_noisy.expected_observation(state_t) for state_t in for_sol.blocks]...)
-    # for_sol = BlockVector(for_sol, [4 for _ in 1:horizon])
 
     _, context_state_guess = sample_initial_states_and_context(game, horizon, Random.MersenneTwister(1), 0.08)
     context_state_guess[1:2] = for_sol[Block(horizon)][1:2]
-    # # context_state_guess[3] = 0.6
     context_state_guess[4:5] = for_sol[Block(horizon)][5:6]
-    # # context_state_guess[6] = 0.6
-    # context_state_guess = hidden_params
+
     baseline_context_state_guess = vcat(context_state_guess[1:2], context_state_guess[4:5])
 
     println("Context State Guess: ", context_state_guess)
@@ -147,8 +126,6 @@ function main(;
                 for_sol,
                 initial_state,
                 horizon;
-                # observation_model = observation_model_warm_start,
-                # partial_observation_state_size = 2
                 ),
             mcp_game)
 
@@ -158,8 +135,7 @@ function main(;
             initial_state,
             for_sol,
             context_state_guess,
-            horizon;
-            # observation_model = observation_model_inverse,         
+            horizon;         
             max_grad_steps = 500,
             last_solution = warm_start_sol
         )
@@ -170,13 +146,11 @@ function main(;
             initial_state,
             for_sol,
             baseline_context_state_guess,
-            horizon;
-            # observation_model = observation_model_inverse,         
+            horizon;         
             max_grad_steps = 500,
             last_solution = warm_start_sol
         )
 
-    # println("Context State Estimation: ", context_state_estimation)
     inv_sol = solve_mcp_game(mcp_game, initial_state, context_state_estimation; verbose = false)
     sol_error = norm_sqr(reconstruct_solution(forward_solution, game.game, horizon) 
         - reconstruct_solution(inv_sol, game.game, horizon))
@@ -197,7 +171,7 @@ function main(;
         inv_solution = reconstruct_solution(inv_sol, game.game, horizon)
         warm_solution = reconstruct_solution(warm_start_sol, game.game, horizon)
         baseline_solution = reconstruct_solution(baseline_sol, game.game, horizon)
-        # @infiltrate
+
 
         fig1 = CairoMakie.Figure()
         ax1 = CairoMakie.Axis(fig1[1, 1])
@@ -208,18 +182,11 @@ function main(;
             CairoMakie.scatter!(ax1, for_solution[Block(ii)][5], for_solution[Block(ii)][6], color = :blue)
             CairoMakie.scatter!(ax1, inv_solution[Block(ii)][1], inv_solution[Block(ii)][2], color = :purple)
             CairoMakie.scatter!(ax1, inv_solution[Block(ii)][5], inv_solution[Block(ii)][6], color = :magenta)
-            # CairoMakie.scatter!(ax1, warm_solution[Block(ii)][1], warm_solution[Block(ii)][2], color = :green)
-            # CairoMakie.scatter!(ax1, warm_solution[Block(ii)][5], warm_solution[Block(ii)][6], color = :yellow)
             CairoMakie.scatter!(ax1, baseline_solution[Block(ii)][1], baseline_solution[Block(ii)][2], color = :orange)
             CairoMakie.scatter!(ax1, baseline_solution[Block(ii)][5], baseline_solution[Block(ii)][6], color = :brown)
-
-            # CairoMakie.legend(fig[2,1], [ax1], ["Forward Solution", "Inverse Solution", "Warm Start Solution", "Baseline Solution"])
-            # # GLMakie.scatter!(ax, x[9],x[10], color = :purple)
-            # GLMakie.scatter!(ax, x[13],x[14], color = :magenta)
         end
-
+        CairoMakie.legend(fig[2,1], [ax1], ["Forward Solution", "Inverse Solution", "Warm Start Solution", "Baseline Solution"])
         CairoMakie.save("SolutionPlot.png", fig1)
-        #TODO: do legend
     end
 
 
@@ -284,7 +251,6 @@ function GenerateNoiseGraph(
     game = n_player_collision_avoidance(2; environment, min_distance = 0.5, collision_avoidance_coefficient = 5.0)
     baseline_game = n_player_collision_avoidance(2; environment, min_distance = 0.5, collision_avoidance_coefficient = 5.0, myopic = false)
 
-    # horizon = convert(Int64, ceil(log(1e-4)/(log(max(hidden_params[Block(1)][3], hidden_params[Block(2)][3])))))
     horizon = 25
     num_trials = 1
 
@@ -296,28 +262,22 @@ function GenerateNoiseGraph(
     forward_solution = solve_mcp_game(mcp_game, initial_state, hidden_params; verbose = false)
     for_sol1 = reconstruct_solution(forward_solution, game.game, horizon)
 
-    # observation_model_generator = (σ) -> x -> vcat([x[4*i-3:4*i-2] .+ σ * randn(length(x[i:i+1])) for i in 1:num_players(game.game)]...)
     observation_model_generator = (σ) -> x -> x .+ σ * randn(length(x))
-    # observation_model_warm_start = (; σ = 0.0, expected_observation = x -> vcat([x[4*i-3:4*i-2] for i in 1:num_players(game.game)]...))
     observation_model_warm_start = (; σ = 0.0, expected_observation = x -> x)
-    # observation_model_inverse = (; σ = 0.0, expected_observation = x -> vcat([x[4*i-3:4*i-2] for i in 1:num_players(game.game)]...))
     observation_model_inverse = (; σ = 0.0, expected_observation = x -> x)
     function get_observed_trajectory(σ)
         observation_model_noisy = observation_model_generator(σ)
         temp = vcat([observation_model_noisy(state_t) for state_t in for_sol1.blocks]...)
-        # BlockVector(temp, [4 for _ in 1:horizon])
         BlockVector(temp, [8 for _ in 1:horizon])
     end
 
     for_sol = get_observed_trajectory(0.0)
 
-    # σs = [0.002*i for i in 0:50]
     σs = [0.01]
 
     _, context_state_guess = sample_initial_states_and_context(game, horizon, Random.MersenneTwister(1), 0.08)
     context_state_guess[1:2] = for_sol[Block(horizon)][1:2]
     context_state_guess[4:5] = for_sol[Block(horizon)][5:6] # MAKE SURE TO CHANGE 5:6 TO 3:4 FOR PARTIAL STATE
-    # @infiltrate
     baseline_context_state_guess = vcat(for_sol[Block(horizon)][1:2], for_sol[Block(horizon)][5:6])
     println("Context State Guess: ", context_state_guess)
 
@@ -412,9 +372,6 @@ function GenerateNoiseGraph(
                     parameter_error[idx, i] = norm_sqr(estimated_goals - goals)
                     baseline_parameter_error[idx, i] = norm_sqr(baseline_context_state_estimation - goals)
 
-                    # parameter_cosine_error[idx, i] = sum(context_state_estimation .* goals) / (norm(context_state_estimation) * norm(hidden_params))
-                    # baseline_parameter_cosine_error[idx, i] = sum(baseline_sol_to_params .* goals) / (norm(baseline_sol_to_params) * norm(hidden_params))
-
                     push!(observed_trajectories, observed_trajectory)
                     push!(recovered_traj, inv_reconstructed_sol)
                     push!(baseline_recovered_traj, baseline_reconstructed_sol)
@@ -428,8 +385,6 @@ function GenerateNoiseGraph(
                         for ii in 1:horizon
                             CairoMakie.scatter!(ax1, for_sol1[Block(ii)][1], for_sol1[Block(ii)][2], color = :red)
                             CairoMakie.scatter!(ax1, for_sol1[Block(ii)][5], for_sol1[Block(ii)][6], color = :blue)
-                            # CairoMakie.scatter!(ax1, observed_trajectory[Block(ii)][1], observed_trajectory[Block(ii)][2], color = (:red, 0.5))
-                            # CairoMakie.scatter!(ax1, observed_trajectory[Block(ii)][5], observed_trajectory[Block(ii)][6], color = (:blue, 0.5))
                             CairoMakie.scatter!(ax1, inv_reconstructed_sol[Block(ii)][1], inv_reconstructed_sol[Block(ii)][2], color = :purple)
                             CairoMakie.scatter!(ax1, inv_reconstructed_sol[Block(ii)][5], inv_reconstructed_sol[Block(ii)][6], color = :magenta)
                             CairoMakie.scatter!(ax1, baseline_reconstructed_sol[Block(ii)][1], baseline_reconstructed_sol[Block(ii)][2], color = :orange)
@@ -448,7 +403,6 @@ function GenerateNoiseGraph(
                 failure_counter += 1
             end
         end
-        # push!(errors, [])
     end
 
     println("Failure Counter: ", failure_counter, " / ", num_trials * length(σs))
@@ -474,12 +428,6 @@ function GenerateNoiseGraph(
 
         write(file, "\nbaseline parameter errors:\n")
         write(file, string(baseline_parameter_error))
-
-        # write(file, "\nparameter cosine errors:\n")
-        # write(file, string(parameter_cosine_error))
-
-        # write(file, "\nbaseline parameter cosine errors:\n")
-        # write(file, string(baseline_parameter_cosine_error))
 
         write(file, "\nobserved trajectories:\n")
         write(file, string(observed_trajectories))
@@ -507,10 +455,6 @@ end
 #observation_model should  be full_state observation, indexed by time not by player
 function draw_observations(full_state_trajectory, observation_model; num_players = 2)
     observation_length = length(observation_model(full_state_trajectory[Block(1)]))
-    # observations = []
-    # for full_state_time_slice in full_state_trajectory.blocks
-    #     push!(observations, observation_model(full_state_time_slice))
-    # end
     BlockVector(
         vcat(
             [observation_model(state) for state in full_state_trajectory.blocks]...),
@@ -633,20 +577,10 @@ function problemLandscape(
             solution = solve_mcp_game(mcp_game, initial_state, 
                 context_state_estimation; initial_guess = nothing)
         end
-        # push!(solving_info, solution.info)
-        # last_solution = solution.status == PATHSolver.MCP_Solved ? (; primals = ForwardDiff.value.(solution.primals),
-        # variables = ForwardDiff.value.(solution.variables), status = solution.status) : nothing
+
         τs_solution = reconstruct_solution(solution, mcp_game.game, horizon)
         observed_τs_solution = τs_solution
     
-        # @infiltrate
-        
-        # if solution.status == PATHSolver.MCP_Solved
-        #     infeasible_counter = 0
-        # else
-        #     infeasible_counter += 1
-        # end
-        # @infiltrate
         norm_sqr(τs_observed - observed_τs_solution)
     end
 
@@ -654,26 +588,17 @@ function problemLandscape(
         context_state_guess[3] = gammas1[i]
         for j in eachindex(gammas2)
             context_state_guess[6] = gammas2[j]
-            # @infiltrate
+
             costs[i, j] = likelihood_cost(for_sol, context_state_guess, initial_state)
         end        
     end
 
     fig1 = CairoMakie.Figure()
     ax1 = CairoMakie.Axis(fig1[1, 1],
-    # xticks = (1:length(gammas), gammas),
     xlabel = "Gamma P1",
-    # yticks = (1:length(gammas), gammas),
     ylabel = "Gamma P2")
 
     CairoMakie.heatmap!(ax1,gammas1,gammas2, costs, colormap = :viridis)
-    # CairoMakie.Colorbar(fig1[1, 2], ax1, label = "Cost")
-    # Colorbar(fig1[1, 2], limits = (min(costs...), max(costs...)), colormap = :viridis)
-    # CairoMakie.xlabel!(ax1, "Gamma P1")
-    # CairoMakie.ylabel!(ax1, "Gamma P2")
-    # CairoMakie.Legend(fig1[2, 1], [ax1], ["Cost"])
-
-    # println(costs)
 
     CairoMakie.save("ProblemLandscape.png", fig1)
 
