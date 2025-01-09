@@ -9,11 +9,10 @@ using TrajectoryGamesBase:
 include("../../src/utils/utils.jl")
 
 function graph_metrics(
-    errors,
-    baseline_errors, parameter_error,
+    baseline_errors,
+    errors, 
     baseline_parameter_error,
-    parameter_cosine_error,
-    baseline_parameter_cosine_error,
+    parameter_error,
     σs;
     observation_mode="full state"
 ) #TODO needs cleanup
@@ -37,7 +36,7 @@ function graph_metrics(
     CairoMakie.errorbars!(ax1, σs, baseline_mean_errors, baseline_stds, color = (:red, 0.75))
 
     CairoMakie.axislegend(ax1, [our_method, baseline], ["Our Method", "Baseline"], position = :lt)
-    CairoMakie.save(prefix*"NoiseGraph.png", fig1)
+    CairoMakie.save(prefix*"TrajectoryErrorGraph.png", fig1)
 
 
     fig2 = CairoMakie.Figure()
@@ -58,24 +57,6 @@ function graph_metrics(
     CairoMakie.axislegend(ax2, [our_method, baseline], ["Our Method", "Baseline"], position = :lt)
     CairoMakie.save(prefix*"ParameterErrorGraph.png", fig2)
 
-
-    fig3 = CairoMakie.Figure()
-    ax3 = CairoMakie.Axis(fig3[1, 1])
-
-    mean_parameter_cosine_errors = [Statistics.mean(parameter_cosine_error[i, :]) for i in 1:size(parameter_cosine_error, 1)]
-    parameter_cosine_stds = [Statistics.std(parameter_cosine_error[i, :]) for i in 1:size(parameter_cosine_error, 1)]
-
-    baseline_mean_parameter_cosine_errors = [Statistics.mean(baseline_parameter_cosine_error[i, :]) for i in 1:size(baseline_parameter_cosine_error, 1)]
-    baseline_parameter_cosine_stds = [Statistics.std(baseline_parameter_cosine_error[i, :]) for i in 1:size(baseline_parameter_cosine_error, 1)]
-
-    our_method = CairoMakie.scatter!(ax3, σs, mean_parameter_cosine_errors, color = (:blue, 0.75))
-    CairoMakie.errorbars!(ax3, σs, mean_parameter_cosine_errors, parameter_cosine_stds, color = (:blue, 0.75))
-
-    baseline = CairoMakie.scatter!(ax3, σs, baseline_mean_parameter_cosine_errors, color = (:red, 0.75))
-    CairoMakie.errorbars!(ax3, σs, baseline_mean_parameter_cosine_errors, baseline_parameter_cosine_stds, color = (:red, 0.75))
-
-    CairoMakie.axislegend(ax3, [our_method, baseline], ["Our Method", "Baseline"], position = :lt)
-    CairoMakie.save(prefix*"ParameterCosineErrorGraph.png", fig3)
 end
 
 function graph_trajectories(
