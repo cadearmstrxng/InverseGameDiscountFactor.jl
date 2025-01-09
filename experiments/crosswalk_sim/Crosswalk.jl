@@ -8,10 +8,13 @@ include("../GameUtils.jl")
 include("../../src/solver/ProblemFormulation.jl")
 include("../../src/solver/solve.jl")
 
-export run_myopic_crosswalk_sim, init_myopic_crosswalk_game
+export run_myopic_crosswalk_sim
 
 function run_myopic_crosswalk_sim(full_state = true, noisy = false, graph = true)
-    init = init_crosswalk_game()
+    init = init_crosswalk_game(
+        full_state;
+        myopic = true
+    )
     
     mcp_game = MCPCoupledOptimizationSolver(
         init.game_structure.game,
@@ -32,62 +35,16 @@ function run_myopic_crosswalk_sim(full_state = true, noisy = false, graph = true
         observed_forward_solution = init.observation_model(forward_solution, σ = 0.0)
     end
 
-    # method_sol = #TODO fill in once set
+    method_sol = nothing #TODO fill in once set, probably need to include some file 
 
     if graph
-    # TODO graph both forward sol w ground truth and method sol
-    end
-end
-
-function init_myopic_crosswalk_game(
-    state_dim = (4, 4),
-    action_dim = (2, 2),
-    σ = 0.0,
-    game_environment = PolygonEnvironment(6, 8)
-)
-    if full_state # TODO
-        observation_model = (;
-            σ = σ,
-            observation_model = 
-                (x, σ = σ) -> 
-                vcat(
-                    [ x[state_dim[1] * (i - 1):state_dim[1]*i] .+ σ * randn(state_dim[1] * (i - 1):state_dim[1]*i)
-                        for i in 1:num_players(init.game_structure) ]...
-                ),
-        )
-    else
-        observation_model = (;
-            σ = σ,
-            observation_model = 
-                (x, σ = σ) -> 
-                vcat(
-                    [ x[state_dim[1]*(i-1)-(state_dim[1]-1):state_dim[1]*i-(state_dim[1]-2)] .+ σ * randn(state_dim[1] * (i - 1):state_dim[1]*i)
-                        for i in 1:num_players(init.game_structure) ]...
-                )
+        graph_trajectories(
+            "Our Method",
+            [forward_solution, method_sol],
+            init.game_structure,
+            init.horizon
         )
     end
-
-    (;
-    initial_state = mortar([
-            [0, 2, 0.1, -0.2], # initial x, y, initial velocity in x, y direction (player 1)
-            [2.5, 2, 0.0, 0.0],# player 2
-        ]),
-    game_parameters = mortar([
-            [2, 0, 0.6], # starting position x, y, discount factor (player 1)
-            [0, 0, 0.6]  # player 2
-        ]),
-    environment = game_environment,
-    horizon = 25,
-    state_dim = state_dim,
-    action_dim = action_dim,
-    σ = σ,
-    game_structure = n_player_collision_avoidance(
-        2;
-        game_environment,
-        min_distance = 0.5,
-        collision_avoidance_coefficient = 5.0
-    ), # TODO fill in args, will probably change when this is changed
-    )
 end
 
 end
