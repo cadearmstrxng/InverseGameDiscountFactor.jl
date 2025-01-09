@@ -1,3 +1,5 @@
+module crosswalk_sim
+
 using TrajectoryGamesExamples:
     PolygonEnvironment
 using BlockArrays
@@ -5,6 +7,8 @@ using BlockArrays
 include("../GameUtils.jl")
 include("../../src/solver/ProblemFormulation.jl")
 include("../../src/solver/solve.jl")
+
+export run_myopic_crosswalk_sim, init_myopic_crosswalk_game
 
 function run_myopic_crosswalk_sim(full_state = true, noisy = false, graph = true)
     init = init_crosswalk_game()
@@ -84,4 +88,6 @@ function init_myopic_crosswalk_game(
         collision_avoidance_coefficient = 5.0
     ), # TODO fill in args, will probably change when this is changed
     )
+end
+
 end
