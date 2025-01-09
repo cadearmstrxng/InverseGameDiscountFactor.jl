@@ -1,3 +1,4 @@
+module baseline_crosswalk_sim
 #TODO mirror in Crosswalk.jl
 using TrajectoryGamesExamples:
     PolygonEnvironment
@@ -7,6 +8,8 @@ include("../GameUtils.jl")
 #TODO would be nice to just include one thing
 include("../../src/solver/ProblemFormulation.jl")
 include("../../src/solver/solve.jl")
+
+export run_baseline_crosswalk_sim, init_baseline_crosswalk_game
 
 function run_baseline_crosswalk_sim(full_state = true, graph = true)
     init = init_crosswalk_game(full_state)
@@ -84,4 +87,6 @@ function init_baseline_crosswalk_game(
         myopic = false # TODO don't love
     ), # TODO fill in args
     )
+end
+
 end
