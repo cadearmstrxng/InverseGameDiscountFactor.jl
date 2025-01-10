@@ -136,4 +136,69 @@ function init_crosswalk_game(
     )
 end
 
+function init_bicycle_test_game(
+    full_state;
+    state_dim = (5, 5),
+    action_dim = (2, 2),
+    σ = 0.0,
+    game_environment = PolygonEnvironment(6, 8), #TODO need to change later
+    initial_state = mortar([
+        [0, 2, 0.1, -0.2], # initial x, y, initial velocity in x, y direction (player 1)
+        [2.5, 2, 0.0, 0.0],# player 2
+    ]),
+    game_params = mortar([
+        [2, 0, 0.6], #TODO set with InD values
+        [0, 0, 0.6]  
+    ]),
+    horizon = 25, #TODO set with InD values
+    num_players = 2, #TODO
+    myopic = false
+)
+    if full_state
+        observation_model = (;
+            σ = σ,
+            observation_model = 
+                (x, σ = σ) -> 
+                vcat(
+                    [ x[state_dim[1] * (i - 1):state_dim[1]*i] .+ σ * randn(state_dim[1] * (i - 1):state_dim[1]*i)
+                        for i in 1:num_players(init.game_structure) ]...
+                ),
+        )
+    else
+        observation_model = (;
+            σ = σ,
+            observation_model = 
+                (x, σ = σ) -> 
+                vcat(
+                    [ x[state_dim[1]*(i-1)-(state_dim[1]-1):state_dim[1]*i-(state_dim[1]-2)] .+ σ * randn(state_dim[1] * (i - 1):state_dim[1]*i)
+                        for i in 1:num_players(init.game_structure) ]...
+                )
+        )
+    end
+
+    (;
+    initial_state = initial_state,
+    game_parameters = game_params,
+    environment = game_environment,
+    horizon = horizon,
+    state_dim = state_dim,
+    action_dim = action_dim,
+    σ = σ,
+    game_structure = n_player_collision_avoidance(
+        num_players;
+        game_environment,
+        min_distance = 0.5,
+        collision_avoidance_coefficient = 5.0,
+        dynamics = BicycleDynamics(;
+            dt = 0.1,
+            l = 1.0,
+            state_bounds = (; lb = [-Inf, -Inf, -0.8, -0.8, -pi], ub = [Inf, Inf, 0.8, 0.8, pi]),
+            control_bounds = (; lb = [-10, -10], ub = [10, 10]),
+            integration_scheme = :forward_euler
+        ),
+        myopic = myopic # TODO don't love
+    ),
+    )
+end
+
 end
