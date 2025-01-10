@@ -1,5 +1,7 @@
 module MonteCarloSim
 
+using Random
+
 include("baseline_old/Baseline.jl")
 include("crosswalk_sim/Crosswalk.jl")
 
@@ -15,6 +17,9 @@ function run_monte_carlo_sims(;
     verbose = false,
     store_all = false
 )
+    # Set randomoness
+    Random.seed!(rng)
+
     # Full state observability
     fsb_game = init_baseline_crosswalk_game(true)
     fsm_game = init_myopic_crosswalk_game(true)
