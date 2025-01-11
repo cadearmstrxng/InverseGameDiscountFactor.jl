@@ -4,19 +4,15 @@ using Statistics
 using Infiltrator
 
 using PATHSolver: PATHSolver
-using LinearAlgebra: I, norm_sqr, pinv, ColumnNorm, qr, norm
+using LinearAlgebra: I, norm_sqr, norm
 using ParametricMCPs
 
 using DifferentiableTrajectoryOptimization:
-    ParametricTrajectoryOptimizationProblem, get_constraints_from_box_bounds, _coo_from_sparse!
+    get_constraints_from_box_bounds
 using TrajectoryGamesExamples:
     TrajectoryGamesExamples,
     PolygonEnvironment,
-    two_player_meta_tag,
-    animate_sim_steps,
-    planar_double_integrator,
-    UnicycleDynamics,
-    create_environment_axis
+    planar_double_integrator
 using TrajectoryGamesBase:
     TrajectoryGamesBase,
     TrajectoryGame,
@@ -29,7 +25,6 @@ using TrajectoryGamesBase:
     control_bounds,
     solve_trajectory_game!,
     JointStrategy,
-    RecedingHorizonStrategy,
     rollout,
     ProductDynamics
 
@@ -53,7 +48,7 @@ function GenerateFrontPageFigure(
     else
         horizon = convert(Int64, ceil(log(1e-4)/(log(max(hidden_params[Block(1)][3], hidden_params[Block(2)][3])))))
     end
-    horizon = 50
+    horizon = 5
 
     turn_length = 2
     solver = MCPCoupledOptimizationSolver(game.game, horizon, blocksizes(hidden_params, 1))
