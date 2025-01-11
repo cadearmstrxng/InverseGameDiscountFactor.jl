@@ -1,13 +1,18 @@
 module GameUtils
 
-using BlockArrays: Block, blocksize
+using BlockArrays: Block, blocksize, mortar
 using TrajectoryGamesBase:
-    GeneralSumCostStructure, ProductDynamics, TrajectoryGame, TrajectoryGameCost
-using TrajectoryGamesExamples: planar_double_integrator
+    GeneralSumCostStructure,
+    ProductDynamics,
+    TrajectoryGame,
+    TrajectoryGameCost,
+    PolygonEnvironment,
+    num_players
+using TrajectoryGamesExamples:planar_double_integrator, BicycleDynamics
 using LinearAlgebra: norm_sqr, norm
 using Statistics: mean
 
-export n_player_collision_avoidance, CollisionAvoidanceGame
+export init_crosswalk_game, init_bicycle_test_game
 
 struct CollisionAvoidanceGame
     game::TrajectoryGame
@@ -96,43 +101,39 @@ function init_crosswalk_game(
     num_players = 2,
     myopic = false
 )
+    game_structure = n_player_collision_avoidance(
+        num_players;
+        environment = game_environment,
+        min_distance = 0.5,
+        collision_avoidance_coefficient = 5.0,
+        myopic = myopic # TODO don't love
+    )
     if full_state
-        observation_model = (;
-            σ = σ,
-            observation_model = 
-                (x, σ = σ) -> 
-                vcat(
-                    [ x[state_dim[1] * (i - 1):state_dim[1]*i] .+ σ * randn(state_dim[1] * (i - 1):state_dim[1]*i)
-                        for i in 1:num_players(init.game_structure) ]...
-                ),
-        )
+        observation_model = 
+            (x; σ = σ) -> 
+            vcat(
+                [ x[state_dim[1] * (i - 1):state_dim[1]*i] .+ σ * randn(state_dim[1] * (i - 1):state_dim[1]*i)
+                    for i in 1:num_players]...
+            )
     else
-        observation_model = (;
-            σ = σ,
-            observation_model = 
-                (x, σ = σ) -> 
-                vcat(
-                    [ x[state_dim[1]*(i-1)-(state_dim[1]-1):state_dim[1]*i-(state_dim[1]-2)] .+ σ * randn(state_dim[1] * (i - 1):state_dim[1]*i)
-                        for i in 1:num_players(init.game_structure) ]...
-                )
-        )
+        observation_model = 
+            (x; σ = σ) -> 
+            vcat(
+                [ x[state_dim[1]*(i-1)-(state_dim[1]-1):state_dim[1]*i-(state_dim[1]-2)] .+ σ * randn(state_dim[1] * (i - 1):state_dim[1]*i)
+                    for i in 1:num_players ]...
+            )
     end
 
     (;
     initial_state = initial_state,
     game_parameters = game_params,
     environment = game_environment,
+    observation_model = observation_model,
     horizon = horizon,
     state_dim = state_dim,
     action_dim = action_dim,
     σ = σ,
-    game_structure = n_player_collision_avoidance(
-        num_players;
-        game_environment,
-        min_distance = 0.5,
-        collision_avoidance_coefficient = 5.0,
-        myopic = myopic # TODO don't love
-    ),
+    game_structure = game_structure,
     )
 end
 
