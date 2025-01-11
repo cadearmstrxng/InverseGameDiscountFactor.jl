@@ -71,8 +71,7 @@ function graph_trajectories(
     #TODO horizon can probably be calculated from trajectory
     #TODO same with num_players/player state_dim (in reconstruct_solution)
     # Assumes first two elements in each state vector is x, y position
-    flattened_trajectories = [reconstruct_solution(trajectory, game_structure.game, horizon) for trajectory in trajectories]
-
+    
     p_state_dim = state_dim(game_structure.game) // num_players(game_structure.game)
 
     fig = CairoMakie.Figure()
