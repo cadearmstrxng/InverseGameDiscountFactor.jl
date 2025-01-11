@@ -1,36 +1,4 @@
-using CairoMakie
-using Statistics
-
-using Infiltrator
-
-using PATHSolver: PATHSolver
-using LinearAlgebra: I, norm_sqr, norm
-using ParametricMCPs
-
-using DifferentiableTrajectoryOptimization:
-    get_constraints_from_box_bounds
-using TrajectoryGamesExamples:
-    TrajectoryGamesExamples,
-    PolygonEnvironment,
-    planar_double_integrator
-using TrajectoryGamesBase:
-    TrajectoryGamesBase,
-    TrajectoryGame,
-    get_constraints,
-    num_players,
-    state_dim,
-    control_dim,
-    horizon,
-    state_bounds,
-    control_bounds,
-    solve_trajectory_game!,
-    JointStrategy,
-    rollout,
-    ProductDynamics
-
-export GenerateFrontPageFigure
-
-function GenerateFrontPageFigure(
+function generate_front_page_figure(
     initial_state = mortar([
         [0.5, 1.65, 0.1, -0.2],
         [1.4, 1.6, 0.0, 0.0],
@@ -159,7 +127,7 @@ end
 
 
 
-function GeneratePartialStateGraphs(;
+function generate_partial_state_graphs(;
     noise_level_increment = 0.002,
     num_trials = 50,
     overlap_shift = 0.0005,

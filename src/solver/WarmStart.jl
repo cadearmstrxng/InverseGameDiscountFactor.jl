@@ -8,9 +8,6 @@ using Infiltrator
 using Symbolics
 using BlockArrays: Block, BlockVector, mortar, blocksize
 
-export warm_start
-
-
 struct NullEnv end
 
 function TrajectoryGamesBase.get_constraints(env::NullEnv, ii)

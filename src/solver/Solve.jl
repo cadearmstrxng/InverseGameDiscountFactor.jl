@@ -1,4 +1,3 @@
-using Infiltrator
 """
 This file contains solving part of the MCP game solver code.
 A more optimized implementation of this solver is available at: 

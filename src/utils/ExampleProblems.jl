@@ -6,7 +6,6 @@ using TrajectoryGamesBase:
 using TrajectoryGamesExamples: planar_double_integrator
 using LinearAlgebra: norm_sqr, norm
 using Statistics: mean
-using Infiltrator
 
 export n_player_collision_avoidance, CollisionAvoidanceGame
 

@@ -1,5 +1,4 @@
 #=== Mixed-Complementarity Problem Formulation (MCP) ===#
-using Infiltrator
 """
 This file contains problem formulation part of the MCP game solver code: casting open-loop
 Nash games as mixed complementarity problems (MCPs)
