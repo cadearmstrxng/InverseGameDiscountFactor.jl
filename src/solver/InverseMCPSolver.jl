@@ -1,5 +1,3 @@
-using Infiltrator
-
 function solve_inverse_mcp_game(
     mcp_game,
     initial_state,
