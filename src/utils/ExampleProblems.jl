@@ -8,18 +8,10 @@ using LinearAlgebra: norm_sqr, norm
 using Statistics: mean
 using Infiltrator
 
-export n_player_collision_avoidance, CollisionAvoidanceGame, HighwayGame
+export n_player_collision_avoidance, CollisionAvoidanceGame
 
 struct CollisionAvoidanceGame
     game::TrajectoryGame
-end
-
-struct HighwayGame
-    game::TrajectoryGame
-end
-
-function my_norm_sqr(x)
-    x'*x
 end
 
 function shared_collision_avoidance_coupling_constraints(num_players, min_distance)
@@ -27,7 +19,7 @@ function shared_collision_avoidance_coupling_constraints(num_players, min_distan
         mapreduce(vcat, 1:(num_players - 1)) do player_i
             mapreduce(vcat, (player_i + 1):num_players) do paired_player
                 map(xs) do x
-                    my_norm_sqr(x[Block(player_i)][1:2] - x[Block(paired_player)][1:2]) -
+                    norm_sqr(x[Block(player_i)][1:2] - x[Block(paired_player)][1:2]) -
                     min_distance^2
                 end
             end
