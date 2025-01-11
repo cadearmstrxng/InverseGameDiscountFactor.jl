@@ -1,4 +1,4 @@
-using InD
+module crosswalk_sim
 
 using TrajectoryGamesExamples:
     PolygonEnvironment
@@ -8,9 +8,12 @@ include("../GameUtils.jl")
 include("../../src/solver/ProblemFormulation.jl")
 include("../../src/solver/solve.jl")
 
-function run_bicycle_sim(full_state=true, noisy=false, graph=true)
-    init = init_bicycle_test_game(
+export run_myopic_crosswalk_sim
+
+function run_myopic_crosswalk_sim(full_state = true, noisy = false, graph = true)
+    init = init_crosswalk_game(
         full_state;
+        myopic = true
     )
     
     mcp_game = MCPCoupledOptimizationSolver(
@@ -41,6 +44,7 @@ function run_bicycle_sim(full_state=true, noisy=false, graph=true)
             init.game_structure,
             init.horizon
         )
+    end
 end
 
 end
