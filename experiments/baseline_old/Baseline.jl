@@ -1,16 +1,24 @@
-using InD
-
+module baseline_crosswalk_sim
+#TODO mirror in Crosswalk.jl
 using TrajectoryGamesExamples:
     PolygonEnvironment
 using BlockArrays
 
 include("../GameUtils.jl")
+#TODO would be nice to just include one thing
 include("../../src/solver/ProblemFormulation.jl")
 include("../../src/solver/solve.jl")
 
-function run_bicycle_sim(full_state=true, noisy=false, graph=true)
-    init = init_bicycle_test_game(
+export run_baseline_crosswalk_sim
+
+function run_baseline_crosswalk_sim(full_state = true, graph = true)
+    baseline_init = init_crosswalk_game(
         full_state;
+        myopic = false
+    )
+    
+    init = init_crosswalk_game(
+        full_state
     )
     
     mcp_game = MCPCoupledOptimizationSolver(
@@ -36,11 +44,12 @@ function run_bicycle_sim(full_state=true, noisy=false, graph=true)
 
     if graph
         graph_trajectories(
-            "Our Method",
+            "Baseline",
             [forward_solution, method_sol],
             init.game_structure,
             init.horizon
         )
+    end
 end
 
 end
