@@ -8,7 +8,7 @@ include("../../src/InverseGameDiscountFactor.jl")
 
 export run_myopic_crosswalk_sim
 
-function run_myopic_crosswalk_sim(full_state = true, noisy = false, graph = true)
+function run_myopic_crosswalk_sim(full_state = true, graph = true)
     init = GameUtils.init_crosswalk_game(
         full_state;
         myopic = true
@@ -31,11 +31,7 @@ function run_myopic_crosswalk_sim(full_state = true, noisy = false, graph = true
         init.horizon
     )
 
-    if noisy
-        observed_forward_solution = init.observation_model(forward_solution)
-    else
-        observed_forward_solution = init.observation_model(forward_solution; σ = 0.0)
-    end
+    observed_forward_solution = GameUtils.observe_trajectory(forward_solution, init.observation_model)
 
     method_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
         mcp_game,
