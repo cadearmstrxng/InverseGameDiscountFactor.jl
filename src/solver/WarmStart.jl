@@ -19,7 +19,7 @@ end
 
 function warm_start_game(num_players;
     environment,
-    observation_model = (; σ = 0.0, expected_observation = identity),
+    observation_model = identity,
     dynamics = planar_double_integrator(;
         state_bounds = (; lb = [-Inf, -Inf, -0.8, -0.8], ub = [Inf, Inf, 0.8, 0.8]),
         control_bounds = (; lb = [-10, -10], ub = [10, 10]),),
@@ -31,7 +31,7 @@ function warm_start_game(num_players;
         function warm_start_cost_for_player(i, x, y, T, state_size)
             c = []
             for t in 1:T
-                push!(c,norm_sqr(observation_model.expected_observation(x[t+1])[i*state_size-1:i*state_size] - y[Block(t)][i*state_size-1:i*state_size]))
+                push!(c,norm_sqr(observation_model(x[t+1])[i*state_size-1:i*state_size] - y[Block(t)][i*state_size-1:i*state_size]))
             end
 
             return sum(c)
@@ -270,10 +270,10 @@ end
 
 """
 TODO: observation model handled differently than inverse mcp solver.
-Solver handles it on a full game basis: τs_solution = observation_model.expected_observation(τs_solution)
+Solver handles it on a full game basis: τs_solution = expected_observation(τs_solution)
 We do observations per-player.
 """
-function warm_start(y, initial_state, horizon; observation_model = (; σ = 0.0, expected_observation = identity), 
+function warm_start(y, initial_state, horizon; observation_model = identity, 
                     num_players = 2, partial_observation_state_size = -1)
     environment = NullEnv()
     game = warm_start_game(

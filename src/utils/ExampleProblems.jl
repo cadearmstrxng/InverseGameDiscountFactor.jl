@@ -1,14 +1,3 @@
-module ExampleProblems
-
-using BlockArrays: Block, blocksize
-using TrajectoryGamesBase:
-    GeneralSumCostStructure, ProductDynamics, TrajectoryGame, TrajectoryGameCost
-using TrajectoryGamesExamples: planar_double_integrator
-using LinearAlgebra: norm_sqr, norm
-using Statistics: mean
-
-export n_player_collision_avoidance, CollisionAvoidanceGame
-
 struct CollisionAvoidanceGame
     game::TrajectoryGame
 end
@@ -91,6 +80,4 @@ function n_player_collision_avoidance(
         shared_collision_avoidance_coupling_constraints(num_players, min_distance),
     )
     CollisionAvoidanceGame(game)
-end
-
 end

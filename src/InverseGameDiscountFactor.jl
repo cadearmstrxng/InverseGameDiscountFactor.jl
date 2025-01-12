@@ -48,6 +48,8 @@ export solve_mcp_game
 include("solver/InverseMCPSolver.jl")
 export solve_inverse_mcp_game
 
+include("utils/ExampleProblems.jl")
+
 include("solver/WarmStart.jl")
 
 include("solver/MyopicSolver.jl")

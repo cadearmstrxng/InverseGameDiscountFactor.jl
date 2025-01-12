@@ -1,6 +1,6 @@
 module GameUtils
 
-using BlockArrays: Block, blocksize, mortar
+using BlockArrays: Block, blocksize, blocksizes, mortar, BlockVector, blocks
 using TrajectoryGamesBase:
     GeneralSumCostStructure,
     ProductDynamics,
@@ -12,7 +12,7 @@ using TrajectoryGamesExamples:planar_double_integrator, BicycleDynamics
 using LinearAlgebra: norm_sqr, norm
 using Statistics: mean
 
-export init_crosswalk_game, init_bicycle_test_game
+export init_crosswalk_game, init_bicycle_test_game, observe_trajectory
 
 struct CollisionAvoidanceGame
     game::TrajectoryGame
@@ -87,7 +87,7 @@ function init_crosswalk_game(
     full_state;
     state_dim = (4, 4),
     action_dim = (2, 2),
-    σ = 0.0,
+    σ_ = 0.0,
     game_environment = PolygonEnvironment(6, 8),
     initial_state = mortar([
         [0, 2, 0.1, -0.2], # initial x, y, initial velocity in x, y direction (player 1)
@@ -110,16 +110,16 @@ function init_crosswalk_game(
     )
     if full_state
         observation_model = 
-            (x; σ = σ) -> 
+            (x; σ = σ_) -> 
             vcat(
-                [ x[state_dim[1] * (i - 1):state_dim[1]*i] .+ σ * randn(state_dim[1] * (i - 1):state_dim[1]*i)
+                [ x[state_dim[1] * (i - 1)+1:state_dim[1]*i] .+ σ * randn(state_dim[1])
                     for i in 1:num_players]...
             )
     else
         observation_model = 
-            (x; σ = σ) -> 
+            (x; σ = σ_) -> 
             vcat(
-                [ x[state_dim[1]*(i-1)-(state_dim[1]-1):state_dim[1]*i-(state_dim[1]-2)] .+ σ * randn(state_dim[1] * (i - 1):state_dim[1]*i)
+                [ x[state_dim[1]*i-(state_dim[1]-1):state_dim[1]*i-(state_dim[1]-2)] .+ σ * randn(2)
                     for i in 1:num_players ]...
             )
     end
@@ -132,7 +132,7 @@ function init_crosswalk_game(
     horizon = horizon,
     state_dim = state_dim,
     action_dim = action_dim,
-    σ = σ,
+    σ = σ_,
     game_structure = game_structure,
     )
 end
@@ -200,6 +200,12 @@ function init_bicycle_test_game(
         myopic = myopic # TODO don't love
     ),
     )
+end
+
+function observe_trajectory(trajectory, observation_model)
+    BlockVector(vcat(map(blocks(trajectory)) do x
+        observation_model(x)
+    end...), blocksizes(trajectory, 1))
 end
 
 end
