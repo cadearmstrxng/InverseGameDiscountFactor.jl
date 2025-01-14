@@ -22,11 +22,11 @@ function run_myopic_crosswalk_sim(full_state = true, graph = true)
 
     forward_solution = InverseGameDiscountFactor.reconstruct_solution(
         InverseGameDiscountFactor.solve_mcp_game(
-        mcp_game,
-        init.initial_state,
-        init.game_parameters;
-        verbose = false
-        ),
+            mcp_game,
+            init.initial_state,
+            init.game_parameters;
+            verbose = false
+            ),
         init.game_structure.game,
         init.horizon
     )
