@@ -31,7 +31,7 @@ function run_myopic_crosswalk_sim(full_state = true, graph = true)
         init.horizon
     )
 
-    observed_forward_solution = GameUtils.observe_trajectory(forward_solution, init.observation_model)
+    observed_forward_solution = GameUtils.observe_trajectory(forward_solution, init)
 
     method_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
         mcp_game,

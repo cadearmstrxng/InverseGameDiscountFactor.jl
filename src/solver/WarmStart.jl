@@ -1,12 +1,12 @@
-using TrajectoryGamesBase:
-    GeneralSumCostStructure,
-    TrajectoryGameCost,
-    TrajectoryGame,
-    TrajectoryGamesBase
-using ParametricMCPs
-using Infiltrator
-using Symbolics
-using BlockArrays: Block, BlockVector, mortar, blocksize
+# using TrajectoryGamesBase:
+#     GeneralSumCostStructure,
+#     TrajectoryGameCost,
+#     TrajectoryGame,
+#     TrajectoryGamesBase
+# using ParametricMCPs
+# using Infiltrator
+# using Symbolics
+# using BlockArrays: Block, BlockVector, mortar, blocksize
 
 struct NullEnv end
 
@@ -31,7 +31,7 @@ function warm_start_game(num_players;
         function warm_start_cost_for_player(i, x, y, T, state_size)
             c = []
             for t in 1:T
-                push!(c,norm_sqr(observation_model(x[t+1])[i*state_size-1:i*state_size] - y[Block(t)][i*state_size-1:i*state_size]))
+                push!(c, norm_sqr(observation_model(x[t+1])[i*state_size-1:i*state_size] .- Symbolics.scalarize(y[Block(t)][i*state_size-1:i*state_size])))
             end
 
             return sum(c)

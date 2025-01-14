@@ -9,7 +9,7 @@ function solve_myopic_inverse_game(
     verbose = false,
     rng = Random.MersenneTwister(1)
 )
-    initial_state = deepcopy(observed_trajectory[Block(1)])
+    initial_state = BlockVector(deepcopy(observed_trajectory[1]), [size(observed_trajectory[1], 1)])
     hidden_state_0 = isnothing(hidden_state_guess) ?
         BlockVector(randn(rng, sum(hidden_state_dim)), collect(hidden_state_dim)) :
         BlockVector(hidden_state_guess, collect(hidden_state_dim))
@@ -21,7 +21,7 @@ function solve_myopic_inverse_game(
                 initial_state,
                 mcp_game.horizon;
                 observation_model = observation_model,
-                partial_observation_state_size = Int64(size(observed_trajectory[Block(1)])[1] // num_players(mcp_game.game))),
+                partial_observation_state_size = Int64(size(observed_trajectory[1], 1) // num_players(mcp_game.game))),
                 mcp_game)
     #TODO would be nice to check if warm start solution is feasible
     for _ in 1:retries_on_divergence

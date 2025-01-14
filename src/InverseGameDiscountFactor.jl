@@ -1,5 +1,7 @@
 module InverseGameDiscountFactor
 
+using Infiltrator
+
 using DifferentiableTrajectoryOptimization:
     get_constraints_from_box_bounds
 using TrajectoryGamesExamples:
@@ -19,9 +21,11 @@ using TrajectoryGamesBase:
     solve_trajectory_game!,
     JointStrategy,
     rollout,
-    ProductDynamics
+    ProductDynamics,
+    GeneralSumCostStructure,
+    TrajectoryGameCost
 using LiftedTrajectoryGames: LiftedTrajectoryStrategy
-using BlockArrays: Block, BlockVector, mortar, blocksizes
+using BlockArrays: Block, BlockVector, mortar, blocksizes, blocksize
 using SparseArrays: findnz
 using PATHSolver: PATHSolver
 using LinearAlgebra: I, norm_sqr, norm
