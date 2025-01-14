@@ -109,6 +109,7 @@ function init_crosswalk_game(
         myopic = myopic # TODO don't love
     )
     if full_state
+        observation_dim = 4
         observation_model = 
             (x; σ = σ_) -> 
             vcat(
@@ -116,6 +117,7 @@ function init_crosswalk_game(
                     for i in 1:num_players]...
             )
     else
+        observation_dim = 2
         observation_model = 
             (x; σ = σ_) -> 
             vcat(
@@ -129,6 +131,7 @@ function init_crosswalk_game(
     game_parameters = game_params,
     environment = game_environment,
     observation_model = observation_model,
+    observation_dim = observation_dim,
     horizon = horizon,
     state_dim = state_dim,
     action_dim = action_dim,
@@ -202,10 +205,10 @@ function init_bicycle_test_game(
     )
 end
 
-function observe_trajectory(trajectory, observation_model)
-    BlockVector(vcat(map(blocks(trajectory)) do x
-        observation_model(x)
-    end...), blocksizes(trajectory, 1))
+function observe_trajectory(trajectory, game_init)
+    map(blocks(trajectory)) do x
+        BlockVector(game_init.observation_model(x), [game_init.observation_dim for _ in 1:num_players(game_init.game_structure.game)])
+    end
 end
 
 end

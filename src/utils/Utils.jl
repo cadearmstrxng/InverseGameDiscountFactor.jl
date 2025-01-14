@@ -58,6 +58,8 @@ Structure of output is as follows:
 
  - [[x₁¹; x₂¹];[x₁²; x₂²];...;[x₁ᵀ; x₂ᵀ]] where xᵢʲ is the state of player i at time j in block vectors for each time
 
+This structure is not consistent with MyopicSolver, do not pass in result to myopic solver.
+
 """
 function reconstruct_solution(solution, game, horizon)
     num_player = num_players(game)

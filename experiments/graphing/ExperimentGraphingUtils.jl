@@ -6,7 +6,7 @@ using CairoMakie
 using TrajectoryGamesBase:
     num_players, state_dim
 
-include("../../src/utils/utils.jl")
+include("../../src/utils/Utils.jl")
 
 function graph_metrics(
     baseline_errors,
