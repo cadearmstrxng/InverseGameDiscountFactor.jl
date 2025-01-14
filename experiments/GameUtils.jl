@@ -93,6 +93,7 @@ function init_crosswalk_game(
         [0, 2, 0.1, -0.2], # initial x, y, initial velocity in x, y direction (player 1)
         [2.5, 2, 0.0, 0.0],# player 2
     ]),
+    # FOR KINEMATIC BICYCLE MODEL: initial state = mortar([[0, 2, 0.2236, -1.10715], [2.5, 2, 0.0, 0.0]]) NOTE: heading is in radians and can be found using atan2
     game_params = mortar([
         [2, 0, 0.6], # starting position x, y, discount factor (player 1)
         [0, 0, 0.6]  # player 2
@@ -147,7 +148,7 @@ function init_bicycle_test_game(
     σ = 0.0,
     game_environment = PolygonEnvironment(6, 8), #TODO need to change later
     initial_state = mortar([
-        [0, 2, 0.1, -0.2], # initial x, y, initial velocity in x, y direction (player 1)
+        [0, 2, 0.2236, 2*pi-1.10715], # initial x, y, initial velocity magnitude, heading angle (player 1)
         [2.5, 2, 0.0, 0.0],# player 2
     ]),
     game_params = mortar([
