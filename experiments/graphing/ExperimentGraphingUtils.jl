@@ -5,6 +5,8 @@ using Statistics:
 using CairoMakie
 using TrajectoryGamesBase:
     num_players, state_dim
+using BlockArrays:
+    Block
 
 include("../../src/utils/Utils.jl")
 
@@ -71,8 +73,8 @@ function graph_trajectories(
     #TODO horizon can probably be calculated from trajectory
     #TODO same with num_players/player state_dim (in reconstruct_solution)
     # Assumes first two elements in each state vector is x, y position
-    
-    p_state_dim = state_dim(game_structure.game) // num_players(game_structure.game)
+
+    p_state_dim = Int64(state_dim(game_structure.game.dynamics) // num_players(game_structure.game.dynamics))
 
     fig = CairoMakie.Figure()
     ax = CairoMakie.Axis(fig[1,1])
@@ -80,7 +82,7 @@ function graph_trajectories(
     for traj in eachindex(trajectories)
         trajectory = trajectories[traj]
         for t in 1:horizon
-            for player in 1:num_players(game_structure.game)
+            for player in 1:num_players(game_structure.game.dynamics)
                 CairoMakie.scatter!(
                     ax,
                     trajectory[Block(t)][p_state_dim*(player-1)+1],
@@ -89,7 +91,7 @@ function graph_trajectories(
             end
         end
     end
-    CairoMakie.save("./graphs"*plot_name, fig)
+    CairoMakie.save(plot_name*".png", fig)
 end
 
 

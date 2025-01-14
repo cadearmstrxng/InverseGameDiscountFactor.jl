@@ -34,7 +34,7 @@ function solve_inverse_mcp_game(
         else
             infeasible_counter += 1
         end
-        norm_sqr(τs_observed - observed_τs_solution)
+        norm_sqr(vcat(τs_observed...) - observed_τs_solution)
     end
     num_player = num_players(mcp_game.game)
     infeasible_counter = 0
