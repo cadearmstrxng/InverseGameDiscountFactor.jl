@@ -28,21 +28,25 @@ function warm_start_game(num_players;
 
     cost = let
 
-        function warm_start_cost_for_player(i, x, y, T, state_size)
-            c = []
-            for t in 1:T
-                push!(c, norm_sqr(observation_model(x[t+1])[i*state_size-1:i*state_size] .- Symbolics.scalarize(y[Block(t)][i*state_size-1:i*state_size])))
-            end
+        # function warm_start_cost_for_player(i, x, y, T, state_size)
+        #     c = []
+        #     for t in 1:T #TODO issue is that observation model is for full concatenated state, this doesn't expect that 
+        #         push!(c, norm_sqr(observation_model(x[t+1])[i*state_size-1:i*state_size] .- Symbolics.scalarize(y[Block(t)][i*state_size-1:i*state_size])))
+        #     end
 
-            return sum(c)
-        end
+        #     return sum(c)
+        # end
 
         function warm_start_cost(x,y)
-            T = convert(Int64,size(x)[1]-1)
-            state_size = partial_observation_state_size < 0 ? size(x[1][Block(1)])[1] : partial_observation_state_size
-            num_players = blocksize(x[1], 1)
+            # T = convert(Int64,size(x)[1]-1)
+            # state_size = partial_observation_state_size < 0 ? size(x[1][Block(1)])[1] : partial_observation_state_size
+            # num_players = blocksize(x[1], 1)
 
-            [warm_start_cost_for_player(i, x, y, T, state_size) for i in 1:num_players]
+            map(zip(x[2:end], y)) do (x_i, y_i)
+                norm_sqr(observation_model(x_i) - y_i)
+            end 
+
+            # [warm_start_cost_for_player(i, x, y, T, state_size) for i in 1:T]
         end
         TrajectoryGameCost(warm_start_cost, GeneralSumCostStructure())
 
