@@ -1,46 +1,56 @@
-using InD
+module InD
 
-using TrajectoryGamesExamples:
-    PolygonEnvironment
-using BlockArrays
+using BlockArrays: blocksizes
 
 include("../GameUtils.jl")
-include("../../src/solver/ProblemFormulation.jl")
-include("../../src/solver/solve.jl")
+include("../graphing/ExperimentGraphingUtils.jl")
+include("../../src/InverseGameDiscountFactor.jl")
 
-function run_bicycle_sim(full_state=true, noisy=false, graph=true)
-    init = init_bicycle_test_game(
+export run_bicycle_sim
+function run_bicycle_sim(full_state=true, graph=true)
+    init = GameUtils.init_bicycle_test_game(
         full_state;
+        myopic=true
     )
     
-    mcp_game = MCPCoupledOptimizationSolver(
+    mcp_game = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
         init.game_structure.game,
         init.horizon,
         blocksizes(init.game_parameters, 1)
-    ).game
+    ).mcp_game
 
-    forward_solution = solve_mcp_game(
+    forward_solution = InverseGameDiscountFactor.reconstruct_solution(
+        InverseGameDiscountFactor.solve_mcp_game(
+            mcp_game,
+            init.initial_state,
+            init.game_parameters;
+            verbose = false
+            ),
+        init.game_structure.game,
+        init.horizon
+    )
+
+    observed_forward_solution = GameUtils.observe_trajectory(forward_solution, init)
+
+    method_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
         mcp_game,
-        init.initial_state,
-        init.game_parameters;
+        observed_forward_solution,
+        init.observation_model,
+        (3, 3);
+        hidden_state_guess = init.game_parameters,
+        max_grad_steps = 200,
+        retries_on_divergence = 3,
         verbose = false
     )
 
-    if noisy
-        observed_forward_solution = init.observation_model(forward_solution)
-    else
-        observed_forward_solution = init.observation_model(forward_solution, σ = 0.0)
-    end
-
-    method_sol = nothing #TODO fill in once set, probably need to include some file 
-
     if graph
-        graph_trajectories(
+        ExperimentGraphicUtils.graph_trajectories(
             "Our Method",
-            [forward_solution, method_sol],
+            [forward_solution, method_sol.recovered_trajectory],
             init.game_structure,
             init.horizon
         )
+    end
 end
 
 end
