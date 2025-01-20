@@ -1,4 +1,6 @@
 using CairoMakie
+using ImageTransformations
+using Rotations
 # include("../../src/InverseGameDiscountFactor.jl")
 
 function rotate_point(theta, point)
@@ -17,9 +19,12 @@ function create_env()
     fig = CairoMakie.Figure(resolution = (620,641))
     image_data = CairoMakie.load("C:\\Users\\Owner\\Documents\\Research Summer 2024\\InverseGameDiscountFactor.jl\\data\\inD-dataset-v1\\data\\09_background.png")
     ax1 = Axis(fig[1,1], aspect = DataAspect())
-    image_data = image!(ax1,image_data; interpolate = false)
-    image_data = CairoMakie.rotate!(image_data, pi/2)
+    trfm = ImageTransformations.recenter(Rotations.RotMatrix(2.303611),center(image_data))
+    image_data = ImageTransformations.warp(image_data, trfm)
+    image_data = image_data[200:700, 200:1100]
+
+    image!(ax1, image_data)
 
 
-    CairoMakie.display(fig)
+    fig
 end
