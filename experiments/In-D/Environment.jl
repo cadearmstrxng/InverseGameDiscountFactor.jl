@@ -2,7 +2,7 @@ using CairoMakie
 using ImageTransformations
 using Rotations
 using CSV
-using LinearAlgebra: norm
+using LinearAlgebra: norm, inv
 using BlockArrays
 using OffsetArrays:Origin
 # include("../../src/InverseGameDiscountFactor.jl")
@@ -55,6 +55,43 @@ function create_env()
         lines!(ax1, [i[1] for i in blocks(traj[j])], [i[2] for i in blocks(traj[j])], color = colors[(j % length(colors)) + 1])
     end
 
+    # x_points = [i for i in x_offset:1:x+x_offset]
+    # y_points = [i for i in y_offset:1:y+y_offset]
+
+    # for i in x_points
+    #     for j in y_points
+    #         scatter!(ax1, [i], [j], color = :yellow, markersize = 2)
+    #     end
+    # end
+
+    p1 = [-18.5 69]
+    p2 = [-16.5 72.5]
+    p3 = [-22 68]
+
+    c1, r1 = solve_circle(p1, p2, p3)
+    plot_circle(ax1, c1, r1)
+
+    p1 = [-7 74]
+    p2 = [-3 69]
+    p3 = [-6 70.5]
+
+    c2, r2 = solve_circle(p1, p2, p3)
+    plot_circle(ax1, c2, r2)
+
+    p1 = [-29 59]
+    p2 = [-22 56]
+    p3 = [-19.5 51.25]
+
+    c3, r3 = solve_circle(p1, p2, p3)
+    plot_circle(ax1, c3, r3)
+
+    p1 = [-3 58.5]
+    p2 = [-7.5 56.5]
+    p3 = [-9.5 52]
+
+    c4, r4 = solve_circle(p1, p2, p3)
+    plot_circle(ax1, c4, r4)
+
     fig
 end
 
@@ -77,4 +114,28 @@ function pull_trajectory(recording; dir = "experiments/data/", track = [1, 2, 3]
 
     trajectories = [BlockVector(vcat(raw_trajectories[i]...), [4 for _ in eachindex(raw_trajectories[i])]) for i in eachindex(raw_trajectories)]
     return trajectories
+end
+
+function solve_circle(p1,p2,p3)
+
+    A = [p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]
+
+    b = [-(p1[1]^2 + p1[2]^2),
+         -(p2[1]^2 + p2[2]^2),
+         -(p3[1]^2 + p3[2]^2)]
+    x = A\b
+
+    h = -x[1]/2
+    k = -x[2]/2
+    r = sqrt(h^2 + k^2 - x[3])
+
+    return (h, k), r
+    
+end
+
+function plot_circle(ax, center, r)
+    theta = LinRange(0, 2*pi, 100)
+    x = r*cos.(theta) .+ center[1]
+    y = r*sin.(theta) .+ center[2]
+    lines!(ax, x, y, color = :yellow)
 end
