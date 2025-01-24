@@ -64,12 +64,16 @@ function create_env()
     #     end
     # end
 
+    # Upper Left Circle
+
     p1 = [-18.5 69]
     p2 = [-16.5 72.5]
     p3 = [-22 68]
 
     c1, r1 = solve_circle(p1, p2, p3)
     plot_circle(ax1, c1, r1)
+
+    # Upper Right Circle
 
     p1 = [-7 74]
     p2 = [-3 69]
@@ -78,19 +82,91 @@ function create_env()
     c2, r2 = solve_circle(p1, p2, p3)
     plot_circle(ax1, c2, r2)
 
-    p1 = [-29 59]
-    p2 = [-22 56]
-    p3 = [-19.5 51.25]
+    # Lower Left Circle
+
+    p1 = [-27.5 58.5]
+    p2 = [-22.5 57]
+    p3 = [-19.5 52]
 
     c3, r3 = solve_circle(p1, p2, p3)
+    r3 = 7.55
+    println(c3, ' ', r3)
     plot_circle(ax1, c3, r3)
 
-    p1 = [-3 58.5]
+    # Lower Right Circle
+
+    p1 = [-3 58]
     p2 = [-7.5 56.5]
     p3 = [-9.5 52]
 
     c4, r4 = solve_circle(p1, p2, p3)
     plot_circle(ax1, c4, r4)
+
+    # LINE EQUATIONS
+
+
+    # -34.75 <= x <= -22
+    p1 = [-32.5 68]
+    p2 = [-22 68]
+
+    m1, b1 = solve_line(p1, p2)
+    plot_line(ax1, m1, b1, -32.5, -22)
+
+    # -34.75 <= x <= -29
+    p1 = [-33.5 58.5]
+    p2 = [-27.5 58.5]
+
+    m2, b2 = solve_line(p1, p2)
+    plot_line(ax1, m2, b2, -33.5, -27.5)
+
+    # y > 72.5, -16.5 <= x <= -13.5
+
+    p1 = [-16.5 72.5]
+    p2 = [-13.5 99.5]
+
+    m3, b3 = solve_line(p1, p2)
+    plot_line(ax1, m3, b3, -16.5, -13.5)
+
+    # y > 74, -7 <= x <= -4.5
+
+    p1 = [-7 74]
+    p2 = [-4.5 99]
+
+    m4, b4 = solve_line(p1, p2)
+    plot_line(ax1, m4, b4, -7, -4.5)
+
+    #  68.5< y < 69, -3 <= x <= 8.5
+
+    p1 = [-3 69]
+    p2 = [8.5 68.5]
+
+    m5, b5 = solve_line(p1, p2)
+    plot_line(ax1, m5, b5, -3, 8.5)
+
+    # y > 58, -3 <= x <= 7
+
+    p1 = [-3 58]
+    p2 = [7 58]
+
+    m6, b6 = solve_line(p1, p2)
+    plot_line(ax1, m6, b6, -3, 7)
+
+    # y < 52, -21.5 <= x <= -19.5
+
+    p1 = [-19.5 51.5]
+    p2 = [-21.5 24]
+
+    m7, b7 = solve_line(p1, p2)
+    plot_line(ax1, m7, b7, -21.5, -19.5)
+
+    # y < 52, -9.5 <= x <= -12.5
+
+    p1 = [-9.5 52]
+    p2 = [-12.5 22.5]
+
+    m8, b8 = solve_line(p1, p2)
+    plot_line(ax1, m8, b8, -9.5, -12.5)
+
 
     fig
 end
@@ -137,5 +213,17 @@ function plot_circle(ax, center, r)
     theta = LinRange(0, 2*pi, 100)
     x = r*cos.(theta) .+ center[1]
     y = r*sin.(theta) .+ center[2]
+    lines!(ax, x, y, color = :yellow)
+end
+
+function solve_line(p1, p2)
+    m = (p2[2] - p1[2])/(p2[1] - p1[1])
+    b = p1[2] - m*p1[1]
+    return m, b
+end
+
+function plot_line(ax, m, b, x_min, x_max)
+    x = LinRange(x_min, x_max, 100)
+    y = m*x .+ b
     lines!(ax, x, y, color = :yellow)
 end
