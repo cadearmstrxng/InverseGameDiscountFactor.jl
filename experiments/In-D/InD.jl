@@ -46,7 +46,6 @@ function run_bicycle_sim(full_state=true, graph=true)
     #     init.game_structure.game,
     #     init.horizon
     # )
-    @infiltrate
 
     method_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
         mcp_game,

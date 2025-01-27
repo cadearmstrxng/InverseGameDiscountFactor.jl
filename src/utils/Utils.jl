@@ -75,17 +75,25 @@ function reconstruct_solution(solution, game, horizon)
             end
             push!(solution,vars)
         end
-        player1state = solution[1][1:player_state_dimension*horizon]
-        player2state = solution[2][1:player_state_dimension*horizon]
+        player_states = [solution[i][1:player_state_dimension*horizon] for i in 1:num_player]
+        # for i in eachindex(num_player)            
+        #     push!(player_states, solution[i][1:player_state_dimension*horizon])
+        # end
+        # player1state = solution[1][1:player_state_dimension*horizon]
+        # player2state = solution[2][1:player_state_dimension*horizon]
     else
-        player1state = solution.primals[1][1:player_state_dimension*horizon]
-        player2state = solution.primals[2][1:player_state_dimension*horizon]
+        # player1state = solution.primals[1][1:player_state_dimension*horizon]
+        # player2state = solution.primals[2][1:player_state_dimension*horizon]
+        player_states = [solution.primals[i][1:player_state_dimension*horizon] for i in 1:num_player]
     end
     solution = []
-    for i in 1:horizon
-        push!(solution, player1state[(i-1) * player_state_dimension + 1: i * player_state_dimension])
-        push!(solution, player2state[(i-1) * player_state_dimension + 1: i * player_state_dimension])
+    for t in 1:horizon
+        for i in 1:num_player
+            push!(solution, player_states[i][(t-1) * player_state_dimension + 1: t * player_state_dimension])
+        end
+        # push!(solution, player1state[(i-1) * player_state_dimension + 1: i * player_state_dimension])
+        # push!(solution, player2state[(i-1) * player_state_dimension + 1: i * player_state_dimension])
     end
     solution = vcat(solution...)
-    solution = BlockVector(solution, [2*player_state_dimension for i in 1:horizon])
+    solution = BlockVector(solution, [num_player*player_state_dimension for i in 1:horizon])
 end
