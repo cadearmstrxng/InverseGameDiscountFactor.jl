@@ -1,6 +1,7 @@
 module InD
 
-using BlockArrays: blocksizes
+using BlockArrays: blocksizes, Block, mortar
+using Infiltrator
 
 include("../GameUtils.jl")
 include("../graphing/ExperimentGraphingUtils.jl")
@@ -8,8 +9,24 @@ include("../../src/InverseGameDiscountFactor.jl")
 
 export run_bicycle_sim
 function run_bicycle_sim(full_state=true, graph=true)
+
+    # observed_forward_solution = GameUtils.observe_trajectory(forward_solution, init)
+    observed_forward_solution = GameUtils.pull_trajectory("07"; track = [17, 19, 22], all = false, frames = [780, 806])
+    # TODO need to time-synch each trajectory
+    # 17: 530- 806
+    # 19: 620-1001
+    # 22: 780- 916
+    # 780 -> 806 = 26
+
+    # Main.@infiltrate
+
     init = GameUtils.init_bicycle_test_game(
         full_state;
+        initial_state = observed_forward_solution[1],
+        game_params = mortar([
+            [observed_forward_solution[end][Block(1)][1:2]..., 0.6],
+            [observed_forward_solution[end][Block(2)][1:2]..., 0.6],
+            [observed_forward_solution[end][Block(3)][1:2]..., 0.6]]),
         myopic=true
     )
     
@@ -29,23 +46,13 @@ function run_bicycle_sim(full_state=true, graph=true)
     #     init.game_structure.game,
     #     init.horizon
     # )
-
-    # observed_forward_solution = GameUtils.observe_trajectory(forward_solution, init)
-    observed_forward_solution = GameUtils.pull_trajectory("07"; track = [17, 19, 22], all = false, frames = [780, 806])
-    # TODO need to time-synch each trajectory
-    # 17: 530- 806
-    # 19: 620-1001
-    # 22: 780- 916
-    # 780 -> 806 = 26
-
-    
-
+    @infiltrate
 
     method_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
         mcp_game,
         observed_forward_solution,
         init.observation_model,
-        (3, 3);
+        (3, 3, 3);
         hidden_state_guess = init.game_parameters,
         max_grad_steps = 200,
         retries_on_divergence = 3,
