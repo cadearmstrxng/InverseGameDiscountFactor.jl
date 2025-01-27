@@ -7,6 +7,10 @@ using TrajectoryGamesBase:
     num_players, state_dim
 using BlockArrays:
     Block
+using ImageTransformations
+using Rotations
+using OffsetArrays:Origin
+
 
 include("../../src/utils/Utils.jl")
 
@@ -69,14 +73,42 @@ function graph_trajectories(
     colors = [[(:red, 1.0), (:blue, 1.0), (:green, 1.0)], [(:red, 0.75), (:blue, 0.75), (:green, 0.75)]]
     # TODO automatically generate default colors based on number of players?
 )
+    CairoMakie.activate!()
+    fig = CairoMakie.Figure()
+    ax = CairoMakie.Axis(fig[1,1], aspect = DataAspect())
+
+    image_data = CairoMakie.load("experiments/data/07_background.png")
+    image_data = image_data[end:-1:1, :]
+    image_data = image_data'
+    # ax1 = Axis(fig[1,1], aspect = DataAspect())
+    trfm = ImageTransformations.recenter(Rotations.RotMatrix(-2.303611),center(image_data))
+    x_crop_min = 430
+    x_crop_max = 875
+    y_crop_min = 225
+    y_crop_max = 1025
+    
+    scale = 1/10.25
+
+    x = (x_crop_max - x_crop_min) * scale
+    y = (y_crop_max - y_crop_min) * scale
+
+    image_data = ImageTransformations.warp(image_data, trfm)
+    image_data = Origin(0)(image_data)
+    image_data = image_data[x_crop_min:x_crop_max, y_crop_min:y_crop_max]
+    
+    x_offset = -34.75
+    y_offset = 22
+
+    CairoMakie.image!(ax,
+        x_offset..(x+x_offset),
+        y_offset..(y+y_offset),
+        image_data)
 
     #TODO horizon can probably be calculated from trajectory
     #TODO same with num_players/player state_dim (in reconstruct_solution)
     # Assumes first two elements in each state vector is x, y position
 
-    CairoMakie.activate!()
-    fig = CairoMakie.Figure()
-    ax = CairoMakie.Axis(fig[1,1])
+    
 
     n = num_players(game_structure.game.dynamics)
     p_state_dim = Int64(state_dim(game_structure.game.dynamics) // n)
@@ -91,6 +123,8 @@ function graph_trajectories(
             [trajectories[2][Block(t)][(i - 1) * p_state_dim + 2] for t in 1:horizon], 
             color = colors[2][i])
     end
+
+    
 
     CairoMakie.save(plot_name*".png", fig)
 end
