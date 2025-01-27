@@ -19,18 +19,27 @@ function run_bicycle_sim(full_state=true, graph=true)
         blocksizes(init.game_parameters, 1)
     ).mcp_game
 
-    forward_solution = InverseGameDiscountFactor.reconstruct_solution(
-        InverseGameDiscountFactor.solve_mcp_game(
-            mcp_game,
-            init.initial_state,
-            init.game_parameters;
-            verbose = false
-            ),
-        init.game_structure.game,
-        init.horizon
-    )
+    # forward_solution = InverseGameDiscountFactor.reconstruct_solution(
+    #     InverseGameDiscountFactor.solve_mcp_game(
+    #         mcp_game,
+    #         init.initial_state,
+    #         init.game_parameters;
+    #         verbose = false
+    #         ),
+    #     init.game_structure.game,
+    #     init.horizon
+    # )
 
-    observed_forward_solution = GameUtils.observe_trajectory(forward_solution, init)
+    # observed_forward_solution = GameUtils.observe_trajectory(forward_solution, init)
+    observed_forward_solution = GameUtils.pull_trajectory("07"; track = [17, 19, 22], all = false, frames = [780, 806])
+    # TODO need to time-synch each trajectory
+    # 17: 530- 806
+    # 19: 620-1001
+    # 22: 780- 916
+    # 780 -> 806 = 26
+
+    
+
 
     method_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
         mcp_game,
