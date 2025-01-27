@@ -145,20 +145,22 @@ end
 
 function init_bicycle_test_game(
     full_state;
-    state_dim = (4, 4),
+    state_dim = (4, 4, 4),
     action_dim = (2, 2),
     σ_ = 0.0,
-    game_environment = create_env(), #TODO need to change later
+    game_environment = create_env(), 
     initial_state = mortar([
         [0, 2, 0.2236, 2*pi-1.10715], # initial x, y, initial velocity magnitude, heading angle (player 1)
         [2.5, 2, 0.0, 0.0],# player 2
+        [2.5, 0, 0.0, 0.0] # player 3
     ]),
     game_params = mortar([
-        [2, 0, 0.6], #TODO set with InD values
-        [0, 0, 0.6]  
+        [2, 0, 0.6],
+        [0, 0, 0.6],
+        [0, 2, 0.6]
     ]),
-    horizon = 25, #TODO set with InD values
-    num_players = 2, #TODO
+    horizon = 25,
+    num_players = 3,
     myopic = false
 )
     game_structure = n_player_collision_avoidance(
