@@ -66,7 +66,7 @@ function graph_trajectories(
     trajectories,
     game_structure,
     horizon;
-    colors = [[(:red, 1.0), (:blue, 1.0)], [(:red, 0.75), (:blue, 0.75)], [(:red, 0.5), (:blue, 0.5)], [(:red, 0.25), (:blue, 0.25)]]
+    colors = [[(:red, 1.0), (:blue, 1.0), (:green, 1.0)], [(:red, 0.75), (:blue, 0.75), (:green, 0.75)]]
     # TODO automatically generate default colors based on number of players?
 )
 
@@ -74,23 +74,24 @@ function graph_trajectories(
     #TODO same with num_players/player state_dim (in reconstruct_solution)
     # Assumes first two elements in each state vector is x, y position
 
-    p_state_dim = Int64(state_dim(game_structure.game.dynamics) // num_players(game_structure.game.dynamics))
-
+    CairoMakie.activate!()
     fig = CairoMakie.Figure()
     ax = CairoMakie.Axis(fig[1,1])
 
-    for traj in eachindex(trajectories)
-        trajectory = trajectories[traj]
-        for t in 1:horizon
-            for player in 1:num_players(game_structure.game.dynamics)
-                CairoMakie.scatter!(
-                    ax,
-                    trajectory[Block(t)][p_state_dim*(player-1)+1],
-                    trajectory[Block(t)][p_state_dim*(player-1)+2],
-                    color = colors[traj][player])
-            end
-        end
+    n = num_players(game_structure.game.dynamics)
+    p_state_dim = Int64(state_dim(game_structure.game.dynamics) // n)
+
+    for i in 1:n
+        CairoMakie.lines!(ax, 
+            [trajectories[1][t][Block(i)][1] for t in 1:horizon],
+            [trajectories[1][t][Block(i)][2] for t in 1:horizon], 
+            color = colors[1][i])
+        CairoMakie.lines!(ax, 
+            [trajectories[2][Block(t)][(i - 1) * p_state_dim + 1] for t in 1:horizon],
+            [trajectories[2][Block(t)][(i - 1) * p_state_dim + 2] for t in 1:horizon], 
+            color = colors[2][i])
     end
+
     CairoMakie.save(plot_name*".png", fig)
 end
 

@@ -2,6 +2,9 @@ module InD
 
 using BlockArrays: blocksizes, Block, mortar
 using Infiltrator
+using CairoMakie
+using TrajectoryGamesBase:
+    num_players, state_dim
 
 include("../GameUtils.jl")
 include("../graphing/ExperimentGraphingUtils.jl")
@@ -11,14 +14,16 @@ export run_bicycle_sim
 function run_bicycle_sim(full_state=true, graph=true)
 
     # observed_forward_solution = GameUtils.observe_trajectory(forward_solution, init)
-    observed_forward_solution = GameUtils.pull_trajectory("07"; track = [17, 19, 22], all = false, frames = [780, 806])
+    frames = [780, 806]
+    observed_forward_solution = GameUtils.pull_trajectory("07";
+        track = [17, 19, 22], all = false, frames = frames)
     # TODO need to time-synch each trajectory
     # 17: 530- 806
     # 19: 620-1001
     # 22: 780- 916
     # 780 -> 806 = 26
 
-    # Main.@infiltrate
+    # @infiltrate
 
     init = GameUtils.init_bicycle_test_game(
         full_state;
@@ -27,6 +32,7 @@ function run_bicycle_sim(full_state=true, graph=true)
             [observed_forward_solution[end][Block(1)][1:2]..., 0.6],
             [observed_forward_solution[end][Block(2)][1:2]..., 0.6],
             [observed_forward_solution[end][Block(3)][1:2]..., 0.6]]),
+        horizon = frames[2] - frames[1] + 1,
         myopic=true
     )
     
@@ -61,9 +67,13 @@ function run_bicycle_sim(full_state=true, graph=true)
     if graph
         ExperimentGraphicUtils.graph_trajectories(
             "Our Method",
-            [forward_solution, method_sol.recovered_trajectory],
+            [observed_forward_solution, method_sol.recovered_trajectory],
             init.game_structure,
-            init.horizon
+            init.horizon;
+            colors = [
+                [(:red, 1.0), (:blue, 1.0), (:green, 1.0)],
+                [(:red, 0.5), (:blue, 0.5), (:green, 0.5)]
+            ]
         )
     end
 end
