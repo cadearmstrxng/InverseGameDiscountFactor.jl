@@ -60,6 +60,12 @@ function get_constraints(environment::indEnvironment, player_index = nothing)
         push!(constraints, sigmoid_bl(environment.line_slopes[7], environment.line_intercepts[7], 
                                         environment.line_slopes[8], environment.line_intercepts[8],
                                         m4_3, b4_3, position))
+        
+        # Bounding Box Constraints
+        push!(constraints, 100 - position[2])
+        push!(constraints, position[2] - 20)
+        push!(constraints, 35 + position[1])
+        push!(constraints, position[1] - 25)
 
         constraints
     end
