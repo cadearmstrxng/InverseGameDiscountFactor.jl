@@ -7,6 +7,10 @@ using BlockArrays
 using OffsetArrays:Origin
 using Infiltrator
 using Symbolics: Symbolics, @variables, scalarize
+using TrajectoryGamesBase:
+    TrajectoryGamesBase,
+    get_constraints
+import TrajectoryGamesBase: get_constraints
 # include("../../src/InverseGameDiscountFactor.jl")
 
 struct indEnvironment{}
@@ -19,6 +23,10 @@ struct indEnvironment{}
     points
 end
 
+
+function TrajectoryGamesBase.get_constraints(environment::indEnvironment, player_index = nothing)
+    get_constraints(environment, player_index)
+end
 function get_constraints(environment::indEnvironment, player_index = nothing)
     function (state)
         position = state[1:2]
@@ -90,16 +98,16 @@ function create_env()
 
     # println(x_offset..(x+x_offset-2), ' ', y_offset..(y-2+y_offset))
 
-    image!(ax1,
-        x_offset..(x+x_offset),
-        y_offset..(y+y_offset),
-        image_data)
+    # image!(ax1,
+    #     x_offset..(x+x_offset),
+    #     y_offset..(y+y_offset),
+    #     image_data)
 
-    traj = pull_trajectory("07"; track = [17, 19, 22])
-    colors = [:red, :blue, :green]
-    for j in eachindex(traj)
-        lines!(ax1, [i[1] for i in blocks(traj[j])], [i[2] for i in blocks(traj[j])], color = colors[(j % length(colors)) + 1])
-    end
+    # traj = pull_trajectory("07"; track = [17, 19, 22])
+    # colors = [:red, :blue, :green]
+    # for j in eachindex(traj)
+    #     lines!(ax1, [i[1] for i in blocks(traj[j])], [i[2] for i in blocks(traj[j])], color = colors[(j % length(colors)) + 1])
+    # end
 
     # x_points = [i for i in x_offset:1:x+x_offset]
     # y_points = [i for i in y_offset:1:y+y_offset]
@@ -228,7 +236,7 @@ function create_env()
     plot_line(ax1, m8, b8, p2[1], p1[1], :orange)
     
 
-    display(fig)
+    # display(fig)
 
     circle_centers = [c1, c2, c3, c4]
     circle_radii = [r1, r2, r3, r4]
@@ -240,7 +248,7 @@ function create_env()
     return indEnvironment(circle_centers, circle_radii, line_slopes, line_intercepts, line_x_ranges, line_y_ranges, points)
 end
 
-function pull_trajectory(recording; dir = "experiments/data/", track = [1, 2, 3], all = false)
+function pull_trajectory(recording; dir = "experiments/data/", track = [1, 2, 3], all = false, frames = [0, 10000])
     file = CSV.File(dir*recording*"_tracks.csv")
     raw_trajectories = (all) ? [[] for _ in 1:max(file[:trackId]...)+1] : [[] for _ in eachindex(track)]
     data_to_pull = [:xCenter, :yCenter, :heading, :xVelocity, :yVelocity, :xAcceleration, :yAcceleration, :width, :length,]
@@ -248,6 +256,9 @@ function pull_trajectory(recording; dir = "experiments/data/", track = [1, 2, 3]
         idx = (all) ? row.trackId+1 : findfirst(x -> x == row.trackId, track)
         if !isnothing(idx)
             raw_state = [row[i] for i in data_to_pull]
+            if row.frame < frames[1] || row.frame > frames[2]
+                continue
+            end
             full_state = [
                 rotate_point(2.303611, raw_state[1:2]) # + [390.5, 585.5]/10
                 norm(raw_state[4:5])
@@ -257,8 +268,20 @@ function pull_trajectory(recording; dir = "experiments/data/", track = [1, 2, 3]
         end
     end
 
-    trajectories = [BlockVector(vcat(raw_trajectories[i]...), [4 for _ in eachindex(raw_trajectories[i])]) for i in eachindex(raw_trajectories)]
-    return trajectories
+    traj = []
+    @infiltrate
+    for t in eachindex(raw_trajectories[1])
+        b = BlockVector(vcat([raw_trajectories[i][t] for i in eachindex(raw_trajectories)]...),
+        [4 for _ in eachindex(raw_trajectories)])
+        push!(traj, b)
+    end
+    return traj
+
+    # return [BlockVector(vcat([raw_trajectories[i][t] for i in eachindex(raw_trajectories)]...),
+    #             [4 for _ in eachindex(raw_trajectories)]) for t in eachindex(raw_trajectories[1])]
+
+    # trajectories = [BlockVector(vcat(raw_trajectories[1]), [4 for _ in eachindex(raw_trajectories[i])]) for i in eachindex(raw_trajectories)]
+    # return trajectories
 end
 
 function solve_circle(p1,p2,p3)

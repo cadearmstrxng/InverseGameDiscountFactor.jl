@@ -41,6 +41,8 @@ using Statistics
 # include("utils/ExampleProblems.jl")
 # using .ExampleProblems: n_player_collision_avoidance, CollisionAvoidanceGame
 
+include("../experiments/In-D/Environment.jl")
+
 include("utils/Utils.jl")
 
 include("solver/ProblemFormulation.jl")
