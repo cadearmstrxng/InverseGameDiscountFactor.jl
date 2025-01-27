@@ -28,16 +28,11 @@ function TrajectoryGamesBase.get_constraints(environment::indEnvironment, player
     get_constraints(environment, player_index)
 end
 function get_constraints(environment::indEnvironment, player_index = nothing)
-    # sigmoid = (m1, b1, m2, b2, m3, b3, x) -> (1/(2+exp(-m1*x[1] + x[2] - b1))) * (1/exp(-m2*x[1] + x[2] - b2)) * (1/exp(-m3*x[1] + x[2] - b3)) - 0.00000001
-    sigmoid1 = (m1, b1, x; s=1) -> (1/(1+exp(s*(m1*x[1] - x[2] + b1))))
-    # sigmoid = (m1, b1, m2, b2, m3, b3, x) -> (1/(2+exp(-m1*x[1] + x[2] - b1)))*(1/exp(-m2*x[1] + x[2] - b2)) - .00001
-    # sigmoid = (m1, b1, m2, b2, m3, b3, x) -> sigmoid1(m1, b1, x) - .001
-    # sigmoid = (m1, b1, m2, b2, m3, b3, x) -> sigmoid1(m2, b2, x) - .001
-    # sigmoid = (m1, b1, m2, b2, m3, b3, x) -> sigmoid1(m3, b3, x) - .001
-    sigmoid_tl = (m1, b1, m2, b2, m3, b3, x) -> sigmoid1(m1, -b1, -x) + sigmoid1(m2, -b2, -x) + sigmoid1(m3, -b3, -x) - .1
-    sigmoid_tr = (m1, b1, m2, b2, m3, b3, x) -> sigmoid1(m1, -b1, -x;) + sigmoid1(m2, b2, x) - .1
-    sigmoid_br = (m1, b1, m2, b2, m3, b3, x) -> sigmoid1(m1, b1, x) + sigmoid1(m2, b2, x) - .04
-    sigmoid_bl = (m1, b1, m2, b2, m3, b3, x) -> sigmoid1(m1, b1+.6, x) + sigmoid1(m2, -b2, -x) + sigmoid1(m3, b3+38, x)- .1
+    sigmoid1 = (m1, b1, x; s=10) -> (1/(1+exp(s*(m1*x[1] - x[2] + b1))))
+    sigmoid_tl = (m1, b1, m2, b2, m3, b3, x) -> sigmoid1(m1, -b1-2, -x) + sigmoid1(m2, -b2, -x) + sigmoid1(m3-0.15, -b3, -x) - .1
+    sigmoid_tr = (m1, b1, m2, b2, m3, b3, x) -> sigmoid1(m1, -b1, -x;) + sigmoid1(m2, b2, x) + sigmoid1(m3, -b3+2, -x)- .1
+    sigmoid_br = (m1, b1, m2, b2, m3, b3, x) -> sigmoid1(m1, b1 - 2, x) + sigmoid1(m2, b2, x) + sigmoid1(m3, b3+20, x)- .04
+    sigmoid_bl = (m1, b1, m2, b2, m3, b3, x) -> sigmoid1(m1, b1, x) + sigmoid1(m2, -b2, -x;s=15) + sigmoid1(m3, b3+15, x)- .1
     function (state)
         position = state[1:2]
         constraints = []
@@ -50,16 +45,18 @@ function get_constraints(environment::indEnvironment, player_index = nothing)
             )
         end
         m1_3, b1_3 = solve_line(environment.points[1][2], environment.points[2][2])
+        m2_3, b2_3 = solve_line(environment.points[3][2], environment.points[4][2])
+        m3_3, b3_3 = solve_line(environment.points[5][2], environment.points[6][2])
         m4_3, b4_3 = solve_line(environment.points[7][2], environment.points[8][2])
         push!(constraints, sigmoid_tl(environment.line_slopes[1], environment.line_intercepts[1], 
                                         environment.line_slopes[2], environment.line_intercepts[2],
                                         m1_3, b1_3, position))
         push!(constraints, sigmoid_tr(environment.line_slopes[3], environment.line_intercepts[3], 
                                         environment.line_slopes[4], environment.line_intercepts[4],
-                                        0, 0, position))
+                                        m2_3, b2_3, position))
         push!(constraints, sigmoid_br(environment.line_slopes[5], environment.line_intercepts[5], 
                                         environment.line_slopes[6], environment.line_intercepts[6],
-                                        0, 0, position))
+                                        m3_3, b3_3, position))
         push!(constraints, sigmoid_bl(environment.line_slopes[7], environment.line_intercepts[7], 
                                         environment.line_slopes[8], environment.line_intercepts[8],
                                         m4_3, b4_3, position))
@@ -260,8 +257,6 @@ function create_env()
     line_x_ranges = [(-33.5, -27.5), (-32.5, -22), (-16.5, -13.5), (-7, -4.5), (-3, 8.5), (-3, 7), (-21.5, -19.5), (-9.5, -12.5)]
     line_y_ranges = [(58.5, 58.5), (68, 68), (72.5, 99.5), (74, 99), (69, 68.5), (58, 58), (51.5, 24), (52, 22.5)]
 
-    println(line_slopes)
-    println(line_intercepts)
     return indEnvironment(circle_centers, circle_radii, line_slopes, line_intercepts, line_x_ranges, line_y_ranges, points)
 end
 
