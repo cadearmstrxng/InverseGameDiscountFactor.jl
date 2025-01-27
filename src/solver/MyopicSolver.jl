@@ -20,6 +20,7 @@ function solve_myopic_inverse_game(
                 observed_trajectory,
                 initial_state,
                 mcp_game.horizon;
+                num_players = num_players(mcp_game.game),
                 observation_model = observation_model,
                 partial_observation_state_size = Int64(size(observed_trajectory[1], 1) // num_players(mcp_game.game))),
                 mcp_game)
