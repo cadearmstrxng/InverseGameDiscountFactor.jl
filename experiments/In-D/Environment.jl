@@ -31,14 +31,14 @@ function get_constraints(environment::indEnvironment, player_index = nothing)
                 (norm_sqr(position - [c[1], c[2]]) - r^2)
             )
         end
-        sigmoid = (m1, b1, m2, b2, m3, b3) -> (x) -> (1/(2+exp(m1*x[1] - x[2] + b1))) * (1/exp(m2*x[1] - x[2] + b2)) * (1/exp(m3*x[1] - x[2] + b3)) - 0.01
+        sigmoid = (m1, b1, m2, b2, m3, b3, x) -> (1/(2+exp(m1*x[1] - x[2] + b1))) * (1/exp(m2*x[1] - x[2] + b2)) * (1/exp(m3*x[1] - x[2] + b3)) - 0.01
         for i in 1:2:length(environment.line_slopes)
             m1 = environment.line_slopes[i]
             b1 = environment.line_intercepts[i]
             m2 = environment.line_slopes[i+1]
             b2 = environment.line_intercepts[i+1]
             m3, b3 = solve_line(environment.points[i][2], environment.points[i+1][2])
-            push!(constraints, sigmoid(m1, b1, m2, b2, m3, b3))
+            push!(constraints, sigmoid(m1, b1, m2, b2, m3, b3, position))
         end
 
         # push!(constraints, (position[1] > environment.line_x_ranges[1][1]) ? ((position[1] < environment.line_x_ranges[1][2]) ? environment.line_intercepts[1] - position[2] : 0) : 0)
@@ -228,7 +228,7 @@ function create_env()
     plot_line(ax1, m8, b8, p2[1], p1[1], :orange)
     
 
-    display(fig)
+    # display(fig)
 
     circle_centers = [c1, c2, c3, c4]
     circle_radii = [r1, r2, r3, r4]
@@ -306,5 +306,64 @@ function test_env()
 
     constraints = get_constraints(env)
 
+    # @infiltrate
+
+    disp_constraints([-35, 10], [20, 100], constraints)
+
     constraints(test_state)
+end
+
+function disp_constraints(x_range, y_length, constraints; background = "experiments/data/07_background.png")
+    CairoMakie.activate!()
+    fig = CairoMakie.Figure()
+
+    if !isnothing(background)
+        image_data = CairoMakie.load(background)
+        image_data = image_data[end:-1:1, :]
+        image_data = image_data'
+        ax1 = Axis(fig[1,1], aspect = DataAspect())
+        trfm = ImageTransformations.recenter(Rotations.RotMatrix(-2.303611),center(image_data))
+
+
+        x_crop_min = 430
+        x_crop_max = 875
+        y_crop_min = 225
+        y_crop_max = 1025
+        
+        scale = 1/10.25
+
+        x = (x_crop_max - x_crop_min) * scale
+        y = (y_crop_max - y_crop_min) * scale
+
+        # println(x,' ', y)
+
+        image_data = ImageTransformations.warp(image_data, trfm)
+        image_data = Origin(0)(image_data)
+        image_data = image_data[x_crop_min:x_crop_max, y_crop_min:y_crop_max]
+        
+        x_offset = -34.75
+        y_offset = 22
+
+        # println(x_offset..(x+x_offset-2), ' ', y_offset..(y-2+y_offset))
+
+        image!(ax1,
+            x_offset..(x+x_offset),
+            y_offset..(y+y_offset),
+            image_data)
+    else
+
+        ax1 = Axis(fig[1,1], aspect = DataAspect())
+
+    end
+
+    x = LinRange(x_range[1], x_range[2], 100)
+    y = LinRange(y_length[1], y_length[2], 100)
+    for i in x
+        for j in y
+            if any(constraints([i, j]) .< 0)
+                scatter!(ax1, [i], [j], color = :red, markersize = 2)
+            end
+        end
+    end
+    display(fig)
 end
