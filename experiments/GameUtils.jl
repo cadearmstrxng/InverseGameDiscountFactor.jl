@@ -14,7 +14,7 @@ using Statistics: mean
 
 include("./In-D/Environment.jl")
 
-export init_crosswalk_game, init_bicycle_test_game, observe_trajectory
+export init_crosswalk_game, init_bicycle_test_game, observe_trajectory, pull_trajectory
 
 struct CollisionAvoidanceGame
     game::TrajectoryGame
