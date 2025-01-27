@@ -2,16 +2,52 @@ using CairoMakie
 using ImageTransformations
 using Rotations
 using CSV
-using LinearAlgebra: norm, inv
+using LinearAlgebra: norm, inv, norm_sqr
 using BlockArrays
 using OffsetArrays:Origin
+using Infiltrator
+using Symbolics: Symbolics, @variables, scalarize
 # include("../../src/InverseGameDiscountFactor.jl")
+
+struct indEnvironment{}
+    circle_centers::Vector{}
+    circle_radii::Vector{}
+    line_slopes::Vector{}
+    line_intercepts::Vector{}
+    line_x_ranges::Vector{}
+    line_y_ranges::Vector{}
+end
+
+function get_constraints(environment::indEnvironment, player_index = nothing)
+    function (state)
+        position = state[1:2]
+        constraints = []
+        for i in eachindex(environment.circle_centers)
+            c = environment.circle_centers[i]
+            r = environment.circle_radii[i]
+            # @infiltrate
+            push!(constraints,
+                (norm_sqr(position - [c[1], c[2]]) - r^2)
+            )
+        end
+
+        push!(constraints, (position[1] > environment.line_x_ranges[1][1]) ? ((position[1] < environment.line_x_ranges[1][2]) ? environment.line_intercepts[1] - position[2] : 0) : 0)
+        push!(constraints, (position[1] > environment.line_x_ranges[2][1]) ? ((position[1] < environment.line_x_ranges[2][2]) ? position[2] - environment.line_intercepts[2] : 0) : 0)
+        push!(constraints, (position[1] > environment.line_x_ranges[3][1]) ? ((position[1] < environment.line_x_ranges[3][2]) ? environment.line_slopes[3]*position[1] + environment.line_intercepts[3] - position[2] : 0) : 0)
+        push!(constraints, (position[1] > environment.line_x_ranges[4][1]) ? ((position[1] < environment.line_x_ranges[4][2]) ? -environment.line_slopes[4]*position[1] - environment.line_intercepts[4] + position[2] : 0) : 0)
+        push!(constraints, (position[1] > environment.line_x_ranges[5][1]) ? ((position[1] < environment.line_x_ranges[5][2]) ? environment.line_slopes[5]*position[1] + environment.line_intercepts[5] - position[2] : 0) : 0)
+        push!(constraints, (position[1] > environment.line_x_ranges[6][1]) ? ((position[1] < environment.line_x_ranges[6][2]) ? -environment.line_slopes[6]*position[1] - environment.line_intercepts[6] + position[2] : 0) : 0)
+        push!(constraints, (position[1] > environment.line_x_ranges[7][1]) ? ((position[1] < environment.line_x_ranges[7][2]) ? -environment.line_slopes[7]*position[1] - environment.line_intercepts[7] + position[2] : 0) : 0)
+        push!(constraints, (position[1] > environment.line_x_ranges[8][1]) ? ((position[1] < environment.line_x_ranges[8][2]) ? environment.line_slopes[8]*position[1] + environment.line_intercepts[8] - position[2] : 0) : 0)
+
+        constraints
+    end
+end
 
 function rotate_point(theta, point)
     R = [cos(theta) -sin(theta); sin(theta) cos(theta)]
     R * point
 end
-
 
 function create_env()
     CairoMakie.activate!();
@@ -33,7 +69,7 @@ function create_env()
     x = (x_crop_max - x_crop_min) * scale
     y = (y_crop_max - y_crop_min) * scale
 
-    println(x,' ', y)
+    # println(x,' ', y)
 
     image_data = ImageTransformations.warp(image_data, trfm)
     image_data = Origin(0)(image_data)
@@ -42,7 +78,7 @@ function create_env()
     x_offset = -34.75
     y_offset = 22
 
-    println(x_offset..(x+x_offset-2), ' ', y_offset..(y-2+y_offset))
+    # println(x_offset..(x+x_offset-2), ' ', y_offset..(y-2+y_offset))
 
     image!(ax1,
         x_offset..(x+x_offset),
@@ -90,7 +126,7 @@ function create_env()
 
     c3, r3 = solve_circle(p1, p2, p3)
     r3 = 7.55
-    println(c3, ' ', r3)
+    # println(c3, ' ', r3)
     plot_circle(ax1, c3, r3)
 
     # Lower Right Circle
@@ -104,17 +140,16 @@ function create_env()
 
     # LINE EQUATIONS
 
-
-    # -34.75 <= x <= -22
-    p1 = [-32.5 68]
-    p2 = [-22 68]
+    # -34.75 <= x <= -29
+    p1 = [-33.5 58.5]
+    p2 = [-27.5 58.5]
 
     m1, b1 = solve_line(p1, p2)
     plot_line(ax1, m1, b1, -32.5, -22)
 
-    # -34.75 <= x <= -29
-    p1 = [-33.5 58.5]
-    p2 = [-27.5 58.5]
+    # -34.75 <= x <= -22
+    p1 = [-32.5 68]
+    p2 = [-22 68]
 
     m2, b2 = solve_line(p1, p2)
     plot_line(ax1, m2, b2, -33.5, -27.5)
@@ -167,8 +202,16 @@ function create_env()
     m8, b8 = solve_line(p1, p2)
     plot_line(ax1, m8, b8, -9.5, -12.5)
 
+    # display(fig)
 
-    fig
+    circle_centers = [c1, c2, c3, c4]
+    circle_radii = [r1, r2, r3, r4]
+    line_slopes = [m1, m2, m3, m4, m5, m6, m7, m8]
+    line_intercepts = [b1, b2, b3, b4, b5, b6, b7, b8]
+    line_x_ranges = [(-33.5, -27.5), (-32.5, -22), (-16.5, -13.5), (-7, -4.5), (-3, 8.5), (-3, 7), (-21.5, -19.5), (-9.5, -12.5)]
+    line_y_ranges = [(58.5, 58.5), (68, 68), (72.5, 99.5), (74, 99), (69, 68.5), (58, 58), (51.5, 24), (52, 22.5)]
+
+    return indEnvironment(circle_centers, circle_radii, line_slopes, line_intercepts, line_x_ranges, line_y_ranges)
 end
 
 function pull_trajectory(recording; dir = "experiments/data/", track = [1, 2, 3], all = false)
@@ -226,4 +269,17 @@ function plot_line(ax, m, b, x_min, x_max)
     x = LinRange(x_min, x_max, 100)
     y = m*x .+ b
     lines!(ax, x, y, color = :yellow)
+end
+
+function test_env()
+
+    env = create_env()
+    test_state = let 
+        @variables(test_state[1:4]) |> only |> scalarize
+    end 
+
+    constraints = get_constraints(env)
+
+    @infiltrate
+
 end
