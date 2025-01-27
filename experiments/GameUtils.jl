@@ -12,6 +12,8 @@ using TrajectoryGamesExamples:planar_double_integrator, BicycleDynamics
 using LinearAlgebra: norm_sqr, norm
 using Statistics: mean
 
+include("./In-D/Environment.jl")
+
 export init_crosswalk_game, init_bicycle_test_game, observe_trajectory
 
 struct CollisionAvoidanceGame
@@ -146,7 +148,7 @@ function init_bicycle_test_game(
     state_dim = (4, 4),
     action_dim = (2, 2),
     σ_ = 0.0,
-    game_environment = PolygonEnvironment(6, 8), #TODO need to change later
+    game_environment = create_env(), #TODO need to change later
     initial_state = mortar([
         [0, 2, 0.2236, 2*pi-1.10715], # initial x, y, initial velocity magnitude, heading angle (player 1)
         [2.5, 2, 0.0, 0.0],# player 2
