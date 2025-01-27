@@ -98,10 +98,19 @@ function create_env()
 
     # println(x_offset..(x+x_offset-2), ' ', y_offset..(y-2+y_offset))
 
-    # image!(ax1,
-    #     x_offset..(x+x_offset),
-    #     y_offset..(y+y_offset),
-    #     image_data)
+    image!(ax1,
+        x_offset..(x+x_offset),
+        y_offset..(y+y_offset),
+        image_data)
+    tracks = [17, 19, 22]
+    # traj = pull_trajectory("07"; track = tracks, frames = [780, 806])
+    traj = pull_trajectory("07"; track = tracks, fill_traj = true)
+
+    colors = [:red, :blue, :green]
+    for j in eachindex(tracks)
+        lines!(ax1, [traj[i][Block(j)][1] for i in eachindex(traj)], [traj[i][Block(j)][2] for i in eachindex(traj)], color = colors[j])
+        # lines!(ax1, [i[1] for i in blocks(traj[j])], [i[2] for i in blocks(traj[j])], color = colors[(j % length(colors)) + 1])
+    end
 
     # traj = pull_trajectory("07"; track = [17, 19, 22])
     # colors = [:red, :blue, :green]
@@ -168,7 +177,7 @@ function create_env()
     push!(points, [p1, p2])
 
     m1, b1 = solve_line(p1, p2)
-    plot_line(ax1, m1, b1, p1[1], p2[1], :blue)
+    plot_line(ax1, m1, b1, p1[1], p2[1], :yellow)
 
     # y > 72.5, -16.5 <= x <= -13.5
 
@@ -177,7 +186,7 @@ function create_env()
     push!(points, [p1, p2])
 
     m2, b2 = solve_line(p1, p2)
-    plot_line(ax1, m2, b2, p1[1], p2[1], :green)
+    plot_line(ax1, m2, b2, p1[1], p2[1], :yellow)
 
     #  68.5< y < 69, -3 <= x <= 8.5
 
@@ -186,7 +195,7 @@ function create_env()
     push!(points, [p1, p2])
 
     m3, b3 = solve_line(p1, p2)
-    plot_line(ax1, m3, b3, p1[1], p2[1], :white)
+    plot_line(ax1, m3, b3, p1[1], p2[1], :yellow)
 
 
     # y > 74, -7 <= x <= -4.5
@@ -196,7 +205,7 @@ function create_env()
     push!(points, [p1, p2])
 
     m4, b4 = solve_line(p1, p2)
-    plot_line(ax1, m4, b4, p1[1], p2[1], :red)
+    plot_line(ax1, m4, b4, p1[1], p2[1], :yellow)
 
 
     # y > 58, -3 <= x <= 7
@@ -206,7 +215,7 @@ function create_env()
     push!(points, [p1, p2])
 
     m5, b5 = solve_line(p1, p2)
-    plot_line(ax1, m5, b5, p1[1], p2[1], :purple)
+    plot_line(ax1, m5, b5, p1[1], p2[1], :yellow)
 
     # y < 52, -9.5 <= x <= -12.5
 
@@ -215,7 +224,7 @@ function create_env()
     push!(points, [p1, p2])
 
     m6, b6 = solve_line(p1, p2)
-    plot_line(ax1, m6, b6, p2[1], p1[1], :black)
+    plot_line(ax1, m6, b6, p2[1], p1[1], :yellow)
 
     
     # -34.75 <= x <= -29
@@ -233,10 +242,10 @@ function create_env()
     push!(points, [p1, p2])
 
     m8, b8 = solve_line(p1, p2)
-    plot_line(ax1, m8, b8, p2[1], p1[1], :orange)
+    plot_line(ax1, m8, b8, p2[1], p1[1], :yellow)
     
 
-    # display(fig)
+    display(fig)
 
     circle_centers = [c1, c2, c3, c4]
     circle_radii = [r1, r2, r3, r4]
@@ -248,7 +257,7 @@ function create_env()
     return indEnvironment(circle_centers, circle_radii, line_slopes, line_intercepts, line_x_ranges, line_y_ranges, points)
 end
 
-function pull_trajectory(recording; dir = "experiments/data/", track = [1, 2, 3], all = false, frames = [0, 10000])
+function pull_trajectory(recording; dir = "experiments/data/", track = [1, 2, 3], all = false, frames = [0, 10000], fill_traj = false)
     file = CSV.File(dir*recording*"_tracks.csv")
     raw_trajectories = (all) ? [[] for _ in 1:max(file[:trackId]...)+1] : [[] for _ in eachindex(track)]
     data_to_pull = [:xCenter, :yCenter, :heading, :xVelocity, :yVelocity, :xAcceleration, :yAcceleration, :width, :length,]
@@ -269,9 +278,12 @@ function pull_trajectory(recording; dir = "experiments/data/", track = [1, 2, 3]
     end
 
     traj = []
-    @infiltrate
-    for t in eachindex(raw_trajectories[1])
-        b = BlockVector(vcat([raw_trajectories[i][t] for i in eachindex(raw_trajectories)]...),
+    # @infiltrate
+    min_horizon = min(length(raw_trajectories[1]), length(raw_trajectories[2]), length(raw_trajectories[3]))
+    max_horizon = max(length(raw_trajectories[1]), length(raw_trajectories[2]), length(raw_trajectories[3]))
+    actual_horizon = fill_traj ? max_horizon : min_horizon
+    for t in 1:actual_horizon 
+        b = BlockVector(vcat([(t <= length(raw_trajectories[i])) ? raw_trajectories[i][t] : raw_trajectories[i][end] for i in eachindex(raw_trajectories)]...),
         [4 for _ in eachindex(raw_trajectories)])
         push!(traj, b)
     end
