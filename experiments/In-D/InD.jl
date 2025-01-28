@@ -14,14 +14,14 @@ export run_bicycle_sim
 function run_bicycle_sim(full_state=true, graph=true)
 
     # observed_forward_solution = GameUtils.observe_trajectory(forward_solution, init)
-    frames = [780, 806]
+    frames = [780, 916]
     observed_forward_solution = GameUtils.pull_trajectory("07";
-        track = [17, 19, 22], all = false, frames = frames)
+        track = [20, 19, 22], all = false, frames = frames)
     # TODO need to time-synch each trajectory
-    # 17: 530- 806
-    # 19: 620-1001
-    # 22: 780- 916
-    # 780 -> 806 = 26
+    # 20: 646 - 1103
+    # 19: 620 - 1001
+    # 22: 780 - 916
+    # 780 -> 916 = 136
 
     # @infiltrate
 
