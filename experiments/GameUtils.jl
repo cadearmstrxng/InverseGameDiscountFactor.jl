@@ -40,7 +40,7 @@ end
 function n_player_collision_avoidance(
     num_players;
     environment,
-    min_distance = 1.0,
+    min_distance = 1.0, # context state 5
     collision_avoidance_coefficient = 20.0,
     dynamics = planar_double_integrator(;
         state_bounds = (; lb = [-Inf, -Inf, -0.8, -0.8], ub = [Inf, Inf, 0.8, 0.8]),
@@ -56,7 +56,7 @@ function n_player_collision_avoidance(
             norm_sqr(u) * (myopic ? context_state[3] ^ t : 1)
         end
         function collision_cost(x, i, context_state, t)
-            cost = [max(0.0, min_distance + 0.2 * min_distance - norm(x[Block(i)][1:2] - x[Block(paired_player)][1:2]))^2 for paired_player in [1:(i - 1); (i + 1):num_players]]
+            cost = [max(0.0, context_state[4] + 0.2 * context_state[4] - norm(x[Block(i)][1:2] - x[Block(paired_player)][1:2]))^2 for paired_player in [1:(i - 1); (i + 1):num_players]]
             sum(cost) 
         end
         function cost_for_player(i, xs, us, context_state, T)
@@ -66,7 +66,13 @@ function n_player_collision_avoidance(
             control = mean([control_cost(us[t][Block(i)], context_state[Block(i)], t) for t in 1:T])
             safe_distance_violation = mean([collision_cost(xs[t], i, context_state[Block(i)], t) for t in 1:T])
 
-            0.0 * early_target + 1.0 * mean_target + 0.0 * minimum_target + 0.1 * control + collision_avoidance_coefficient * safe_distance_violation
+            #contex states 6-10
+
+            context_state[Block(i)][5] * early_target + 
+            context_state[Block(i)][6] * mean_target + 
+            context_state[Block(i)][7] * minimum_target + 
+            context_state[Block(i)][8] * control + 
+            context_state[Block(i)][9] * safe_distance_violation
         end
         function cost_function(xs, us, context_state)
             num_players = blocksize(xs[1], 1)
@@ -172,7 +178,7 @@ function init_bicycle_test_game(
         dynamics = BicycleDynamics(;
             dt = dt, # needs to become framerate
             l = 1.0,
-            state_bounds = (; lb = [-Inf, -Inf, -0.8, 0], ub = [Inf, Inf, 0.8, 2*pi]),
+            state_bounds = (; lb = [-35, 20, -0.8, 0], ub = [20, 100, 0.8, 2*pi]),
             control_bounds = (; lb = [-10, -10], ub = [10, 10]),
             integration_scheme = :forward_euler
         ),

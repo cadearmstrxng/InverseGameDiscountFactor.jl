@@ -5,6 +5,7 @@ using Infiltrator
 using CairoMakie
 using TrajectoryGamesBase:
     num_players, state_dim
+using LinearAlgebra: norm_sqr
 
 include("../GameUtils.jl")
 include("../graphing/ExperimentGraphingUtils.jl")
@@ -33,9 +34,9 @@ function run_bicycle_sim(full_state=true, graph=true)
         full_state;
         initial_state = observed_forward_solution[1],
         game_params = mortar([
-            [observed_forward_solution[end][Block(1)][1:2]..., 0.6],
-            [observed_forward_solution[end][Block(2)][1:2]..., 0.6],
-            [observed_forward_solution[end][Block(3)][1:2]..., 0.6]]),
+            [observed_forward_solution[end][Block(1)][1:2]..., 0.75, [1.0 for _ in 4:9]...],
+            [observed_forward_solution[end][Block(2)][1:2]..., 0.75, [1.0 for _ in 4:9]...],
+            [observed_forward_solution[end][Block(3)][1:2]..., 0.75, [1.0 for _ in 4:9]...]]),
         horizon = length(frames[1]:downsample_rate:frames[2]),
         dt = 0.04*downsample_rate,
         myopic=true
@@ -62,7 +63,7 @@ function run_bicycle_sim(full_state=true, graph=true)
         mcp_game,
         observed_forward_solution,
         init.observation_model,
-        (3, 3, 3);
+        (length(game_params) // 3, length(game_params) // 3, length(game_params) // 3);
         hidden_state_guess = init.game_parameters,
         max_grad_steps = 200,
         retries_on_divergence = 3,
@@ -81,6 +82,16 @@ function run_bicycle_sim(full_state=true, graph=true)
             ]
         )
     end
+
+    sol_error = norm_sqr(method_sol.recovered_trajectory - vcat(observed_forward_solution...))
+
+    println("inverse sol error: ", sol_error)
+
+    sol_error = norm_sqr(InverseGameDiscountFactor.reconstruct_solution(method_sol.warm_start_trajectory, mcp_game.game, init.horizon) - vcat(observed_forward_solution...))
+
+    println("warm start sol error: ", sol_error)
+
+
 end
 
 end

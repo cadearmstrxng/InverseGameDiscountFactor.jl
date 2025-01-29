@@ -49,6 +49,7 @@ function solve_myopic_inverse_game(
                 sol_error = sol_error,
                 recovered_params = context_state_estimation,
                 recovered_trajectory = recovered_trajectory,
+                warm_start_trajectory = warm_start_sol,
                 solving_info = solving_info,
                 time_exec = time_exec,
                 )
