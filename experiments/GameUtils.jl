@@ -161,6 +161,7 @@ function init_bicycle_test_game(
     ]),
     horizon = 25,
     num_players = 3,
+    dt = 0.04,
     myopic = false
 )
     game_structure = n_player_collision_avoidance(
@@ -169,7 +170,7 @@ function init_bicycle_test_game(
         min_distance = 0.5,
         collision_avoidance_coefficient = 5.0,
         dynamics = BicycleDynamics(;
-            dt = 0.1,
+            dt = dt, # needs to become framerate
             l = 1.0,
             state_bounds = (; lb = [-Inf, -Inf, -0.8, 0], ub = [Inf, Inf, 0.8, 2*pi]),
             control_bounds = (; lb = [-10, -10], ub = [10, 10]),

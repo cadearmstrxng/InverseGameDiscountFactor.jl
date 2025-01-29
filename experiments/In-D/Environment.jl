@@ -266,7 +266,7 @@ function create_env()
     return indEnvironment(circle_centers, circle_radii, line_slopes, line_intercepts, line_x_ranges, line_y_ranges, points)
 end
 
-function pull_trajectory(recording; dir = "experiments/data/", track = [1, 2, 3], all = false, frames = [0, 10000], fill_traj = false)
+function pull_trajectory(recording; dir = "experiments/data/", track = [1, 2, 3], all = false, frames = [0, 10000], downsample_rate = 1, fill_traj = false)
     file = CSV.File(dir*recording*"_tracks.csv")
     raw_trajectories = (all) ? [[] for _ in 1:max(file[:trackId]...)+1] : [[] for _ in eachindex(track)]
     data_to_pull = [:xCenter, :yCenter, :heading, :xVelocity, :yVelocity, :xAcceleration, :yAcceleration, :width, :length,]
@@ -296,7 +296,7 @@ function pull_trajectory(recording; dir = "experiments/data/", track = [1, 2, 3]
         [4 for _ in eachindex(raw_trajectories)])
         push!(traj, b)
     end
-    return traj
+    return traj[1:downsample_rate:end]
 
     # return [BlockVector(vcat([raw_trajectories[i][t] for i in eachindex(raw_trajectories)]...),
     #             [4 for _ in eachindex(raw_trajectories)]) for t in eachindex(raw_trajectories[1])]

@@ -15,13 +15,17 @@ function run_bicycle_sim(full_state=true, graph=true)
 
     # observed_forward_solution = GameUtils.observe_trajectory(forward_solution, init)
     frames = [780, 916]
+    downsample_rate = 5
     observed_forward_solution = GameUtils.pull_trajectory("07";
-        track = [20, 19, 22], all = false, frames = frames)
+        track = [20, 19, 22], downsample_rate = downsample_rate, all = false, frames = frames)
     # TODO need to time-synch each trajectory
     # 20: 646 - 1103
     # 19: 620 - 1001
     # 22: 780 - 916
     # 780 -> 916 = 136
+
+    # potentially use receding horizon - https://arxiv.org/pdf/2302.01999
+    # downsample the trajectory by 5
 
     # @infiltrate
 
@@ -32,7 +36,8 @@ function run_bicycle_sim(full_state=true, graph=true)
             [observed_forward_solution[end][Block(1)][1:2]..., 0.6],
             [observed_forward_solution[end][Block(2)][1:2]..., 0.6],
             [observed_forward_solution[end][Block(3)][1:2]..., 0.6]]),
-        horizon = frames[2] - frames[1] + 1,
+        horizon = length(frames[1]:downsample_rate:frames[2]),
+        dt = 0.04*downsample_rate,
         myopic=true
     )
     

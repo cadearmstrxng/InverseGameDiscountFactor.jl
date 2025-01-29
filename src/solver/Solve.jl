@@ -47,7 +47,7 @@ function solve_mcp_game(
         use_basics = true,
         use_start = true,
         # convergence_tolerance = 1e-4,
-    )
+    ) # change this to David's package -> MixedComplementarityProblem.PrimalDualMCP (mcp.jl)
 
     primals = map(1:num_players(game)) do ii
         variables[index_sets.τ_idx_set[ii]]
