@@ -9,11 +9,13 @@ function solve_myopic_inverse_game(
     verbose = false,
     rng = Random.MersenneTwister(1)
 )
+    verbose || println("solving ... ")
     initial_state = BlockVector(deepcopy(observed_trajectory[1]), collect(blocksizes(observed_trajectory[1], 1)))
+    verbose || println("initial state: ", initial_state)
     hidden_state_0 = isnothing(hidden_state_guess) ?
         BlockVector(randn(rng, sum(hidden_state_dim)), collect(hidden_state_dim)) :
         BlockVector(hidden_state_guess, collect(hidden_state_dim))
-    verbose || println("initial state: ", initial_state, "\nhidden state: ", hidden_state_0)
+    verbose || println("hidden state: ", hidden_state_0)
     
     warm_start_sol = 
         expand_warm_start(

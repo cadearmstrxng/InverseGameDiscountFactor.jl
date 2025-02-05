@@ -126,11 +126,17 @@ function InD_collision_avoidance(
 
             #contex states 6-10
 
-            context_state[Block(i)][5] * early_target + 
-            context_state[Block(i)][6] * mean_target + 
-            context_state[Block(i)][7] * minimum_target + 
-            context_state[Block(i)][8] * control + 
-            context_state[Block(i)][9] * safe_distance_violation
+            # context_state[Block(i)][5] * early_target + 
+            # context_state[Block(i)][6] * mean_target + 
+            # context_state[Block(i)][7] * minimum_target + 
+            # context_state[Block(i)][8] * control + 
+            # context_state[Block(i)][9] * safe_distance_violation
+
+            0.2 * early_target + 
+            0.2 * mean_target + 
+            0.2 * minimum_target + 
+            0.2 * control + 
+            0.2 * safe_distance_violation
         end
         function cost_function(xs, us, context_state)
             num_players = blocksize(xs[1], 1)

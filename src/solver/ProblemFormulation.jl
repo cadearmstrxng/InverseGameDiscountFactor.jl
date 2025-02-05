@@ -214,7 +214,11 @@ struct MCPCoupledOptimizationSolver
     mcp_game::MCPGame
 end
 
-function MCPCoupledOptimizationSolver(game::TrajectoryGame, horizon, context_state_block_dimensions)
+function MCPCoupledOptimizationSolver(game::TrajectoryGame, horizon, context_state_block_dimensions; verbose = false)
+    verbose || print("initializing mcp game ... ")
     mcp_game = MCPGame(game, horizon, context_state_block_dimensions)
-    MCPCoupledOptimizationSolver(mcp_game)
+    verbose || print("mcp game initialized\ninitializing mcp game solver ... ")
+    m = MCPCoupledOptimizationSolver(mcp_game)
+    verbose || println("mcp game solver initialized")
+    return m
 end
