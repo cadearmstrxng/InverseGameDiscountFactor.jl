@@ -65,7 +65,7 @@ function get_constraints(environment::indEnvironment, player_index = nothing)
         push!(constraints, 100 - position[2])
         push!(constraints, position[2] - 20)
         push!(constraints, 35 + position[1])
-        push!(constraints, position[1] - 25)
+        push!(constraints, -position[1] + 9)
 
         constraints
     end
@@ -349,10 +349,11 @@ function test_env()
     end 
 
     constraints = get_constraints(env)
+    # println(constraints(test_state))
 
     # @infiltrate
 
-    disp_constraints([-35, 10], [20, 100], constraints)
+    disp_constraints([-45, 20], [10, 110], constraints)
 
     # constraints(test_state)
 end
