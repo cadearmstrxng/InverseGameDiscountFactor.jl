@@ -228,10 +228,13 @@ function init_bicycle_test_game(
     horizon = 25,
     num_players = 3,
     dt = 0.04,
-    myopic = false
+    myopic = false,
+    verbose = false
 )
-    game_structure = n_player_collision_avoidance(
-        num_players;
+    verbose || print("initializing game ... ")
+    game_structure = InD_collision_avoidance(
+        num_players,
+        nothing; # lane centers
         environment = game_environment,
         min_distance = 0.5,
         collision_avoidance_coefficient = 5.0,
@@ -244,6 +247,7 @@ function init_bicycle_test_game(
         ),
         myopic = myopic
     )
+    verbose || print(" game structure initialized\n")
     if full_state
         observation_dim = state_dim[1]
         observation_model = 
@@ -261,6 +265,7 @@ function init_bicycle_test_game(
                     for i in 1:num_players ]...
             )
     end
+    verbose || println("observation model initialized")
 
     (;
     initial_state = initial_state,
