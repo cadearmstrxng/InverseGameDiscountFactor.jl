@@ -33,21 +33,27 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = false)
     init = GameUtils.init_bicycle_test_game(
         full_state;
         initial_state = observed_forward_solution[1],
+        # game_params = mortar([
+        #     [observed_forward_solution[end][Block(1)][1:2]..., 0.75, [1.0 for _ in 4:9]...],
+        #     [observed_forward_solution[end][Block(2)][1:2]..., 0.75, [1.0 for _ in 4:9]...],
+        #     [observed_forward_solution[end][Block(3)][1:2]..., 0.75, [1.0 for _ in 4:9]...]]),
         game_params = mortar([
-            [observed_forward_solution[end][Block(1)][1:2]..., 0.75, [1.0 for _ in 4:9]...],
-            [observed_forward_solution[end][Block(2)][1:2]..., 0.75, [1.0 for _ in 4:9]...],
-            [observed_forward_solution[end][Block(3)][1:2]..., 0.75, [1.0 for _ in 4:9]...]]),
+            [observed_forward_solution[end][Block(1)][1:2]..., 0.75, 1.0],
+            [observed_forward_solution[end][Block(2)][1:2]..., 0.75, 1.0],
+            [observed_forward_solution[end][Block(3)][1:2]..., 0.75, 1.0]]),
         horizon = length(frames[1]:downsample_rate:frames[2]),
         dt = 0.04*downsample_rate,
         myopic=true,
         verbose = verbose
     )
-    verbose || println("game initialized\ninitializing mcp game solver")
+    verbose || println("game initialized\ninitializing mcp coupled optimization solver")
     mcp_game = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
         init.game_structure.game,
         init.horizon,
-        blocksizes(init.game_parameters, 1)
+        blocksizes(init.game_parameters, 1);
+        verbose = verbose
     ).mcp_game
+    verbose || println("mcp coupled optimization solver initialized")
 
 
     # forward_solution = InverseGameDiscountFactor.reconstruct_solution(
@@ -65,12 +71,14 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = false)
         mcp_game,
         observed_forward_solution,
         init.observation_model,
-        (9, 9, 9);
+        # (9, 9, 9);
+        (4, 4, 4);
         hidden_state_guess = init.game_parameters,
         max_grad_steps = 200,
         retries_on_divergence = 3,
         verbose = true
     )
+    verbose || println("solved inverse game")
 
     if graph
         ExperimentGraphicUtils.graph_trajectories(
