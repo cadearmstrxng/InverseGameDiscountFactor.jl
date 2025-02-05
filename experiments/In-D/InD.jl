@@ -12,11 +12,11 @@ include("../graphing/ExperimentGraphingUtils.jl")
 include("../../src/InverseGameDiscountFactor.jl")
 
 export run_bicycle_sim
-function run_bicycle_sim(full_state=true, graph=true)
+function run_bicycle_sim(;full_state=true, graph=true, verbose = false)
 
     # observed_forward_solution = GameUtils.observe_trajectory(forward_solution, init)
     frames = [780, 916]
-    downsample_rate = 5
+    downsample_rate = 10
     observed_forward_solution = GameUtils.pull_trajectory("07";
         track = [20, 19, 22], downsample_rate = downsample_rate, all = false, frames = frames)
     # TODO need to time-synch each trajectory
@@ -39,14 +39,16 @@ function run_bicycle_sim(full_state=true, graph=true)
             [observed_forward_solution[end][Block(3)][1:2]..., 0.75, [1.0 for _ in 4:9]...]]),
         horizon = length(frames[1]:downsample_rate:frames[2]),
         dt = 0.04*downsample_rate,
-        myopic=true
+        myopic=true,
+        verbose = verbose
     )
-    
+    verbose || println("game initialized\ninitializing mcp game solver")
     mcp_game = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
         init.game_structure.game,
         init.horizon,
         blocksizes(init.game_parameters, 1)
     ).mcp_game
+
 
     # forward_solution = InverseGameDiscountFactor.reconstruct_solution(
     #     InverseGameDiscountFactor.solve_mcp_game(
@@ -58,7 +60,7 @@ function run_bicycle_sim(full_state=true, graph=true)
     #     init.game_structure.game,
     #     init.horizon
     # )
-
+    verbose || println("solving inverse game")
     method_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
         mcp_game,
         observed_forward_solution,
@@ -67,7 +69,7 @@ function run_bicycle_sim(full_state=true, graph=true)
         hidden_state_guess = init.game_parameters,
         max_grad_steps = 200,
         retries_on_divergence = 3,
-        verbose = false
+        verbose = true
     )
 
     if graph

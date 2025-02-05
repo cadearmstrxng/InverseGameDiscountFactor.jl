@@ -118,6 +118,7 @@ function create_env()
     colors = [:red, :blue, :green]
     for j in eachindex(tracks)
         lines!(ax1, [traj[i][Block(j)][1] for i in eachindex(traj)], [traj[i][Block(j)][2] for i in eachindex(traj)], color = colors[j])
+        scatter!(ax1, [(traj[end][Block(j)][1], traj[end][Block(j)][2])], color = colors[j], marker = :star5)
         # lines!(ax1, [i[1] for i in blocks(traj[j])], [i[2] for i in blocks(traj[j])], color = colors[(j % length(colors)) + 1])
     end
 
@@ -254,7 +255,7 @@ function create_env()
     plot_line(ax1, m8, b8, p2[1], p1[1], :orange)
     
 
-    # display(fig)
+    display(fig)
 
     circle_centers = [c1, c2, c3, c4]
     circle_radii = [r1, r2, r3, r4]

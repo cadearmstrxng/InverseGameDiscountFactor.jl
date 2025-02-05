@@ -13,6 +13,7 @@ function solve_myopic_inverse_game(
     hidden_state_0 = isnothing(hidden_state_guess) ?
         BlockVector(randn(rng, sum(hidden_state_dim)), collect(hidden_state_dim)) :
         BlockVector(hidden_state_guess, collect(hidden_state_dim))
+    verbose || println("initial state: ", initial_state, "\nhidden state: ", hidden_state_0)
     
     warm_start_sol = 
         expand_warm_start(
@@ -24,6 +25,7 @@ function solve_myopic_inverse_game(
                 observation_model = observation_model,
                 partial_observation_state_size = Int64(size(observed_trajectory[1], 1) // num_players(mcp_game.game))),
                 mcp_game)
+    verbose || println("warm start sol: ", warm_start_sol)
     #TODO would be nice to check if warm start solution is feasible
     # for attempt in 1:retries_on_divergence
         # try
@@ -38,7 +40,7 @@ function solve_myopic_inverse_game(
                     max_grad_steps = max_grad_steps,
                     last_solution = warm_start_sol
                 )
-            # println("attempt: ", attempt , " status: ", solving_info[end].status)
+            verbose||println("attempt: ", attempt , " status: ", solving_info[end].status)
             # if solving_info[end].status == PATHSolver.MCP_Solved
                 inv_sol = solve_mcp_game(mcp_game, initial_state, context_state_estimation; verbose = false)
                 recovered_trajectory = reconstruct_solution(inv_sol, mcp_game.game, mcp_game.horizon)
