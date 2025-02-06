@@ -76,7 +76,8 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = false)
         hidden_state_guess = init.game_parameters,
         max_grad_steps = 200,
         retries_on_divergence = 3,
-        verbose = true
+        verbose = true,
+        dynamics = init.game_structure.game.dynamics
     )
     verbose || println("solved inverse game")
 
