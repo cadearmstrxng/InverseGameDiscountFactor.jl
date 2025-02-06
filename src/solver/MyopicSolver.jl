@@ -7,7 +7,8 @@ function solve_myopic_inverse_game(
     max_grad_steps = 200,
     retries_on_divergence = 3,
     verbose = false,
-    rng = Random.MersenneTwister(1)
+    rng = Random.MersenneTwister(1),
+    dynamics = nothing
 )
     verbose || println("solving ... ")
     initial_state = BlockVector(deepcopy(observed_trajectory[1]), collect(blocksizes(observed_trajectory[1], 1)))
@@ -25,7 +26,8 @@ function solve_myopic_inverse_game(
                 mcp_game.horizon;
                 num_players = num_players(mcp_game.game),
                 observation_model = observation_model,
-                partial_observation_state_size = Int64(size(observed_trajectory[1], 1) // num_players(mcp_game.game))),
+                partial_observation_state_size = Int64(size(observed_trajectory[1], 1) // num_players(mcp_game.game)),
+                dynamics = dynamics),
                 mcp_game)
     verbose || println("warm start sol: ", warm_start_sol)
     #TODO would be nice to check if warm start solution is feasible
