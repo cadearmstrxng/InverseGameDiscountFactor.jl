@@ -91,11 +91,12 @@ export run_bicycle_sim
 function run_bicycle_sim(;full_state=true, graph=true, verbose = false)
 
     # observed_forward_solution = GameUtils.observe_trajectory(forward_solution, init)
-    # frames = [780, 916]
-    frames = [780, 806]
-    downsample_rate = 1
+    frames = [780, 916]
+    # frames = [780, 806]
+    tracks = [20, 22]
+    downsample_rate = 10
     observed_forward_solution = GameUtils.pull_trajectory("07";
-        track = [17, 19, 22], downsample_rate = downsample_rate, all = false, frames = frames)
+        track = tracks, downsample_rate = downsample_rate, all = false, frames = frames)
     # TODO need to time-synch each trajectory
     # 20: 646 - 1103
     # 19: 620 - 1001
@@ -120,10 +121,9 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = false)
         #     [observed_forward_solution[end][Block(2)][1:2]..., 0.75, [1.0 for _ in 4:9]...],
         #     [observed_forward_solution[end][Block(3)][1:2]..., 0.75, [1.0 for _ in 4:9]...]]),
         game_params = mortar([
-            [observed_forward_solution[end][Block(1)][1:2]..., 0.75, 1.0],
-            [observed_forward_solution[end][Block(2)][1:2]..., 0.75, 1.0],
-            [observed_forward_solution[end][Block(3)][1:2]..., 0.75, 1.0]]),
+            [[observed_forward_solution[end][Block(i)][1:2]..., 0.95, 1.0] for i in 1:length(tracks)]...]),
         horizon = length(frames[1]:downsample_rate:frames[2]),
+        num_players = length(tracks),
         dt = 0.04*downsample_rate,
         myopic=true,
         verbose = verbose
