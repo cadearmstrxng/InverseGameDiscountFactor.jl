@@ -289,8 +289,8 @@ function pull_trajectory(recording; dir = "experiments/data/", track = [1, 2, 3]
 
     traj = []
     # @infiltrate
-    min_horizon = min(length(raw_trajectories[1]), length(raw_trajectories[2]), length(raw_trajectories[3]))
-    max_horizon = max(length(raw_trajectories[1]), length(raw_trajectories[2]), length(raw_trajectories[3]))
+    min_horizon = min([length(i) for i in raw_trajectories]...)
+    max_horizon = max([length(i) for i in raw_trajectories]...)
     actual_horizon = fill_traj ? max_horizon : min_horizon
     for t in 1:actual_horizon 
         b = BlockVector(vcat([(t <= length(raw_trajectories[i])) ? raw_trajectories[i][t] : raw_trajectories[i][end] for i in eachindex(raw_trajectories)]...),
