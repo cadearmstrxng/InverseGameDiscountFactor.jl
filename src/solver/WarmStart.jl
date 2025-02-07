@@ -7,8 +7,6 @@
 # using Infiltrator
 # using Symbolics
 # using BlockArrays: Block, BlockVector, mortar, blocksize
-using Infiltrator
-
 struct NullEnv end
 
 function TrajectoryGamesBase.get_constraints(env::NullEnv, ii)
@@ -25,7 +23,7 @@ function warm_start_game(num_players;
     partial_observation_state_size = -1
     )
 
-    dynamics = (isnothing(dynamics)) ? ProductDyanmics([planar_double_integrator(;
+    dynamics = (isnothing(dynamics)) ? ProductDynamics([planar_double_integrator(;
         state_bounds = (; lb = [-Inf, -Inf, -0.8, -0.8], ub = [Inf, Inf, 0.8, 0.8]),
         control_bounds = (; lb = [-10, -10], ub = [10, 10]),) for _ in 1:num_players]) : dynamics
 
