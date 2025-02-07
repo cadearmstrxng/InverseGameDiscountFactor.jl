@@ -44,7 +44,7 @@ function solve_myopic_inverse_game(
                     max_grad_steps = max_grad_steps,
                     last_solution = warm_start_sol
                 )
-            verbose||println("attempt: ", attempt , " status: ", solving_info[end].status)
+            # verbose||println("solved, status: ", solving_info.status)
             # if solving_info[end].status == PATHSolver.MCP_Solved
                 inv_sol = solve_mcp_game(mcp_game, initial_state, context_state_estimation; verbose = false)
                 recovered_trajectory = reconstruct_solution(inv_sol, mcp_game.game, mcp_game.horizon)
