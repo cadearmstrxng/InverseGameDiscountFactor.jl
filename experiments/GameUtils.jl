@@ -11,6 +11,7 @@ using TrajectoryGamesBase:
 using TrajectoryGamesExamples:planar_double_integrator, BicycleDynamics
 using LinearAlgebra: norm_sqr, norm
 using Statistics: mean
+using Infiltrator
 
 include("./In-D/Environment.jl")
 
@@ -232,14 +233,14 @@ function init_bicycle_test_game(
         [0, 2, 0.6]
     ]),
     horizon = 25,
-    num_players = 3,
+    n = 3,
     dt = 0.04,
     myopic = false,
     verbose = false
 )
     verbose || print("initializing game ... ")
     game_structure = InD_collision_avoidance(
-        num_players,
+        n,
         nothing; # lane centers
         environment = game_environment,
         min_distance = 0.5,
@@ -260,15 +261,15 @@ function init_bicycle_test_game(
             (x; σ = σ_) -> 
             vcat(
                 [ x[state_dim[1] * (i - 1)+1:state_dim[1]*i] .+ σ * randn(state_dim[1])
-                    for i in 1:num_players]...
+                    for i in 1:n]...
             )
     else
         observation_dim = 2
         observation_model = 
             (x; σ = σ_) -> 
             vcat(
-                [ x[state_dim[1]*i-(state_dim[1]-1):state_dim[1]*i-(state_dim[1]-2)] .+ σ * randn(2)
-                    for i in 1:num_players ]...
+                [ x[state_dim[1]*i-(state_dim[1]-1):state_dim[1]*i-(state_dim[1]-2)]
+                    for i in 1:n]...
             )
     end
     verbose || println("observation model initialized")
@@ -287,9 +288,13 @@ function init_bicycle_test_game(
     )
 end
 
-function observe_trajectory(trajectory, game_init)
-    map(blocks(trajectory)) do x
-        BlockVector(game_init.observation_model(x), [game_init.observation_dim for _ in 1:num_players(game_init.game_structure.game)])
+function observe_trajectory(trajectory, game_init; blocked_by_time = true)
+    if blocked_by_time
+        map(blocks(trajectory)) do x
+            BlockVector(game_init.observation_model(x), [game_init.observation_dim for _ in 1:num_players(game_init.game_structure.game)])
+        end
+    else # observe by state at time t
+        BlockVector(game_init.observation_model(trajectory[1:end]), [game_init.observation_dim for _ in 1:num_players(game_init.game_structure.game)])
     end
 end
 
