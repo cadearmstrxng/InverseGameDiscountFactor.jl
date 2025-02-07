@@ -255,7 +255,7 @@ function create_env()
     plot_line(ax1, m8, b8, p2[1], p1[1], :orange)
     
 
-    display(fig)
+    # display(fig)
 
     circle_centers = [c1, c2, c3, c4]
     circle_radii = [r1, r2, r3, r4]
