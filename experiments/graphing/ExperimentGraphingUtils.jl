@@ -123,8 +123,8 @@ function graph_trajectories(
             [trajectories[2][Block(t)][(i - 1) * p_state_dim + 2] for t in 1:horizon], 
             color = colors[2][i])
     end
-
-    
+    CairoMakie.scatter!(ax, [[trajectories[1][end][Block(i)][1], trajectories[1][end][Block(i)][2]] for i in 1:n], color = colors[1], marker=:star5)
+    CairoMakie.scatter!(ax, [[trajectories[2][Block(horizon)][(i - 1) * p_state_dim + 1], trajectories[1][Block(horizon)][(i - 1) * p_state_dim + 2]] for i in 1:n], color = colors[1], marker = :star5)
 
     CairoMakie.save(plot_name*".png", fig)
 end
