@@ -1,6 +1,6 @@
 module InD
 
-using BlockArrays: blocksizes, Block, mortar
+using BlockArrays: blocksizes, Block, mortar, BlockVector
 using Infiltrator
 using CairoMakie
 using TrajectoryGamesBase:
@@ -88,7 +88,7 @@ end
 
 
 export run_bicycle_sim
-function run_bicycle_sim(;full_state=true, graph=true, verbose = false)
+function run_bicycle_sim(;full_state=false, graph=true, verbose = false)
 
     # observed_forward_solution = GameUtils.observe_trajectory(forward_solution, init)
     frames = [780, 916]
@@ -123,11 +123,14 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = false)
         game_params = mortar([
             [[observed_forward_solution[end][Block(i)][1:2]..., 0.95, 1.0] for i in 1:length(tracks)]...]),
         horizon = length(frames[1]:downsample_rate:frames[2]),
-        num_players = length(tracks),
+        n = length(tracks),
         dt = 0.04*downsample_rate,
         myopic=true,
         verbose = verbose
     )
+    observed_forward_solution = (full_state) ? observed_forward_solution : [BlockVector(GameUtils.observe_trajectory(observed_forward_solution[t], init;blocked_by_time = false),
+        [init.observation_dim for _ in 1:length(tracks)]) for t in 1:init.horizon]
+    
     verbose || println("game initialized\ninitializing mcp coupled optimization solver")
     mcp_game = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
         init.game_structure.game,
@@ -153,12 +156,11 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = false)
         mcp_game,
         observed_forward_solution,
         init.observation_model,
-        # (9, 9, 9);
-        (4, 4, 4);
+        Tuple(blocksizes(init.game_parameters, 1)),;
         hidden_state_guess = init.game_parameters,
         max_grad_steps = 200,
         retries_on_divergence = 3,
-        verbose = verbose
+        verbose = false
     )
     verbose || println("solved inverse game")
 
