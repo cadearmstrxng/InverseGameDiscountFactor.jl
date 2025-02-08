@@ -157,6 +157,7 @@ function run_bicycle_sim(;full_state=false, graph=true, verbose = false)
         observed_forward_solution,
         init.observation_model,
         Tuple(blocksizes(init.game_parameters, 1)),;
+        initial_state = init.initial_state,
         hidden_state_guess = init.game_parameters,
         max_grad_steps = 200,
         retries_on_divergence = 3,

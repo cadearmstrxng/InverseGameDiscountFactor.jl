@@ -3,6 +3,7 @@ function solve_myopic_inverse_game(
     observed_trajectory,
     observation_model,
     hidden_state_dim;
+    initial_state = nothing,
     hidden_state_guess = nothing,
     max_grad_steps = 200,
     retries_on_divergence = 3,
@@ -11,7 +12,7 @@ function solve_myopic_inverse_game(
     dynamics = nothing
 )
     verbose || println("solving ... ")
-    initial_state = BlockVector(deepcopy(observed_trajectory[1]), collect(blocksizes(observed_trajectory[1], 1)))
+    initial_state = (isnothing(initial_state)) ? BlockVector(deepcopy(observed_trajectory[1]), collect(blocksizes(observed_trajectory[1], 1))) : initial_state
     verbose || println("initial state: ", initial_state)
     hidden_state_0 = isnothing(hidden_state_guess) ?
         BlockVector(randn(rng, sum(hidden_state_dim)), collect(hidden_state_dim)) :
