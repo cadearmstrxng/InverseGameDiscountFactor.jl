@@ -11,13 +11,13 @@ function solve_myopic_inverse_game(
     rng = Random.MersenneTwister(1),
     dynamics = nothing
 )
-    verbose || println("solving ... ")
+    !verbose || println("solving ... ")
     initial_state = (isnothing(initial_state)) ? BlockVector(deepcopy(observed_trajectory[1]), collect(blocksizes(observed_trajectory[1], 1))) : initial_state
-    verbose || println("initial state: ", initial_state)
+    !verbose || println("initial state: ", initial_state)
     hidden_state_0 = isnothing(hidden_state_guess) ?
         BlockVector(randn(rng, sum(hidden_state_dim)), collect(hidden_state_dim)) :
         BlockVector(hidden_state_guess, collect(hidden_state_dim))
-    verbose || println("hidden state: ", hidden_state_0)
+    !verbose || println("hidden state: ", hidden_state_0)
     
     warm_start_sol = 
         expand_warm_start(
@@ -29,8 +29,12 @@ function solve_myopic_inverse_game(
                 observation_model = observation_model,
                 partial_observation_state_size = Int64(size(observed_trajectory[1], 1) // num_players(mcp_game.game)),
                 dynamics = dynamics),
-                mcp_game)
-    verbose || println("warm start sol: ", warm_start_sol)
+            mcp_game)
+    
+    open("warm_start_sol.txt", "w") do io
+        write(io, warm_start_sol)
+    end
+    !verbose || println("warm start sol: ", warm_start_sol)
     #TODO would be nice to check if warm start solution is feasible
     # for attempt in 1:retries_on_divergence
         # try
