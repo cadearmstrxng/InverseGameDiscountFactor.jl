@@ -129,5 +129,39 @@ function graph_trajectories(
     CairoMakie.save(plot_name*".png", fig)
 end
 
+function graph_crosswalk_trajectories(
+    plot_name,
+    trajectories,
+    game_structure,
+    horizon;
+    colors = [[(:red, 1.0), (:blue, 1.0), (:green, 1.0)], [(:red, 0.75), (:blue, 0.75), (:green, 0.75)]]
+)
+    CairoMakie.activate!()
+    fig = CairoMakie.Figure()
+    ax = CairoMakie.Axis(fig[1,1], aspect = DataAspect())
+    n = num_players(game_structure.game.dynamics)
+    p_state_dim = Int64(state_dim(game_structure.game.dynamics) // n)
+
+    for i in 1:n
+        CairoMakie.lines!(ax, 
+            [trajectories[1][Block(t)][(i - 1) * p_state_dim + 1] for t in 1:horizon],
+            [trajectories[1][Block(t)][(i - 1) * p_state_dim + 2] for t in 1:horizon], 
+            color = colors[1][i])
+        CairoMakie.lines!(ax, 
+            [trajectories[2][Block(t)][(i - 1) * p_state_dim + 1] for t in 1:horizon],
+            [trajectories[2][Block(t)][(i - 1) * p_state_dim + 2] for t in 1:horizon], 
+            color = colors[2][i])
+        CairoMakie.scatter!(ax,
+            [trajectories[1][Block(horizon)][(i - 1) * p_state_dim + 1]],
+            [trajectories[1][Block(horizon)][(i - 1) * p_state_dim + 2]],
+            color = colors[1][i], marker=:star5)
+        CairoMakie.scatter!(ax,
+            [trajectories[2][Block(horizon)][(i - 1) * p_state_dim + 1]],
+            [trajectories[2][Block(horizon)][(i - 1) * p_state_dim + 2]],
+            color = colors[2][i], marker=:star5)
+    end
+    CairoMakie.save(plot_name*".png", fig)
+end
+
 
 end
