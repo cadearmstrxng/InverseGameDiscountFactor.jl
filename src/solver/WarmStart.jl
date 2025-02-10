@@ -4,7 +4,7 @@
 #     TrajectoryGame,
 #     TrajectoryGamesBase
 # using ParametricMCPs
-# using Infiltrator
+using Infiltrator
 # using Symbolics
 # using BlockArrays: Block, BlockVector, mortar, blocksize
 struct NullEnv end
@@ -28,29 +28,34 @@ function warm_start_game(num_players;
         control_bounds = (; lb = [-10, -10], ub = [10, 10]),) for _ in 1:num_players]) : dynamics
 
     cost = let
-
-        # function warm_start_cost_for_player(i, x, y, T, state_size)
-        #     c = []
-        #     for t in 1:T #TODO issue is that observation model is for full concatenated state, this doesn't expect that 
-        #         push!(c, norm_sqr(observation_model(x[t+1])[i*state_size-1:i*state_size] .- Symbolics.scalarize(y[Block(t)][i*state_size-1:i*state_size])))
-        #     end
-
-        #     return sum(c)
-        # end
-
-        function warm_start_cost(x,y)
+        function warm_start_cost_for_player(xᵢ,yᵢ)
             # T = convert(Int64,size(x)[1]-1)
             # state_size = partial_observation_state_size < 0 ? size(x[1][Block(1)])[1] : partial_observation_state_size
             # num_players = blocksize(x[1], 1)
 
-            map(zip(x[2:end], y)) do (x_i, y_i)
-                norm_sqr(observation_model(x_i) - y_i)
+            sum(map(zip(xᵢ[2:end], yᵢ)) do (xₜ, yₜ)
+                # @infiltrate
+                norm_sqr(xₜ - yₜ)
             end 
+            )
+        end
 
+        function warm_start_cost(xs,ys)
+
+            costs = []
+            horizon = length(ys)
+            
+            for i in 1:num_players
+                xᵢ = [xs[t][Block(i)] for t in 1:(horizon+1)]
+                yᵢ = [ys[t][Block(i)] for t in 1:horizon]
+
+                push!(costs, warm_start_cost_for_player(xᵢ, yᵢ))
+            end
+
+            costs
             # [warm_start_cost_for_player(i, x, y, T, state_size) for i in 1:T]
         end
         TrajectoryGameCost(warm_start_cost, GeneralSumCostStructure())
-
     end
     game = TrajectoryGame(
         dynamics,
@@ -59,6 +64,53 @@ function warm_start_game(num_players;
         nothing,
     )
     CollisionAvoidanceGame(game)
+end
+
+function warm_start_game_per_player(num_players;
+    environment,
+    observation_model = identity,
+    dynamics = nothing,
+    partial_observation_state_size = -1
+    )
+    dynamics = (isnothing(dynamics)) ? ProductDynamics([planar_double_integrator(;
+        state_bounds = (; lb = [-Inf, -Inf, -0.8, -0.8], ub = [Inf, Inf, 0.8, 0.8]),
+        control_bounds = (; lb = [-10, -10], ub = [10, 10]),) for _ in 1:num_players]) : dynamics
+
+    cost = let
+        function warm_start_cost(x,y)
+            # T = convert(Int64,size(x)[1]-1)
+            # state_size = partial_observation_state_size < 0 ? size(x[1][Block(1)])[1] : partial_observation_state_size
+            # num_players = blocksize(x[1], 1)
+
+            sum(map(zip(x[2:end], y)) do (xₜ, yₜ)
+                norm_sqr(xₜ - yₜ)
+            end 
+            )
+        end
+
+        TrajectoryGameCost(warm_start_cost, GeneralSumCostStructure())
+    end
+    game = TrajectoryGame(
+        dynamics,
+        cost,
+        environment,
+        nothing,
+    )
+    CollisionAvoidanceGame(game)
+
+end
+
+function warm_start_per_player(y, initial_state, horizon; observation_model = identity, 
+    num_players = 2, partial_observation_state_size = -1, dynamics = nothing)
+
+    environment = NullEnv()
+    games = [warm_start_game(
+        1;
+        environment,
+        observation_model = observation_model,
+        partial_observation_state_size = partial_observation_state_size,
+        dynamics = dynamics[i]) for i in 1:num_players]
+
 end
 
 """
@@ -130,6 +182,7 @@ function WarmStartMCPGame(game, observed_trajectory, horizon)
     end
 
     cost_per_player = game.cost(xs, observed_trajectory) .|> scalarize
+    # @infiltrate
 
     lb = Float64[]
     ub = Float64[]
