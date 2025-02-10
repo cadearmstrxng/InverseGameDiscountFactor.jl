@@ -89,7 +89,7 @@ end
 
 
 export run_bicycle_sim
-function run_bicycle_sim(;full_state=true, graph=true, verbose = false)
+function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
 
     # observed_forward_solution = GameUtils.observe_trajectory(forward_solution, init)
     frames = [780, 916]
@@ -132,14 +132,14 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = false)
     observed_forward_solution = (full_state) ? observed_forward_solution : [BlockVector(GameUtils.observe_trajectory(observed_forward_solution[t], init;blocked_by_time = false),
         [init.observation_dim for _ in 1:length(tracks)]) for t in 1:init.horizon]
     
-    verbose || println("game initialized\ninitializing mcp coupled optimization solver")
+    !verbose || println("game initialized\ninitializing mcp coupled optimization solver")
     mcp_game = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
         init.game_structure.game,
         init.horizon,
         blocksizes(init.game_parameters, 1);
         verbose = verbose
     ).mcp_game
-    verbose || println("mcp coupled optimization solver initialized")
+    !verbose || println("mcp coupled optimization solver initialized")
 
 
     # forward_solution = InverseGameDiscountFactor.reconstruct_solution(
@@ -152,7 +152,7 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = false)
     #     init.game_structure.game,
     #     init.horizon
     # )
-    verbose || println("solving inverse game")
+    !verbose || println("solving inverse game")
     method_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
         mcp_game,
         observed_forward_solution,
@@ -162,16 +162,16 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = false)
         hidden_state_guess = init.game_parameters,
         max_grad_steps = 200,
         retries_on_divergence = 3,
-        verbose = false,
+        verbose = verbose,
         dynamics = BicycleDynamics(;
-        dt = 0.04*downsample_rate, # needs to become framerate
-        l = 1.0,
-        state_bounds = (; lb = [-35, 20, -1, -Inf], ub = [10, 100, 13.8889, Inf]),
-        control_bounds = (; lb = [-10, -Inf], ub = [10, Inf]),
-        integration_scheme = :forward_euler
+            dt = 0.04*downsample_rate, # needs to become framerate
+            l = 1.0,
+            state_bounds = (; lb = [-35, 20, -1, -Inf], ub = [10, 100, 13.8889, Inf]),
+            control_bounds = (; lb = [-10, -Inf], ub = [10, Inf]),
+            integration_scheme = :forward_euler
+        )
     )
-    )
-    verbose || println("solved inverse game")
+    !verbose || println("solved inverse game")
 
     if graph
         ExperimentGraphicUtils.graph_trajectories(

@@ -238,7 +238,7 @@ function init_bicycle_test_game(
     myopic = false,
     verbose = false
 )
-    verbose || print("initializing game ... ")
+    !verbose || print("initializing game ... ")
     game_structure = InD_collision_avoidance(
         n,
         nothing; # lane centers
@@ -254,7 +254,7 @@ function init_bicycle_test_game(
         ),
         myopic = myopic
     )
-    verbose || print(" game structure initialized\n")
+    !verbose || print(" game structure initialized\n")
     if full_state
         observation_dim = state_dim[1]
         observation_model = 
@@ -272,7 +272,7 @@ function init_bicycle_test_game(
                     for i in 1:n]...
             )
     end
-    verbose || println("observation model initialized")
+    !verbose || println("observation model initialized")
 
     (;
     initial_state = initial_state,
