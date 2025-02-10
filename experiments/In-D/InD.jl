@@ -10,6 +10,7 @@ using LinearAlgebra: norm_sqr
 using ImageTransformations
 using Rotations
 using OffsetArrays:Origin
+using TrajectoryGamesExamples: BicycleDynamics
 
 include("../GameUtils.jl")
 include("../graphing/ExperimentGraphingUtils.jl")
@@ -88,7 +89,7 @@ end
 
 
 export run_bicycle_sim
-function run_bicycle_sim(;full_state=false, graph=true, verbose = false)
+function run_bicycle_sim(;full_state=true, graph=true, verbose = false)
 
     # observed_forward_solution = GameUtils.observe_trajectory(forward_solution, init)
     frames = [780, 916]
@@ -163,7 +164,7 @@ function run_bicycle_sim(;full_state=false, graph=true, verbose = false)
         retries_on_divergence = 3,
         verbose = false,
         dynamics = BicycleDynamics(;
-        dt = dt, # needs to become framerate
+        dt = 0.04*downsample_rate, # needs to become framerate
         l = 1.0,
         state_bounds = (; lb = [-35, 20, -1, -Inf], ub = [10, 100, 13.8889, Inf]),
         control_bounds = (; lb = [-10, -Inf], ub = [10, Inf]),
