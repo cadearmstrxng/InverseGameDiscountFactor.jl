@@ -25,7 +25,7 @@ function warm_start_game(num_players;
 
     dynamics = (isnothing(dynamics)) ? ProductDynamics([planar_double_integrator(;
         state_bounds = (; lb = [-Inf, -Inf, -0.8, -0.8], ub = [Inf, Inf, 0.8, 0.8]),
-        control_bounds = (; lb = [-10, -10], ub = [10, 10]),) for _ in 1:num_players]) : dynamics
+        control_bounds = (; lb = [-10, -10], ub = [10, 10]),) for _ in 1:num_players]) : ProductDynamics([dynamics for _ in 1:num_players])
 
     cost = let
         function warm_start_cost_for_player(xᵢ,yᵢ)
@@ -74,7 +74,7 @@ function warm_start_game_per_player(num_players;
     )
     dynamics = (isnothing(dynamics)) ? ProductDynamics([planar_double_integrator(;
         state_bounds = (; lb = [-Inf, -Inf, -0.8, -0.8], ub = [Inf, Inf, 0.8, 0.8]),
-        control_bounds = (; lb = [-10, -10], ub = [10, 10]),) for _ in 1:num_players]) : dynamics
+        control_bounds = (; lb = [-10, -10], ub = [10, 10]),) for _ in 1:num_players]) : ProductDynamics([dynamics for _ in 1:num_players])
 
     cost = let
         function warm_start_cost(x,y)
