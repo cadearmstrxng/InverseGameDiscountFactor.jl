@@ -161,7 +161,14 @@ function run_bicycle_sim(;full_state=false, graph=true, verbose = false)
         hidden_state_guess = init.game_parameters,
         max_grad_steps = 200,
         retries_on_divergence = 3,
-        verbose = false
+        verbose = false,
+        dynamics = BicycleDynamics(;
+        dt = dt, # needs to become framerate
+        l = 1.0,
+        state_bounds = (; lb = [-35, 20, -1, -Inf], ub = [10, 100, 13.8889, Inf]),
+        control_bounds = (; lb = [-10, -Inf], ub = [10, Inf]),
+        integration_scheme = :forward_euler
+    )
     )
     verbose || println("solved inverse game")
 
