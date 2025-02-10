@@ -45,7 +45,7 @@ function run_myopic_crosswalk_sim(full_state = true, graph = true)
     )
 
     if graph
-        ExperimentGraphicUtils.graph_trajectories(
+        ExperimentGraphicUtils.graph_crosswalk_trajectories(
             "Our Method",
             [forward_solution, method_sol.recovered_trajectory],
             init.game_structure,
