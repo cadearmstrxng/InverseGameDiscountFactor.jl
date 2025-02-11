@@ -175,14 +175,19 @@ function init_crosswalk_game(
     ]),
     horizon = 25,
     num_players = 2,
-    myopic = false
+    myopic = false,
+    dynamics = planar_double_integrator(;
+        state_bounds = (; lb = [-Inf, -Inf, -0.8, -0.8], ub = [Inf, Inf, 0.8, 0.8]),
+        control_bounds = (; lb = [-10, -10], ub = [10, 10]),
+    )
 )
     game_structure = n_player_collision_avoidance(
         num_players;
         environment = game_environment,
         min_distance = 0.5,
         collision_avoidance_coefficient = 5.0,
-        myopic = myopic # TODO don't love
+        myopic = myopic, # TODO don't love
+        dynamics = dynamics
     )
     if full_state
         observation_dim = 4

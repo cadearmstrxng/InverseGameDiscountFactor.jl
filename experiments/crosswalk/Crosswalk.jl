@@ -1,14 +1,14 @@
 module Crosswalk
 
-using BlockArrays: blocksizes
-
+using BlockArrays: blocksizes, mortar, BlockVector
+using TrajectoryGamesExamples: BicycleDynamics
 include("../GameUtils.jl")
 include("../graphing/ExperimentGraphingUtils.jl")
 include("../../src/InverseGameDiscountFactor.jl")
 
 export run_myopic_crosswalk_sim
 
-function run_myopic_crosswalk_sim(full_state = true, graph = true)
+function run_myopic_crosswalk_sim(full_state = true, graph = true, verbose = true)
     init = GameUtils.init_crosswalk_game(
         full_state;
         myopic = true
@@ -51,6 +51,16 @@ function run_myopic_crosswalk_sim(full_state = true, graph = true)
             init.game_structure,
             init.horizon
         )
+        # observations = GameUtils.pull_trajectory("07";
+        #     track = [20,22], downsample_rate = 10, all = false, frames = [780, 916])
+        # observations = BlockVector(vcat(observations...), [init.state_dim[1]*2 for _ in eachindex(observations)])
+        # ExperimentGraphicUtils.graph_crosswalk_trajectories(
+        #     "Observations",
+        #     [forward_solution, observations],
+        #     init.game_structure,
+        #     init.horizon;
+        #     colors = [[(:red, 1.0), (:blue, 1.0)], [(:orange, 0.25), (:purple, 0.25)]]
+        # )
     end
 end
 
