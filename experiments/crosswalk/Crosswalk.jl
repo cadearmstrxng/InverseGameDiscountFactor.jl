@@ -65,6 +65,7 @@ function run_myopic_crosswalk_sim(full_state = true, graph = true, verbose = tru
 end
 
 function run_bicycle_crosswalk_sim(full_state = true, graph = true, verbose = true)
+    # recovers: [-20.603578775451442, 60.97433529761103, 0.9731234554485012, -7.242849841954976, 93.02474410616205, 0.899999999999994]
     mode = :reverse_euler
     observations = GameUtils.pull_trajectory("07";
             track = [20,22], downsample_rate = 10, all = false, frames = [780, 916])
