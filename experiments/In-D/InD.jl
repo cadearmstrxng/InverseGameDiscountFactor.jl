@@ -166,10 +166,10 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
         dynamics = BicycleDynamics(;
             dt = 0.04*downsample_rate, # needs to become framerate
             l = 1.0,
-            state_bounds = (; lb = [-35, 20, -1, -Inf], ub = [10, 100, 13.8889, Inf]),
-            control_bounds = (; lb = [-10, -Inf], ub = [10, Inf]),
-            integration_scheme = :forward_euler
-        )
+            state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
+            control_bounds = (; lb = [-pi/2, -Inf], ub = [pi/2, Inf]),
+            integration_scheme = :hybrid
+        ),
     )
     !verbose || println("solved inverse game")
 

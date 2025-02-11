@@ -133,9 +133,9 @@ function InD_collision_avoidance(
             # context_state[Block(i)][8] * control + 
             # context_state[Block(i)][9] * safe_distance_violation
 
-            0.2 * early_target + 
+            # 0.2 * early_target + 
             0.2 * mean_target + 
-            0.2 * minimum_target + 
+            # 0.2 * minimum_target + 
             0.2 * control + 
             0.2 * safe_distance_violation
         end
@@ -241,7 +241,14 @@ function init_bicycle_test_game(
     n = 3,
     dt = 0.04,
     myopic = false,
-    verbose = false
+    verbose = false,
+    dynamics = BicycleDynamics(;
+        dt = dt, # needs to become framerate
+        l = 1.0,
+        state_bounds = (; lb = [-35, 20, -1, -Inf], ub = [10, 100, 13.8889, Inf]),
+        control_bounds = (; lb = [-10, -Inf], ub = [10, Inf]),
+        integration_scheme = :forward_euler
+    ),
 )
     !verbose || print("initializing game ... ")
     game_structure = InD_collision_avoidance(
@@ -250,13 +257,7 @@ function init_bicycle_test_game(
         environment = game_environment,
         min_distance = 0.5,
         collision_avoidance_coefficient = 5.0,
-        dynamics = BicycleDynamics(;
-            dt = dt, # needs to become framerate
-            l = 1.0,
-            state_bounds = (; lb = [-35, 20, -1, -Inf], ub = [10, 100, 13.8889, Inf]),
-            control_bounds = (; lb = [-10, -Inf], ub = [10, Inf]),
-            integration_scheme = :forward_euler
-        ),
+        dynamics = dynamics,
         myopic = myopic
     )
     !verbose || print(" game structure initialized\n")
