@@ -179,12 +179,13 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
     if graph
         ExperimentGraphicUtils.graph_trajectories(
             "Our Method",
-            [observed_forward_solution, method_sol.recovered_trajectory],
+            [observed_forward_solution, method_sol.recovered_trajectory, method_sol.warm_start_trajectory],
             init.game_structure,
             init.horizon;
             colors = [
                 [(:red, 1.0), (:blue, 1.0), (:green, 1.0)],
-                [(:red, 0.5), (:blue, 0.5), (:green, 0.5)]
+                [(:red, 0.6), (:blue, 0.6), (:green, 0.6)],
+                [(:red, 0.2 ), (:blue, 0.2), (:green, 0.2)]
             ],
             constraints = get_constraints(init.environment)
         )

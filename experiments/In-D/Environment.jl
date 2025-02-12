@@ -66,7 +66,7 @@ function get_constraints(environment::indEnvironment, player_index = nothing)
         push!(constraints, 100 - position[2])
         push!(constraints, position[2] - 20)
         push!(constraints, 35 + position[1])
-        push!(constraints, -position[1] + 9)
+        push!(constraints, -position[1] + 10)
 
         constraints
     end

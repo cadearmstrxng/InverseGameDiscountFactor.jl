@@ -116,31 +116,72 @@ function graph_trajectories(
     p_state_dim = Int64(state_dim(game_structure.game.dynamics) // n)
 
     for i in 1:n
-        CairoMakie.lines!(ax, 
+        CairoMakie.scatter!(ax, 
             [trajectories[1][t][Block(i)][1] for t in eachindex(blocks(trajectories[1]))],
             [trajectories[1][t][Block(i)][2] for t in eachindex(blocks(trajectories[1]))], 
-            color = colors[1][i])
-        CairoMakie.lines!(ax, 
-            [trajectories[2][Block(t)][(i - 1) * p_state_dim + 1] for t in eachindex(blocks(trajectories[2]))],
-            [trajectories[2][Block(t)][(i - 1) * p_state_dim + 2] for t in eachindex(blocks(trajectories[2]))], 
-            color = colors[2][i])
+            color = colors[1][i], markersize = 5)
         CairoMakie.scatter!(ax,
             [trajectories[1][end][Block(i)][1]],
             [trajectories[1][end][Block(i)][2]],
             color = colors[1][i], marker=:star5)
-        CairoMakie.scatter!(ax,
-            [trajectories[2][Block(length(blocks(trajectories[2])))][(i - 1) * p_state_dim + 1]],
-            [trajectories[2][Block(length(blocks(trajectories[2])))][(i - 1) * p_state_dim + 2]],
-            color = colors[2][i], marker=:star5)
+        for j in eachindex(trajectories)
+            if i == 1
+                continue
+            end
+            CairoMakie.lines!(ax, 
+                [trajectories[j][t][Block(i)][1] for t in eachindex(blocks(trajectories[i]))],
+                [trajectories[j][t][Block(i)][2] for t in eachindex(blocks(trajectories[i]))], 
+                color = colors[j][i], markersize = 5)
+            CairoMakie.scatter!(ax, 
+                [trajectories[1][t][Block(i)][1] for t in eachindex(blocks(trajectories[1]))],
+                [trajectories[1][t][Block(i)][2] for t in eachindex(blocks(trajectories[1]))], 
+                color = colors[1][i], markersize = 5)
+            CairoMakie.scatter!(ax,
+                [trajectories[1][end][Block(i)][1]],
+                [trajectories[1][end][Block(i)][2]],
+                color = colors[1][i], marker=:star5)
+                for j in eachindex(trajectories)
+                    if i == 1
+                        continue
+                    end
+                    CairoMakie.lines!(ax, 
+                        [trajectories[j][t][Block(i)][1] for t in eachindex(blocks(trajectories[j]))],
+                        [trajectories[j][t][Block(i)][2] for t in eachindex(blocks(trajectories[j]))], 
+                        color = colors[j][i], markersize = 5)
+                    CairoMakie.scatter!(ax,
+                        [trajectories[j][end][Block(length(blocks(trajectories[j])))][(i - 1) * p_state_dim + 1]],
+                        [trajectories[j][end][Block(length(blocks(trajectories[j])))][(i - 1) * p_state_dim + 2]],
+                        color = colors[j][i], marker=:star5)
+                end
+        
+                # CairoMakie.scatter!(ax, 
+                #     [trajectories[2][Block(t)][(i - 1) * p_state_dim + 1] for t in eachindex(blocks(trajectories[2]))],
+                #     [trajectories[2][Block(t)][(i - 1) * p_state_dim + 2] for t in eachindex(blocks(trajectories[2]))], 
+                #     color = colors[2][i], markersize = 5)
+                
+                
+            end
+            CairoMakie.scatter!(ax,
+                [trajectories[j][t][Block(length(blocks(trajectories[])))][(i - 1) * p_state_dim + 1]],
+                [trajectories[j][t][Block(length(blocks(trajectories[2])))][(i - 1) * p_state_dim + 2]],
+                color = colors[j][i], marker=:star5)
+        end
+
+        # CairoMakie.scatter!(ax, 
+        #     [trajectories[2][Block(t)][(i - 1) * p_state_dim + 1] for t in eachindex(blocks(trajectories[2]))],
+        #     [trajectories[2][Block(t)][(i - 1) * p_state_dim + 2] for t in eachindex(blocks(trajectories[2]))], 
+        #     color = colors[2][i], markersize = 5)
+        
+        
     end
 
     if constraints !== nothing
-        x = LinRange(-35, 10, 100)
-        y = LinRange(20, 100, 100)
+        x = LinRange(-40, 15, 100)
+        y = LinRange(10, 105, 100)
         for i in x
             for j in y
                 if any(constraints([i, j]) .< 0)
-                    scatter!(ax, [i], [j], color = :red, markersize = 2)
+                    scatter!(ax, [i], [j], color = :black, markersize = 2)
                 end
             end
         end
