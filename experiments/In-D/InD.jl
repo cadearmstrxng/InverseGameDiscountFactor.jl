@@ -177,29 +177,48 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
     !verbose || println("finished inverse game")
 
     if graph
-        ExperimentGraphicUtils.graph_trajectories(
-            "Our Method",
+        ExperimentGraphingUtils.graph_trajectories(
+            "Observed v. Recovered v. Warm Start",
             [observed_forward_solution, method_sol.recovered_trajectory, method_sol.warm_start_trajectory],
             init.game_structure,
             init.horizon;
             colors = [
                 [(:red, 1.0), (:blue, 1.0), (:green, 1.0)],
-                [(:red, 0.6), (:blue, 0.6), (:green, 0.6)],
+                [(:red, 0.5), (:blue, 0.5), (:green, 0.5)],
                 [(:red, 0.2 ), (:blue, 0.2), (:green, 0.2)]
+            ],
+            constraints = get_constraints(init.environment)
+        )
+        ExperimentGraphingUtils.graph_trajectories(
+            "Observed v. Warm Start",
+            [observed_forward_solution, method_sol.warm_start_trajectory],
+            init.game_structure,
+            init.horizon;
+            colors = [
+                [(:red, 1.0), (:blue, 1.0), (:green, 1.0)],
+                [(:red, 0.5), (:blue, 0.5), (:green, 0.5)]
+            ],
+            constraints = get_constraints(init.environment)
+        )
+        ExperimentGraphingUtils.graph_trajectories(
+            "Recovered v. Warm Start",
+            [observed_forward_solution, method_sol.recovered_trajectory, method_sol.warm_start_trajectory],
+            init.game_structure,
+            init.horizon;
+            colors = [
+                [(:red, 0.0), (:blue, 0.0), (:green, 0.0)],
+                [(:red, 1.0), (:blue, 1.0), (:green, 1.0)], 
+                [(:red, 0.5), (:blue, 0.5), (:green, 0.5)]
             ],
             constraints = get_constraints(init.environment)
         )
     end
 
-    sol_error = norm_sqr(method_sol.recovered_trajectory - vcat(observed_forward_solution...))
-
-    println("inverse sol error: ", sol_error)
-
-    sol_error = norm_sqr(InverseGameDiscountFactor.reconstruct_solution(method_sol.warm_start_trajectory, mcp_game.game, init.horizon) - vcat(observed_forward_solution...))
-
-    println("warm start sol error: ", sol_error)
-
-
+    !verbose || sol_error = norm_sqr(method_sol.recovered_trajectory - vcat(observed_forward_solution...))
+    !verbose || println("inverse sol error: ", sol_error)
+    !verbose || warm_sol_error = norm_sqr(method_sol.warm_start_trajectory - vcat(observed_forward_solution...))
+    !verbose || println("warm start sol error: ", warm_sol_error)
+    !verbose || println("% improvement on warm start: ", (warm_sol_error - sol_error) / warm_sol_error)
 end
 
 end
