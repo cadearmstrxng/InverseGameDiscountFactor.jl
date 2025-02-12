@@ -51,16 +51,15 @@ function solve_myopic_inverse_game(
                 )
             # verbose||println("solved, status: ", solving_info.status)
             # if solving_info[end].status == PATHSolver.MCP_Solved
-                inv_sol = solve_mcp_game(mcp_game, initial_state, context_state_estimation; verbose = false)
-                recovered_trajectory = reconstruct_solution(inv_sol, mcp_game.game, mcp_game.horizon)
-                sol_error = norm_sqr(recovered_trajectory - vcat(observed_trajectory...))
+                inv_sol = reconstruct_solution(solve_mcp_game(mcp_game, initial_state, context_state_estimation; verbose = false), mcp_game.game, mcp_game.horizon)
+                sol_error = norm_sqr(inv_sol - vcat(observed_trajectory...))
 
 
                 return (;
                 sol_error = sol_error,
                 recovered_params = context_state_estimation,
-                recovered_trajectory = recovered_trajectory,
-                warm_start_trajectory = warm_start_sol,
+                recovered_trajectory = inv_sol,
+                warm_start_trajectory = reconstruct_solution(warm_start_sol, mcp_game.game, mcp_game.horizon),
                 solving_info = solving_info,
                 time_exec = time_exec,
                 )

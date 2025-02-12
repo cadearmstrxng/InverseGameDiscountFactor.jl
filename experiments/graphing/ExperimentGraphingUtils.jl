@@ -1,4 +1,4 @@
-module ExperimentGraphicUtils
+module ExperimentGraphingUtils
 
 using Statistics:
     mean, std
@@ -116,56 +116,33 @@ function graph_trajectories(
     p_state_dim = Int64(state_dim(game_structure.game.dynamics) // n)
 
     for i in 1:n
-        CairoMakie.scatter!(ax, 
-            [trajectories[1][t][Block(i)][1] for t in eachindex(blocks(trajectories[1]))],
-            [trajectories[1][t][Block(i)][2] for t in eachindex(blocks(trajectories[1]))], 
-            color = colors[1][i], markersize = 5)
-        CairoMakie.scatter!(ax,
-            [trajectories[1][end][Block(i)][1]],
-            [trajectories[1][end][Block(i)][2]],
-            color = colors[1][i], marker=:star5)
         for j in eachindex(trajectories)
-            if i == 1
-                continue
-            end
-            CairoMakie.lines!(ax, 
-                [trajectories[j][t][Block(i)][1] for t in eachindex(blocks(trajectories[i]))],
-                [trajectories[j][t][Block(i)][2] for t in eachindex(blocks(trajectories[i]))], 
-                color = colors[j][i], markersize = 5)
-            CairoMakie.scatter!(ax, 
-                [trajectories[1][t][Block(i)][1] for t in eachindex(blocks(trajectories[1]))],
-                [trajectories[1][t][Block(i)][2] for t in eachindex(blocks(trajectories[1]))], 
-                color = colors[1][i], markersize = 5)
-            CairoMakie.scatter!(ax,
-                [trajectories[1][end][Block(i)][1]],
-                [trajectories[1][end][Block(i)][2]],
-                color = colors[1][i], marker=:star5)
-                for j in eachindex(trajectories)
-                    if i == 1
-                        continue
-                    end
-                    CairoMakie.lines!(ax, 
-                        [trajectories[j][t][Block(i)][1] for t in eachindex(blocks(trajectories[j]))],
-                        [trajectories[j][t][Block(i)][2] for t in eachindex(blocks(trajectories[j]))], 
-                        color = colors[j][i], markersize = 5)
-                    CairoMakie.scatter!(ax,
-                        [trajectories[j][end][Block(length(blocks(trajectories[j])))][(i - 1) * p_state_dim + 1]],
-                        [trajectories[j][end][Block(length(blocks(trajectories[j])))][(i - 1) * p_state_dim + 2]],
-                        color = colors[j][i], marker=:star5)
-                end
-        
-                # CairoMakie.scatter!(ax, 
-                #     [trajectories[2][Block(t)][(i - 1) * p_state_dim + 1] for t in eachindex(blocks(trajectories[2]))],
-                #     [trajectories[2][Block(t)][(i - 1) * p_state_dim + 2] for t in eachindex(blocks(trajectories[2]))], 
-                #     color = colors[2][i], markersize = 5)
-                
-                
-            end
-            CairoMakie.scatter!(ax,
-                [trajectories[j][t][Block(length(blocks(trajectories[])))][(i - 1) * p_state_dim + 1]],
-                [trajectories[j][t][Block(length(blocks(trajectories[2])))][(i - 1) * p_state_dim + 2]],
-                color = colors[j][i], marker=:star5)
+            if j == 1 #handle observations pulled from data file differently, format is different :/
+                CairoMakie.lines!(ax, 
+                    [trajectories[1][t][Block(i)][1] for t in eachindex(length(trajectories[1]))],
+                    [trajectories[1][t][Block(i)][2] for t in eachindex(length(trajectories[1]))], 
+                    color = colors[1][i], markersize = 5)
+                CairoMakie.scatter!(ax,
+                    [trajectories[1][end][Block(i)][1]],
+                    [trajectories[1][end][Block(i)][2]],
+                    color = colors[1][i], marker=:star5)
+            else
+                @infiltrate
+                CairoMakie.lines!(ax, 
+                    [trajectories[j][Block(t)][(i - 1) * p_state_dim + 1] for t in eachindex(blocks(trajectories[j]))],
+                    [trajectories[j][Block(t)][(i - 1) * p_state_dim + 2] for t in eachindex(blocks(trajectories[j]))], 
+                    color = colors[j][i], markersize = 5)
+                CairoMakie.scatter!(ax,
+                    [trajectories[j][Block(length(blocks(trajectories[j])))][(i - 1) * p_state_dim + 1]],
+                    [trajectories[j][Block(length(blocks(trajectories[j])))][(i - 1) * p_state_dim + 2]],
+                    color = colors[j][i], marker=:star5)
+            end         
         end
+        # CairoMakie.scatter!(ax,
+        #         [trajectories[j][t][Block(length(blocks(trajectories[])))][(i - 1) * p_state_dim + 1]],
+        #         [trajectories[j][t][Block(length(blocks(trajectories[2])))][(i - 1) * p_state_dim + 2]],
+        #         color = colors[j][i], marker=:star5)
+    end
 
         # CairoMakie.scatter!(ax, 
         #     [trajectories[2][Block(t)][(i - 1) * p_state_dim + 1] for t in eachindex(blocks(trajectories[2]))],
@@ -173,8 +150,6 @@ function graph_trajectories(
         #     color = colors[2][i], markersize = 5)
         
         
-    end
-
     if constraints !== nothing
         x = LinRange(-40, 15, 100)
         y = LinRange(10, 105, 100)
