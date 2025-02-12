@@ -127,7 +127,6 @@ function graph_trajectories(
                     [trajectories[1][end][Block(i)][2]],
                     color = colors[1][i], marker=:star5)
             else
-                @infiltrate
                 CairoMakie.lines!(ax, 
                     [trajectories[j][Block(t)][(i - 1) * p_state_dim + 1] for t in eachindex(blocks(trajectories[j]))],
                     [trajectories[j][Block(t)][(i - 1) * p_state_dim + 2] for t in eachindex(blocks(trajectories[j]))], 
