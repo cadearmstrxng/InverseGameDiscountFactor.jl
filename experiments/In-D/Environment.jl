@@ -23,6 +23,7 @@ struct indEnvironment{}
     points
 end
 
+export get_constraints, create_env
 
 function TrajectoryGamesBase.get_constraints(environment::indEnvironment, player_index = nothing)
     get_constraints(environment, player_index)

@@ -71,39 +71,40 @@ function graph_trajectories(
     trajectories,
     game_structure,
     horizon;
-    colors = [[(:red, 1.0), (:blue, 1.0), (:green, 1.0)], [(:red, 0.75), (:blue, 0.75), (:green, 0.75)]]
+    colors = [[(:red, 1.0), (:blue, 1.0), (:green, 1.0)], [(:red, 0.75), (:blue, 0.75), (:green, 0.75)]],
+    constraints = nothing
     # TODO automatically generate default colors based on number of players?
 )
     CairoMakie.activate!()
     fig = CairoMakie.Figure()
     ax = CairoMakie.Axis(fig[1,1], aspect = DataAspect())
 
-    image_data = CairoMakie.load("experiments/data/07_background.png")
-    image_data = image_data[end:-1:1, :]
-    image_data = image_data'
-    # ax1 = Axis(fig[1,1], aspect = DataAspect())
-    trfm = ImageTransformations.recenter(Rotations.RotMatrix(-2.303611),center(image_data))
-    x_crop_min = 430
-    x_crop_max = 875
-    y_crop_min = 225
-    y_crop_max = 1025
+    # image_data = CairoMakie.load("experiments/data/07_background.png")
+    # image_data = image_data[end:-1:1, :]
+    # image_data = image_data'
+    # # ax1 = Axis(fig[1,1], aspect = DataAspect())
+    # trfm = ImageTransformations.recenter(Rotations.RotMatrix(-2.303611),center(image_data))
+    # x_crop_min = 430
+    # x_crop_max = 875
+    # y_crop_min = 225
+    # y_crop_max = 1025
     
-    scale = 1/10.25
+    # scale = 1/10.25
 
-    x = (x_crop_max - x_crop_min) * scale
-    y = (y_crop_max - y_crop_min) * scale
+    # x = (x_crop_max - x_crop_min) * scale
+    # y = (y_crop_max - y_crop_min) * scale
 
-    image_data = ImageTransformations.warp(image_data, trfm)
-    image_data = Origin(0)(image_data)
-    image_data = image_data[x_crop_min:x_crop_max, y_crop_min:y_crop_max]
+    # image_data = ImageTransformations.warp(image_data, trfm)
+    # image_data = Origin(0)(image_data)
+    # image_data = image_data[x_crop_min:x_crop_max, y_crop_min:y_crop_max]
     
-    x_offset = -34.75
-    y_offset = 22
+    # x_offset = -34.75
+    # y_offset = 22
 
-    CairoMakie.image!(ax,
-        x_offset..(x+x_offset),
-        y_offset..(y+y_offset),
-        image_data)
+    # CairoMakie.image!(ax,
+    #     x_offset..(x+x_offset),
+    #     y_offset..(y+y_offset),
+    #     image_data)
 
     #TODO horizon can probably be calculated from trajectory
     #TODO same with num_players/player state_dim (in reconstruct_solution)
@@ -116,16 +117,34 @@ function graph_trajectories(
 
     for i in 1:n
         CairoMakie.lines!(ax, 
-            [trajectories[1][t][Block(i)][1] for t in 1:horizon],
-            [trajectories[1][t][Block(i)][2] for t in 1:horizon], 
+            [trajectories[1][t][Block(i)][1] for t in eachindex(blocks(trajectories[1]))],
+            [trajectories[1][t][Block(i)][2] for t in eachindex(blocks(trajectories[1]))], 
             color = colors[1][i])
         CairoMakie.lines!(ax, 
-            [trajectories[2][Block(t)][(i - 1) * p_state_dim + 1] for t in 1:horizon],
-            [trajectories[2][Block(t)][(i - 1) * p_state_dim + 2] for t in 1:horizon], 
+            [trajectories[2][Block(t)][(i - 1) * p_state_dim + 1] for t in eachindex(blocks(trajectories[2]))],
+            [trajectories[2][Block(t)][(i - 1) * p_state_dim + 2] for t in eachindex(blocks(trajectories[2]))], 
             color = colors[2][i])
+        CairoMakie.scatter!(ax,
+            [trajectories[1][end][Block(i)][1]],
+            [trajectories[1][end][Block(i)][2]],
+            color = colors[1][i], marker=:star5)
+        CairoMakie.scatter!(ax,
+            [trajectories[2][Block(length(blocks(trajectories[2])))][(i - 1) * p_state_dim + 1]],
+            [trajectories[2][Block(length(blocks(trajectories[2])))][(i - 1) * p_state_dim + 2]],
+            color = colors[2][i], marker=:star5)
     end
-    CairoMakie.scatter!(ax, [[trajectories[1][end][Block(i)][1], trajectories[1][end][Block(i)][2]] for i in 1:n], color = colors[1], marker=:star5)
-    CairoMakie.scatter!(ax, [[trajectories[2][Block(horizon)][(i - 1) * p_state_dim + 1], trajectories[1][Block(horizon)][(i - 1) * p_state_dim + 2]] for i in 1:n], color = colors[1], marker = :star5)
+
+    if constraints !== nothing
+        x = LinRange(-35, 10, 100)
+        y = LinRange(20, 100, 100)
+        for i in x
+            for j in y
+                if any(constraints([i, j]) .< 0)
+                    scatter!(ax, [i], [j], color = :red, markersize = 2)
+                end
+            end
+        end
+    end
 
     CairoMakie.save(plot_name*".png", fig)
 end
@@ -135,7 +154,8 @@ function graph_crosswalk_trajectories(
     trajectories,
     game_structure,
     horizon;
-    colors = [[(:red, 1.0), (:blue, 1.0), (:green, 1.0)], [(:red, 0.25), (:blue, 0.25), (:green, 0.25)]]
+    colors = [[(:red, 1.0), (:blue, 1.0), (:green, 1.0)], [(:red, 0.25), (:blue, 0.25), (:green, 0.25)]],
+    constraints = nothing
 )
     CairoMakie.activate!()
     fig = CairoMakie.Figure()
