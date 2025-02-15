@@ -133,11 +133,11 @@ function InD_collision_avoidance(
             # context_state[Block(i)][8] * control + 
             # context_state[Block(i)][9] * safe_distance_violation
 
-            # 0.2 * early_target + 
-            0.2 * mean_target + 
-            # 0.2 * minimum_target + 
-            0.2 * control + 
-            0.2 * safe_distance_violation
+            # 1.0 * early_target + 
+            1.0 * mean_target
+            # 1.0 * minimum_target + 
+            0.01 * control
+            2.0 * safe_distance_violation
         end
         function cost_function(xs, us, context_state)
             num_players = blocksize(xs[1], 1)
@@ -245,8 +245,8 @@ function init_bicycle_test_game(
     dynamics = BicycleDynamics(;
         dt = dt, # needs to become framerate
         l = 1.0,
-        state_bounds = (; lb = [-35, 20, -1, -Inf], ub = [10, 100, 13.8889, Inf]),
-        control_bounds = (; lb = [-10, -Inf], ub = [10, Inf]),
+        state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
+        control_bounds = (; lb = [-Inf, -Inf], ub = [Inf, Inf]),
         integration_scheme = :forward_euler
     ),
 )
