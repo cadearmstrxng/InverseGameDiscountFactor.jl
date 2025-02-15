@@ -121,13 +121,12 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
 
     init = GameUtils.init_bicycle_test_game(
         full_state;
-        initial_state = InD_observations[1],
-        # game_params = mortar([
-        #     [InD_observations[end][Block(1)][1:2]..., 0.75, [1.0 for _ in 4:9]...],
-        #     [InD_observations[end][Block(2)][1:2]..., 0.75, [1.0 for _ in 4:9]...],
-        #     [InD_observations[end][Block(3)][1:2]..., 0.75, [1.0 for _ in 4:9]...]]),
+        initial_state = BlockVector([
+            InD_observations[1][1:2]..., 1.0, pi-0.01,
+            InD_observations[1][5:6]..., 0.75, 0.0],
+            [4,4]),
         game_params = mortar([
-            [[InD_observations[end][Block(i)][1:2]..., 0.95, 1.0] for i in 1:length(tracks)]...]),
+            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0] for i in 1:length(tracks)]...]),
         horizon = length(frames[1]:downsample_rate:frames[2]),
         n = length(tracks),
         dt = 0.04*downsample_rate,
@@ -142,25 +141,26 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
         [init.observation_dim for _ in 1:length(tracks)]) for t in 1:init.horizon]
     
     !verbose || println("game initialized\ninitializing mcp coupled optimization solver")
-    mcp_game = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
+    mcp_solver = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
         init.game_structure.game,
         init.horizon,
         blocksizes(init.game_parameters, 1)
-    ).mcp_game
+    )
     !verbose || println("mcp coupled optimization solver initialized")
 
     !verbose || println("solving forward game")
+    fs_temp = InverseGameDiscountFactor.solve_mcp_game(
+        mcp_solver.mcp_game,
+        init.initial_state,
+        init.game_parameters;
+        verbose = false
+        )
     forward_solution = InverseGameDiscountFactor.reconstruct_solution(
-        InverseGameDiscountFactor.solve_mcp_game(
-            mcp_game,
-            init.initial_state,
-            init.game_parameters;
-            verbose = false
-            ),
+        fs_temp,
         init.game_structure.game,
         init.horizon
     )
-    !verbose || println("forward game solved")
+    !verbose||println("forward game solved, status: ", fs_temp.status)
     forward_game_observations = GameUtils.observe_trajectory(forward_solution, init)
 
     # Add graph comparing forward solution to observations
@@ -177,6 +177,7 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
             constraints = get_constraints(init.environment)
         )
     end
+    return
 
     !verbose || println("solving inverse game")
     method_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
