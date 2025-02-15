@@ -117,7 +117,6 @@ function graph_trajectories(
 
     for i in 1:n
         for j in eachindex(trajectories)
-            @infiltrate
             if j == 1 #handle observations pulled from data file differently, format is different :/
                 CairoMakie.lines!(ax, 
                     [trajectories[1][t][Block(i)][1] for t in eachindex(trajectories[1])],
@@ -162,7 +161,7 @@ function graph_trajectories(
         end
     end
 
-    CairoMakie.save(plot_name*".png", fig)
+    CairoMakie.save(plot_name*"tmp.png", fig)
 end
 
 function graph_crosswalk_trajectories(
