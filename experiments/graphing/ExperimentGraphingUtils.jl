@@ -117,10 +117,11 @@ function graph_trajectories(
 
     for i in 1:n
         for j in eachindex(trajectories)
+            @infiltrate
             if j == 1 #handle observations pulled from data file differently, format is different :/
                 CairoMakie.lines!(ax, 
-                    [trajectories[1][t][Block(i)][1] for t in eachindex(length(trajectories[1]))],
-                    [trajectories[1][t][Block(i)][2] for t in eachindex(length(trajectories[1]))], 
+                    [trajectories[1][t][Block(i)][1] for t in eachindex(trajectories[1])],
+                    [trajectories[1][t][Block(i)][2] for t in eachindex(trajectories[1])], 
                     color = colors[1][i], markersize = 5)
                 CairoMakie.scatter!(ax,
                     [trajectories[1][end][Block(i)][1]],
