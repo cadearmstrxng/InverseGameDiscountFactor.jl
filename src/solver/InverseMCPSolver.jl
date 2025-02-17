@@ -5,7 +5,7 @@ function solve_inverse_mcp_game(
     initial_estimation,
     horizon;
     observation_model = identity,
-    max_grad_steps = 150, lr = 1e-3, last_solution = nothing, discount_threshold = 1e-4
+    max_grad_steps = 150, lr = 1e-5, last_solution = nothing, discount_threshold = 1e-4 # lr usually 1e-3
 )
     function observe_trajectory(x)
         vcat([observation_model(state_t) for state_t in x.blocks]...)

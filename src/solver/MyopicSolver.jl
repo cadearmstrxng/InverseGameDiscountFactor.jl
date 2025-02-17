@@ -9,7 +9,8 @@ function solve_myopic_inverse_game(
     retries_on_divergence = 3,
     verbose = false,
     rng = Random.MersenneTwister(1),
-    dynamics = nothing
+    dynamics = nothing,
+    lr = 1e-3
 )
     !verbose || println("solving ... ")
     initial_state = (isnothing(initial_state)) ? BlockVector(deepcopy(observed_trajectory[1]), collect(blocksizes(observed_trajectory[1], 1))) : initial_state
@@ -47,7 +48,8 @@ function solve_myopic_inverse_game(
                     mcp_game.horizon;
                     observation_model = observation_model,         
                     max_grad_steps = max_grad_steps,
-                    last_solution = warm_start_sol
+                    last_solution = warm_start_sol,
+                    lr = lr
                 )
             # verbose||println("solved, status: ", solving_info.status)
             # if solving_info[end].status == PATHSolver.MCP_Solved
