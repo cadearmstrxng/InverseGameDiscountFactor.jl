@@ -10,6 +10,7 @@ function solve_mcp_game(
     context_state;
     initial_guess = nothing,
     verbose = false,
+    lr = 1e-3
 )
     (; game, parametric_mcp, index_sets, horizon) = mcp_game
     (; dynamics) = game
@@ -47,6 +48,7 @@ function solve_mcp_game(
         use_basics = true,
         use_start = true,
         # convergence_tolerance = 1e-4,
+        lr = lr
     ) # change this to David's package -> MixedComplementarityProblem.PrimalDualMCP (mcp.jl)
 
     primals = map(1:num_players(game)) do ii
