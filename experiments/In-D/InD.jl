@@ -98,7 +98,7 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
     downsample_rate = 10
     InD_observations = GameUtils.pull_trajectory("07";
         track = tracks, downsample_rate = downsample_rate, all = false, frames = frames)
-    open("InD_observations.txt", "w") do f
+    open("InD_observations.tmp.txt", "w") do f
         for i in eachindex(InD_observations)
             write(f, string(round.(InD_observations[i]; digits = 4)), "\n")
         end
