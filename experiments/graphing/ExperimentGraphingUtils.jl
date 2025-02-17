@@ -196,7 +196,7 @@ function graph_crosswalk_trajectories(
             [trajectories[2][Block(length(blocks(trajectories[2])))][(i - 1) * p_state_dim + 2]],
             color = colors[2][i], marker=:star5)
     end
-    CairoMakie.save(plot_name*".png", fig)
+    CairoMakie.save(plot_name*"_tmp.png", fig)
 end
 
 
