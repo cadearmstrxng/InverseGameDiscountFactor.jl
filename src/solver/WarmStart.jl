@@ -66,8 +66,8 @@ function warm_start_game(num_players;
     CollisionAvoidanceGame(game)
 end
 
-function warm_start_game_per_player(num_players;
-    environment,
+function warm_start_game_per_player(;
+    environment = NullEnv(),
     observation_model = identity,
     dynamics = nothing,
     partial_observation_state_size = -1
@@ -103,6 +103,9 @@ end
 function warm_start_per_player(y, initial_state, horizon; observation_model = identity, 
     num_players = 2, partial_observation_state_size = -1, dynamics = nothing)
 
+    state = (partial_observation_state_size < 0) ? state_dim(dynamics[1]) : partial_observation_state_size
+    control = control_dim(dynamics[1])
+
     environment = NullEnv()
     games = [warm_start_game(
         1;
@@ -111,6 +114,41 @@ function warm_start_per_player(y, initial_state, horizon; observation_model = id
         partial_observation_state_size = partial_observation_state_size,
         dynamics = dynamics[i]) for i in 1:num_players]
 
+    solutions = []
+    idx_sets = []
+
+    for i in 1:num_players
+        player_observations = [y[t][Block(i)] for t in 1:horizon]
+        solver = MCPCoupledOptimizationSolverWarmStart(games[i].game, player_observations, horizon)
+        push!(idx_sets, solver.mcp_game.index_sets)
+        solution = solve_mcp_game(
+            solver.mcp_game,
+            initial_state[Block(i)],
+            nothing;
+            verbose = false
+        )
+        push!(solutions, solution)
+    end
+
+    # reconstruct the full solution
+    primals = [solution.primals for solution in solutions]
+
+    variables = let 
+        v = []
+        for t in 1:horizon
+            for i in 1:num_players
+                push!(v, primals[i][t*state-(state-1):t*(state)])
+            end
+        end
+        for t in 1:horizon
+            for i in 1:num_players
+                push!(v, primals[i][horizon*state + t*control-(control-1):horizon*control + t*(control)])
+            end
+        end
+        v
+    end
+
+    (; primals = primals, variables = variables, status = solutions[1].status, info = solutions[1].info)
 end
 
 """
