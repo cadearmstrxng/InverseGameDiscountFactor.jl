@@ -122,7 +122,7 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
         dt = 0.04*downsample_rate, # needs to become framerate
         l = 1.0,
         state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
-        control_bounds = (; lb = [-5, -pi/5], ub = [5, pi/5]),
+        control_bounds = (; lb = [-5, -pi/4], ub = [5, pi/4]),
         integration_scheme = :forward_euler
     )
 
@@ -133,7 +133,7 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
             InD_observations[1][5:6]..., 0.75, 0.0],
             [4,4]),
         game_params = mortar([
-            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0] for i in 1:length(tracks)]...]),
+            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0] for i in 1:length(tracks)]...]),
         # game_environment = PolygonEnvironment(4, 200),
         horizon = length(frames[1]:downsample_rate:frames[2]),
         n = length(tracks),
@@ -216,6 +216,7 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
         dynamics = dynamics,
     )
     !verbose || println("finished inverse game")
+    !verbose || println("recovered pararms: ", method_sol.recovered_params)
 
     if graph
         ExperimentGraphingUtils.graph_trajectories(
