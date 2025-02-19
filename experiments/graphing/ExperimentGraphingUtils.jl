@@ -161,7 +161,7 @@ function graph_trajectories(
         end
     end
 
-    CairoMakie.save(plot_name*"tmp.png", fig)
+    CairoMakie.save(plot_name*".png", fig)
 end
 
 function graph_crosswalk_trajectories(

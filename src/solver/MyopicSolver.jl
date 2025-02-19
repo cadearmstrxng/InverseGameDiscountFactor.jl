@@ -32,10 +32,12 @@ function solve_myopic_inverse_game(
                 dynamics = dynamics),
             mcp_game)
     
-    open("warm_start_sol.txt", "w") do io
-        write(io, string(warm_start_sol))
+    if verbose 
+        open("warm_start_sol.txt", "w") do io
+            write(io, string(warm_start_sol))
+        end
+        !verbose || println("warm start sol: ", warm_start_sol)
     end
-    !verbose || println("warm start sol: ", warm_start_sol)
     #TODO would be nice to check if warm start solution is feasible
     # for attempt in 1:retries_on_divergence
         # try
