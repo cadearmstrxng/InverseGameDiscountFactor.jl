@@ -78,9 +78,6 @@ function warm_start_game_per_player(;
 
     cost = let
         function warm_start_cost(x,y)
-            # T = convert(Int64,size(x)[1]-1)
-            # state_size = partial_observation_state_size < 0 ? size(x[1][Block(1)])[1] : partial_observation_state_size
-            # num_players = blocksize(x[1], 1)
 
             sum(map(zip(x[2:end], y)) do (xₜ, yₜ)
                 norm_sqr(xₜ - yₜ)
@@ -100,6 +97,7 @@ function warm_start_game_per_player(;
 
 end
 
+# REQUIRES EXPAND WARM START
 function warm_start_per_player(y, initial_state, horizon; observation_model = identity, 
     num_players = 2, partial_observation_state_size = -1, dynamics = nothing)
 
