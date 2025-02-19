@@ -134,7 +134,7 @@ function InD_collision_avoidance(
             # context_state[Block(i)][9] * safe_distance_violation
 
             # 1.0 * early_target + 
-            1.0 * mean_target +
+            3.0 * mean_target +
             # 1.0 * minimum_target + 
             0.01 * control +
             2.0 * safe_distance_violation
@@ -246,7 +246,7 @@ function init_bicycle_test_game(
         dt = dt, # needs to become framerate
         l = 1.0,
         state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
-        control_bounds = (; lb = [-5, -2*pi], ub = [5, 2*pi]),
+        control_bounds = (; lb = [-5, -pi/2], ub = [5, pi/2]),
         integration_scheme = :forward_euler
     ),
 )
