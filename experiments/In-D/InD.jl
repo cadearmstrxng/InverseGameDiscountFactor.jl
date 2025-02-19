@@ -136,6 +136,8 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
     !verbose || println("initial state: ", init.initial_state)
     !verbose || println("initial game parameters: ", init.game_parameters)
     !verbose || println("initial horizon: ", init.horizon)
+    !verbose || println("observation model: ", init.observation_model)
+    !verbose || println("observation dim: ", init.observation_dim)
     
     InD_observations = (full_state) ? InD_observations : [BlockVector(GameUtils.observe_trajectory(InD_observations[t], init;blocked_by_time = false),
         [init.observation_dim for _ in 1:length(tracks)]) for t in 1:init.horizon]
@@ -160,6 +162,17 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
         init.game_structure.game,
         init.horizon
     )
+    xs = [BlockVector(forward_solution[Block(t)], [4 for _ in 1:length(tracks)]) for t in 1:init.horizon]
+    xs = vcat([init.initial_state], xs)
+    us = [fs_temp.primals[i][4*init.horizon+1:end] for i in 1:length(tracks)]
+    us = [vcat([us[i][2*t-1:2*t] for i in 1:length(tracks)]...) for t in 1:init.horizon]
+    us = [BlockVector(us[t], [2 for _ in 1:length(tracks)]) for t in 1:init.horizon]
+
+    cost_val = mcp_solver.mcp_game.game.cost(xs, us, init.game_parameters)
+    !verbose || println("forward game solved, cost: ", cost_val)
+    @infiltrate
+
+    return
     !verbose||println("forward game solved, status: ", fs_temp.status)
     forward_game_observations = GameUtils.observe_trajectory(forward_solution, init)
 
