@@ -254,11 +254,12 @@ function init_bicycle_test_game(
         control_bounds = (; lb = [-5, -pi/2], ub = [5, pi/2]),
         integration_scheme = :forward_euler
     ),
+    lane_centers = nothing,
 )
     !verbose || print("initializing game ... ")
     game_structure = InD_collision_avoidance(
         n,
-        nothing; # lane centers
+        lane_centers; # lane centers
         environment = game_environment,
         min_distance = 0.5,
         collision_avoidance_coefficient = 5.0,
