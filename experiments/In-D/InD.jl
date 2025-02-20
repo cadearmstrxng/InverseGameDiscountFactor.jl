@@ -103,6 +103,10 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
             write(f, string(round.(InD_observations[i]; digits = 4)), "\n")
         end
     end
+    trk_19_lane_center = [[-28.5 64], [-25.5 64.25], [-21.75 65], [-17.75 65.5], [-14.25 66], [-10 66], [-6.5 66], [-2.5 65.75], [0.75 65.25], [4.75 64.75]]
+    trk_20_lane_center = [[-29.75 61], [-29.75 61], [-22 61], [-18.25 61.5], [-15 64], [-13 67], [-11.25 70.5], [-10.25 73.75], [-9.5 77.75], [-9 81.25], [-8.5 84.75], [-8 88], [-7.25 92], [-6.75 95]]
+    trk_22_lane_center = [[-14 26.75], [-13.25, 32.75], [-12.75 37.75], [-12 43.75], [-11.25 50], [-10.75 55.5], [-10.125 61.5], [-9.5 68.25], [-9 74.75], [-8.25 81.25], [-7.75 88.25], [-7 94.5]]
+    lane_centers = [trk_19_lane_center, trk_20_lane_center, trk_22_lane_center]
     # TODO need to time-synch each trajectory
     # 20: 646 - 1103
     # 19: 620 - 1001
@@ -140,7 +144,8 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
         dt = 0.04*downsample_rate,
         myopic=true,
         verbose = verbose,
-        dynamics = dynamics
+        dynamics = dynamics,
+        lane_centers = lane_centers
     )
     !verbose || println("initial state: ", init.initial_state)
     !verbose || println("initial game parameters: ", init.game_parameters)
