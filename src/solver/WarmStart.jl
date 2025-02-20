@@ -16,7 +16,7 @@ function TrajectoryGamesBase.get_constraints(env::NullEnv, ii)
     null_constraints
 end
 
-function warm_start_game(num_players;
+function warm_start_game(num_players, observation_times;
     environment,
     observation_model = identity,
     dynamics = nothing,
@@ -36,8 +36,7 @@ function warm_start_game(num_players;
             sum(map(zip(xᵢ[2:end], yᵢ)) do (xₜ, yₜ)
                 # @infiltrate
                 norm_sqr(xₜ - yₜ)
-            end 
-            )
+            end)
         end
 
         function warm_start_cost(xs,ys)
@@ -46,8 +45,8 @@ function warm_start_game(num_players;
             horizon = length(ys)
             
             for i in 1:num_players
-                xᵢ = [xs[t][Block(i)] for t in 1:(horizon+1)]
-                yᵢ = [ys[t][Block(i)] for t in 1:horizon]
+                xᵢ = [xs[t][Block(i)] for t in min(observation_times[i]...) : max(observation_times[i]...)+1]
+                yᵢ = [ys[t][Block(i)] for t in observation_times[i]]
 
                 push!(costs, warm_start_cost_for_player(xᵢ, yᵢ))
             end
@@ -163,7 +162,7 @@ struct WarmStartMCPGame{T1<:TrajectoryGame,T2<:ParametricMCPs.ParametricMCP,T3,T
     horizon::T4
 end
 
-function WarmStartMCPGame(game, observed_trajectory, horizon)
+function WarmStartMCPGame(game, observed_trajectory, horizon, observation_times)
     num_player = num_players(game)
     state_dimension = state_dim(game.dynamics)
     control_dimension = control_dim(game.dynamics)
@@ -351,13 +350,14 @@ function WarmStartMCPGame(game, observed_trajectory, horizon)
     parametric_mcp =
         ParametricMCPs.ParametricMCP(fill_F!, fill_J!, fill_J_params!, lb, ub, parameter_dimension)
 
-    MCPGame(game, parametric_mcp, index_sets, horizon)
+    MCPGame(game, parametric_mcp, index_sets, horizon, observation_times)
+
 end
 
 #== MCP TrajectoryGame Solver ==#
 
-function MCPCoupledOptimizationSolverWarmStart(game::TrajectoryGame, observed_trajectory, horizon)
-    mcp_game = WarmStartMCPGame(game, observed_trajectory, horizon)
+function MCPCoupledOptimizationSolverWarmStart(game::TrajectoryGame, observed_trajectory, horizon, observation_times)
+    mcp_game = WarmStartMCPGame(game, observed_trajectory, horizon, observation_times)
     MCPCoupledOptimizationSolver(mcp_game)
 end
 
@@ -366,18 +366,20 @@ TODO: observation model handled differently than inverse mcp solver.
 Solver handles it on a full game basis: τs_solution = expected_observation(τs_solution)
 We do observations per-player.
 """
-function warm_start(y, initial_state, horizon; observation_model = identity, 
+function warm_start(y, initial_state, mcp_game; observation_model = identity, 
                     num_players = 2, partial_observation_state_size = -1, dynamics = nothing)
+    horizon = mcp_game.horizon
     environment = NullEnv()
     game = warm_start_game(
-        num_players;
+        num_players,
+        mcp_game.observation_times;
         environment,
         observation_model = observation_model,
         partial_observation_state_size = partial_observation_state_size,
         dynamics = dynamics)
 
     turn_length = 2
-    solver = MCPCoupledOptimizationSolverWarmStart(game.game, y, horizon)
+    solver = MCPCoupledOptimizationSolverWarmStart(game.game, y, horizon, mcp_game.observation_times)
     mcp_game = solver.mcp_game
 
     solve_mcp_game(

@@ -10,6 +10,7 @@ function solve_inverse_mcp_game(
     function observe_trajectory(x)
         vcat([observation_model(state_t) for state_t in x.blocks]...)
     end
+    state_dim = div(length(initial_state) , num_players(mcp_game.game))
     """
     solve inverse game
 
@@ -27,14 +28,23 @@ function solve_inverse_mcp_game(
         last_solution = solution.status == PATHSolver.MCP_Solved ? (; primals = ForwardDiff.value.(solution.primals),
         variables = ForwardDiff.value.(solution.variables), status = solution.status) : nothing
         τs_solution = reconstruct_solution(solution, mcp_game.game, horizon)
-        observed_τs_solution = observe_trajectory(τs_solution)
+        
+        # Filter observations based on observation times for each player
+        total_error = 0.0
+        for player in 1:num_player
+            obs_times = mcp_game.observation_times[player]
+            player_observed = [τ[Block(player)] for τ in τs_observed]
+            #assumes same observation model for all players
+            player_solution = [observation_model(τs_solution.blocks[t])[length(player_observed[1]) * (player-1) + 1:length(player_observed[1]) * player] for t in obs_times]
+            total_error += norm_sqr(vcat(player_observed...) - vcat(player_solution...))
+        end
         
         if solution.status == PATHSolver.MCP_Solved
             infeasible_counter = 0
         else
             infeasible_counter += 1
         end
-        norm_sqr(vcat(τs_observed...) - observed_τs_solution)
+        total_error
     end
     num_player = num_players(mcp_game.game)
     infeasible_counter = 0

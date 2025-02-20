@@ -65,24 +65,23 @@ function graph_metrics(
     CairoMakie.save(prefix*"ParameterErrorGraph.png", fig2)
 
 end
-
 function graph_trajectories(
     plot_name,
     trajectories,
     game_structure,
-    horizon;
+    horizon,
+    observation_times;
     colors = [[(:red, 1.0), (:blue, 1.0), (:green, 1.0)], [(:red, 0.75), (:blue, 0.75), (:green, 0.75)]],
     constraints = nothing
     # TODO automatically generate default colors based on number of players?
 )
     CairoMakie.activate!()
     fig = CairoMakie.Figure()
-    ax = CairoMakie.Axis(fig[1,1], aspect = DataAspect())
 
     # image_data = CairoMakie.load("experiments/data/07_background.png")
     # image_data = image_data[end:-1:1, :]
     # image_data = image_data'
-    # # ax1 = Axis(fig[1,1], aspect = DataAspect())
+    ax1 = Axis(fig[1,1], aspect = DataAspect())
     # trfm = ImageTransformations.recenter(Rotations.RotMatrix(-2.303611),center(image_data))
     # x_crop_min = 430
     # x_crop_max = 875
@@ -118,29 +117,25 @@ function graph_trajectories(
     for i in 1:n
         for j in eachindex(trajectories)
             if j == 1 #handle observations pulled from data file differently, format is different :/
-                CairoMakie.lines!(ax, 
-                    [trajectories[1][t][Block(i)][1] for t in eachindex(trajectories[1])],
-                    [trajectories[1][t][Block(i)][2] for t in eachindex(trajectories[1])], 
+                CairoMakie.lines!(ax1, 
+                    [trajectories[1][t][Block(i)][1] for t in observation_times[1]],
+                    [trajectories[1][t][Block(i)][2] for t in observation_times[1]], 
                     color = colors[1][i], markersize = 5)
-                CairoMakie.scatter!(ax,
+                CairoMakie.scatter!(ax1,
                     [trajectories[1][end][Block(i)][1]],
                     [trajectories[1][end][Block(i)][2]],
                     color = colors[1][i], marker=:star5)
             else
-                CairoMakie.lines!(ax, 
-                    [trajectories[j][Block(t)][(i - 1) * p_state_dim + 1] for t in eachindex(blocks(trajectories[j]))],
-                    [trajectories[j][Block(t)][(i - 1) * p_state_dim + 2] for t in eachindex(blocks(trajectories[j]))], 
+                CairoMakie.lines!(ax1, 
+                    [trajectories[j][Block(t)][(i - 1) * p_state_dim + 1] for t in observation_times[j - 1]],
+                    [trajectories[j][Block(t)][(i - 1) * p_state_dim + 2] for t in observation_times[j - 1]], 
                     color = colors[j][i], markersize = 5)
-                CairoMakie.scatter!(ax,
+                CairoMakie.scatter!(ax1,
                     [trajectories[j][Block(length(blocks(trajectories[j])))][(i - 1) * p_state_dim + 1]],
                     [trajectories[j][Block(length(blocks(trajectories[j])))][(i - 1) * p_state_dim + 2]],
                     color = colors[j][i], marker=:star5)
             end         
         end
-        # CairoMakie.scatter!(ax,
-        #         [trajectories[j][t][Block(length(blocks(trajectories[])))][(i - 1) * p_state_dim + 1]],
-        #         [trajectories[j][t][Block(length(blocks(trajectories[2])))][(i - 1) * p_state_dim + 2]],
-        #         color = colors[j][i], marker=:star5)
     end
 
         # CairoMakie.scatter!(ax, 
@@ -155,7 +150,7 @@ function graph_trajectories(
         for i in x
             for j in y
                 if any(constraints([i, j]) .< 0)
-                    scatter!(ax, [i], [j], color = :black, markersize = 2)
+                    scatter!(ax1, [i], [j], color = :black, markersize = 2)
                 end
             end
         end

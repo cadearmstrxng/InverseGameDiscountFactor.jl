@@ -6,14 +6,15 @@ A more optimized implementation of this solver is available at:
 https://github.com/JuliaGameTheoreticPlanning/MCPTrajectoryGameSolver.jl
 """
 
-struct MCPGame{T1<:TrajectoryGame,T2<:ParametricMCPs.ParametricMCP,T3,T4}
+struct MCPGame{T1<:TrajectoryGame,T2<:ParametricMCPs.ParametricMCP,T3,T4,T5}
     game::T1
     parametric_mcp::T2
     index_sets::T3
     horizon::T4
+    observation_times::T5
 end
 
-function MCPGame(game, horizon, context_state_block_dimensions = 0)
+function MCPGame(game, horizon, context_state_block_dimensions = 0, observation_times = nothing)
     num_player = num_players(game)
     state_dimension = state_dim(game.dynamics)
     control_dimension = control_dim(game.dynamics)
@@ -205,7 +206,7 @@ function MCPGame(game, horizon, context_state_block_dimensions = 0)
         ParametricMCPs.ParametricMCP(fill_F!, fill_J!, fill_J_params!, lb, ub, parameter_dimension) # no need to make these functions, just store f, z, θ, lb, ub, and parameter_dimension
         # change this to David's package -> MixedComplementarityProblem.PrimalDualMCP (mcp.jl)
 
-    MCPGame(game, parametric_mcp, index_sets, horizon)
+    MCPGame(game, parametric_mcp, index_sets, horizon, observation_times)
 end
 
 #== MCP TrajectoryGame Solver ==#
@@ -214,9 +215,9 @@ struct MCPCoupledOptimizationSolver
     mcp_game::MCPGame
 end
 
-function MCPCoupledOptimizationSolver(game::TrajectoryGame, horizon, context_state_block_dimensions; verbose = false)
+function MCPCoupledOptimizationSolver(game::TrajectoryGame, horizon, context_state_block_dimensions, observation_times = nothing; verbose = false)
     verbose || print("initializing mcp game ... ")
-    mcp_game = MCPGame(game, horizon, context_state_block_dimensions)
+    mcp_game = MCPGame(game, horizon, context_state_block_dimensions, observation_times)
     verbose || print("mcp game initialized\ninitializing mcp game solver ... ")
     m = MCPCoupledOptimizationSolver(mcp_game)
     verbose || println("mcp game solver initialized")

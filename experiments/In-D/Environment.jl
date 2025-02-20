@@ -77,14 +77,14 @@ function rotate_point(theta, point)
     R * point
 end
 
-function create_env()
+function create_env(;plot=false)
     CairoMakie.activate!();
     fig = CairoMakie.Figure()
-    image_data = CairoMakie.load("experiments/data/07_background.png")
-    image_data = image_data[end:-1:1, :]
-    image_data = image_data'
+    !plot ||image_data = CairoMakie.load("experiments/data/07_background.png")
+    !plot ||image_data = image_data[end:-1:1, :]
+    !plot ||image_data = image_data'
     ax1 = Axis(fig[1,1], aspect = DataAspect())
-    trfm = ImageTransformations.recenter(Rotations.RotMatrix(-2.303611),center(image_data))
+    !plot || trfm = ImageTransformations.recenter(Rotations.RotMatrix(-2.303611),center(image_data))
 
 
     x_crop_min = 430
@@ -99,29 +99,29 @@ function create_env()
 
     # println(x,' ', y)
 
-    image_data = ImageTransformations.warp(image_data, trfm)
-    image_data = Origin(0)(image_data)
-    image_data = image_data[x_crop_min:x_crop_max, y_crop_min:y_crop_max]
+    !plot ||image_data = ImageTransformations.warp(image_data, trfm)
+    !plot ||image_data = Origin(0)(image_data)
+    !plot ||image_data = image_data[x_crop_min:x_crop_max, y_crop_min:y_crop_max]
     
     x_offset = -34.75
     y_offset = 22
 
     # println(x_offset..(x+x_offset-2), ' ', y_offset..(y-2+y_offset))
 
-    image!(ax1,
+    !plot || image!(ax1,
         x_offset..(x+x_offset),
         y_offset..(y+y_offset),
         image_data)
     tracks = [17, 19, 22]
     # traj = pull_trajectory("07"; track = tracks, frames = [780, 806])
-    traj = pull_trajectory("07"; track = tracks, fill_traj = true)
+    # traj, observation_times = pull_trajectory("07"; track = tracks, fill_traj = true)
 
-    colors = [:red, :blue, :green]
-    for j in eachindex(tracks)
-        lines!(ax1, [traj[i][Block(j)][1] for i in eachindex(traj)], [traj[i][Block(j)][2] for i in eachindex(traj)], color = colors[j])
-        scatter!(ax1, [(traj[end][Block(j)][1], traj[end][Block(j)][2])], color = colors[j], marker = :star5)
-        # lines!(ax1, [i[1] for i in blocks(traj[j])], [i[2] for i in blocks(traj[j])], color = colors[(j % length(colors)) + 1])
-    end
+    # colors = [:red, :blue, :green]
+    # for j in eachindex(tracks)
+    #     lines!(ax1, [traj[i][Block(j)][1] for i in eachindex(traj)], [traj[i][Block(j)][2] for i in eachindex(traj)], color = colors[j])
+    #     scatter!(ax1, [(traj[end][Block(j)][1], traj[end][Block(j)][2])], color = colors[j], marker = :star5)
+    #     # lines!(ax1, [i[1] for i in blocks(traj[j])], [i[2] for i in blocks(traj[j])], color = colors[(j % length(colors)) + 1])
+    # end
 
     # traj = pull_trajectory("07"; track = [17, 19, 22])
     # colors = [:red, :blue, :green]
@@ -145,7 +145,7 @@ function create_env()
     p3 = [-22 68]
 
     c1, r1 = solve_circle(p1, p2, p3)
-    plot_circle(ax1, c1, r1)
+    !plot || plot_circle(ax1, c1, r1)
 
     # Upper Right Circle
 
@@ -154,7 +154,7 @@ function create_env()
     p3 = [-6 70.5]
 
     c2, r2 = solve_circle(p1, p2, p3)
-    plot_circle(ax1, c2, r2)
+    !plot || plot_circle(ax1, c2, r2)
 
     # Lower Left Circle
 
@@ -165,7 +165,7 @@ function create_env()
     c3, r3 = solve_circle(p1, p2, p3)
     r3 = 7.55
     # println(c3, ' ', r3)
-    plot_circle(ax1, c3, r3)
+    !plot || plot_circle(ax1, c3, r3)
 
     # Lower Right Circle
 
@@ -174,7 +174,7 @@ function create_env()
     p3 = [-9.5 52]
 
     c4, r4 = solve_circle(p1, p2, p3)
-    plot_circle(ax1, c4, r4)
+    !plot || plot_circle(ax1, c4, r4)
 
     # LINE EQUATIONS
 
@@ -188,7 +188,7 @@ function create_env()
     push!(points, [p1 + [ 0 -4.5], p2 + [0 -5]])
 
     m1, b1 = solve_line(p1, p2)
-    plot_line(ax1, m1, b1, p1[1], p2[1], :yellow)
+    !plot || plot_line(ax1, m1, b1, p1[1], p2[1], :yellow)
 
     # y > 72.5, -16.5 <= x <= -13.5
 
@@ -197,7 +197,7 @@ function create_env()
     push!(points, [p2, p1])
 
     m2, b2 = solve_line(p1, p2)
-    plot_line(ax1, m2, b2, p1[1], p2[1], :red)
+    !plot || plot_line(ax1, m2, b2, p1[1], p2[1], :red)
 
     #  68.5< y < 69, -3 <= x <= 8.5
 
@@ -206,7 +206,7 @@ function create_env()
     push!(points, [p1, p2])
 
     m3, b3 = solve_line(p1, p2)
-    plot_line(ax1, m3, b3, p1[1], p2[1], :blue)
+    !plot || plot_line(ax1, m3, b3, p1[1], p2[1], :blue)
 
 
     # y > 74, -7 <= x <= -4.5
@@ -216,7 +216,7 @@ function create_env()
     push!(points, [p2, p1])
 
     m4, b4 = solve_line(p1, p2)
-    plot_line(ax1, m4, b4, p1[1], p2[1], :white)
+    !plot || plot_line(ax1, m4, b4, p1[1], p2[1], :white)
 
 
     # y > 58, -3 <= x <= 7
@@ -226,7 +226,7 @@ function create_env()
     push!(points, [p1, p2])
 
     m5, b5 = solve_line(p1, p2)
-    plot_line(ax1, m5, b5, p1[1], p2[1], :black)
+    !plot || plot_line(ax1, m5, b5, p1[1], p2[1], :black)
 
     # y < 52, -9.5 <= x <= -12.5
 
@@ -235,7 +235,7 @@ function create_env()
     push!(points, [p1, p2])
 
     m6, b6 = solve_line(p1, p2)
-    plot_line(ax1, m6, b6, p2[1], p1[1], :green)
+    !plot || plot_line(ax1, m6, b6, p2[1], p1[1], :green)
 
     
     # -34.75 <= x <= -29
@@ -244,16 +244,16 @@ function create_env()
     push!(points, [p1, p2])
 
     m7, b7 = solve_line(p1, p2)
-    plot_line(ax1, m7, b7, p1[1], p2[1], :purple)
+    !plot || plot_line(ax1, m7, b7, p1[1], p2[1], :purple)
 
     # y < 52, -21.5 <= x <= -19.5
 
     p1 = [-19.5 51.5]
     p2 = [-21.5 24]
-    push!(points, [p1, p2])
+    !plot || push!(points, [p1, p2])
 
     m8, b8 = solve_line(p1, p2)
-    plot_line(ax1, m8, b8, p2[1], p1[1], :orange)
+    !plot || plot_line(ax1, m8, b8, p2[1], p1[1], :orange)
     
 
     # display(fig)
@@ -271,40 +271,88 @@ end
 function pull_trajectory(recording; dir = "experiments/data/", track = [1, 2, 3], all = false, frames = [0, 10000], downsample_rate = 1, fill_traj = false)
     file = CSV.File(dir*recording*"_tracks.csv")
     raw_trajectories = (all) ? [[] for _ in 1:max(file[:trackId]...)+1] : [[] for _ in eachindex(track)]
+    observation_times = (all) ? [Int[] for _ in 1:max(file[:trackId]...)+1] : [Int[] for _ in eachindex(track)]
     data_to_pull = [:xCenter, :yCenter, :heading, :xVelocity, :yVelocity, :xAcceleration, :yAcceleration, :width, :length,]
+    
+    # First pass: collect observation times
     for row in file
         idx = (all) ? row.trackId+1 : findfirst(x -> x == row.trackId, track)
         if !isnothing(idx)
-            raw_state = [row[i] for i in data_to_pull]
-            if row.frame < frames[1] || row.frame > frames[2]
-                continue
+            if length(observation_times[idx]) < 2
+                push!(observation_times[idx], row.frame)
+            else
+                observation_times[idx][end] = row.frame
             end
-            full_state = [
-                rotate_point(2.303611, raw_state[1:2]) # + [390.5, 585.5]/10
-                norm(raw_state[4:5])
-                (deg2rad(raw_state[3]) + 5.445203653589793) % (2 * pi)
-                ]
-            push!(raw_trajectories[idx], full_state)
         end
     end
 
-    traj = []
-    # @infiltrate
-    min_horizon = min([length(i) for i in raw_trajectories]...)
-    max_horizon = max([length(i) for i in raw_trajectories]...)
-    actual_horizon = fill_traj ? max_horizon : min_horizon
-    for t in 1:actual_horizon 
-        b = BlockVector(vcat([(t <= length(raw_trajectories[i])) ? raw_trajectories[i][t] : raw_trajectories[i][end] for i in eachindex(raw_trajectories)]...),
-        [4 for _ in eachindex(raw_trajectories)])
-        push!(traj, b)
+    println("tracks: ", track)
+    for i in eachindex(observation_times)
+        println("track ", track[i], " observation times: ", observation_times[i])
     end
-    return traj[1:downsample_rate:end]
-
-    # return [BlockVector(vcat([raw_trajectories[i][t] for i in eachindex(raw_trajectories)]...),
-    #             [4 for _ in eachindex(raw_trajectories)]) for t in eachindex(raw_trajectories[1])]
-
-    # trajectories = [BlockVector(vcat(raw_trajectories[1]), [4 for _ in eachindex(raw_trajectories[i])]) for i in eachindex(raw_trajectories)]
-    # return trajectories
+    
+    # Calculate valid time range
+    start_time = maximum(first.(observation_times))
+    end_time = minimum(last.(observation_times))
+    
+    # Initialize trajectories with proper size
+    trajectory_length = div(end_time - start_time, downsample_rate) + 1
+    for i in eachindex(raw_trajectories)
+        resize!(raw_trajectories[i], end_time - start_time + 1)
+    end
+    
+    # Second pass: fill in trajectory data
+    for row in file
+        idx = (all) ? row.trackId+1 : findfirst(x -> x == row.trackId, track)
+        if !isnothing(idx) && start_time <= row.frame <= end_time
+            raw_state = [row[i] for i in data_to_pull]
+            full_state = Float64[
+                rotate_point(2.303611, raw_state[1:2])...,
+                norm(raw_state[4:5]),
+                (deg2rad(raw_state[3]) + 5.445203653589793) % (2 * pi)
+            ]
+            raw_trajectories[idx][row.frame - start_time + 1] = full_state
+        end
+    end
+    
+    # Build final trajectory
+    traj = []
+    for t in 1:length(raw_trajectories[1])
+        concatenated_state = Vector{Float64}[]
+        for i in eachindex(track)
+            state = raw_trajectories[i][t]
+            if isnothing(state)
+                state = fill(-1.0, 4)  # Assuming 4 is the state dimension
+            end
+            push!(concatenated_state, state)
+        end
+        push!(traj, mortar(concatenated_state))
+    end
+    
+    # Calculate relative observation intervals adjusted for downsampling
+    player_time_intervals = []
+    for i in eachindex(track)
+        # Ensure intervals start at 1 and are properly downsampled
+        raw_start = observation_times[i][1] - start_time + 1
+        raw_end = observation_times[i][2] - start_time + 1
+        
+        # Calculate downsampled indices, ensuring they start at 1
+        ds_start = max(1, ceil(Int, raw_start / downsample_rate))
+        ds_end = ceil(Int, raw_end / downsample_rate)
+        
+        push!(player_time_intervals, ds_start:ds_end)
+    end
+    
+    # Downsample trajectory
+    downsampled_traj = traj[1:downsample_rate:end]
+    
+    # Ensure observation intervals don't exceed trajectory length
+    final_intervals = [
+        interval.start:min(interval.stop, length(downsampled_traj))
+        for interval in player_time_intervals
+    ]
+    
+    return downsampled_traj, final_intervals
 end
 
 function solve_circle(p1,p2,p3)

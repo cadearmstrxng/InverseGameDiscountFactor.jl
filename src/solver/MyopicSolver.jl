@@ -25,7 +25,7 @@ function solve_myopic_inverse_game(
             warm_start(
                 observed_trajectory,
                 initial_state,
-                mcp_game.horizon;
+                mcp_game;
                 num_players = num_players(mcp_game.game),
                 observation_model = observation_model,
                 partial_observation_state_size = Int64(size(observed_trajectory[1], 1) // num_players(mcp_game.game)),
@@ -36,7 +36,7 @@ function solve_myopic_inverse_game(
         open("warm_start_sol.txt", "w") do io
             write(io, string(warm_start_sol))
         end
-        !verbose || println("warm start sol: ", warm_start_sol)
+        !verbose || println("warm start sol status: ", warm_start_sol.status)
     end
     #TODO would be nice to check if warm start solution is feasible
     # for attempt in 1:retries_on_divergence
@@ -53,7 +53,7 @@ function solve_myopic_inverse_game(
                     last_solution = warm_start_sol,
                     lr = lr
                 )
-            # verbose||println("solved, status: ", solving_info.status)
+            verbose||println("solved, status: ", solving_info.status)
             # if solving_info[end].status == PATHSolver.MCP_Solved
                 inv_sol = reconstruct_solution(solve_mcp_game(mcp_game, initial_state, context_state_estimation; verbose = false), mcp_game.game, mcp_game.horizon)
                 sol_error = norm_sqr(inv_sol - vcat(observed_trajectory...))

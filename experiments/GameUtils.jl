@@ -102,7 +102,9 @@ function InD_collision_avoidance(
         state_bounds = (; lb = [-Inf, -Inf, -0.8, -0.8], ub = [Inf, Inf, 0.8, 0.8]),
         control_bounds = (; lb = [-10, -10], ub = [10, 10]),
     ),
-    myopic = true)
+    myopic = true,
+    observation_times = [1:25, 1:25, 1:25]
+)
 
     cost = let
         function target_cost(x, context_state, t)
@@ -118,12 +120,13 @@ function InD_collision_avoidance(
             cost = [max(0.0, context_state[4] + 0.02 * context_state[4] - norm(x[Block(i)][1:2] - x[Block(paired_player)][1:2]))^2 for paired_player in [1:(i - 1); (i + 1):num_players]]
             sum(cost) 
         end
-        function cost_for_player(i, xs, us, context_state, T)
+        function cost_for_player(i, xs, us, context_state, T, observation_times)
             early_target = target_cost(xs[1][Block(i)], context_state[Block(i)], 1)
-            mean_target = mean([target_cost(xs[t + 1][Block(i)], context_state[Block(i)], t) for t in 1:T])
-            minimum_target = minimum([target_cost(xs[t][Block(i)], context_state[Block(i)],t) for t in 1:T])
-            control = mean([control_cost(us[t][Block(i)], context_state[Block(i)], t) for t in 1:T])
-            safe_distance_violation = mean([collision_cost(xs[t], i, context_state[Block(i)], t) for t in 1:T])
+            mean_target = mean([target_cost(xs[t + 1][Block(i)], context_state[Block(i)], t) for t in observation_times[i]])
+            minimum_target = minimum([target_cost(xs[t][Block(i)], context_state[Block(i)],t) for t in observation_times[i]])
+            control = mean([control_cost(us[t][Block(i)], context_state[Block(i)], t) for t in observation_times[i]])
+            unobserved_cost = mean([control_cost(us[t][Block(i)], context_state[Block(i)], t) for t in setdiff(1:T, observation_times[i])])
+            safe_distance_violation = mean([collision_cost(xs[t], i, context_state[Block(i)], t) for t in observation_times[i]])
 
             #contex states 6-10
 
@@ -131,7 +134,8 @@ function InD_collision_avoidance(
             context_state[Block(i)][5] * mean_target + 
             # context_state[Block(i)][7] * minimum_target + 
             context_state[Block(i)][6] * control + 
-            context_state[Block(i)][7] * safe_distance_violation
+            context_state[Block(i)][7] * safe_distance_violation +
+            0.01 * unobserved_cost
 
             # # 1.0 * early_target + 
             # 3.0 * mean_target +
@@ -142,7 +146,7 @@ function InD_collision_avoidance(
         function cost_function(xs, us, context_state)
             num_players = blocksize(xs[1], 1)
             T = size(us,1)
-            [cost_for_player(i, xs, us, context_state, T) for i in 1:num_players]
+            [cost_for_player(i, xs, us, context_state, T, observation_times[i]) for i in 1:num_players]
         end
         TrajectoryGameCost(cost_function, GeneralSumCostStructure())
     end
@@ -249,6 +253,7 @@ function init_bicycle_test_game(
         control_bounds = (; lb = [-5, -pi/2], ub = [5, pi/2]),
         integration_scheme = :forward_euler
     ),
+    observation_times = [1:25, 1:25, 1:25]
 )
     !verbose || print("initializing game ... ")
     game_structure = InD_collision_avoidance(
@@ -258,7 +263,8 @@ function init_bicycle_test_game(
         min_distance = 0.5,
         collision_avoidance_coefficient = 5.0,
         dynamics = dynamics,
-        myopic = myopic
+        myopic = myopic,
+        observation_times = observation_times
     )
     !verbose || print(" game structure initialized\n")
     if full_state
