@@ -112,7 +112,10 @@ function InD_collision_avoidance(
             norm_sqr(u) * (myopic ? context_state[3] ^ t : 1)
         end
         function lane_center_cost(x, context_state, t)
-            (myopic ? context_state[3] ^ t : 1) * norm_sqr() # not sure how to really go about this. The lane center vector is not necessarily the same length as the state vector, how to resolve?
+
+            cost = min([norm_sqr(x[1:2] - lane_center_point) for lane_center_point in lane_centers[i]])
+
+            (myopic ? context_state[3] ^ t : 1) * cost # not sure how to really go about this. The lane center vector is not necessarily the same length as the state vector, how to resolve?
         end
         function collision_cost(x, i, context_state, t) # TODO find best constant c for ... + c * context_state[4] - ...
             cost = [max(0.0, context_state[4] + 0.02 * context_state[4] - norm(x[Block(i)][1:2] - x[Block(paired_player)][1:2]))^2 for paired_player in [1:(i - 1); (i + 1):num_players]]
@@ -124,6 +127,7 @@ function InD_collision_avoidance(
             minimum_target = minimum([target_cost(xs[t][Block(i)], context_state[Block(i)],t) for t in 1:T])
             control = mean([control_cost(us[t][Block(i)], context_state[Block(i)], t) for t in 1:T])
             safe_distance_violation = mean([collision_cost(xs[t], i, context_state[Block(i)], t) for t in 1:T])
+            lane_center = mean([lane_center_cost(xs[t+1][Block(i)], context_state[Block(i)], t) for t in 1:T])
 
             #contex states 6-10
 
@@ -131,7 +135,8 @@ function InD_collision_avoidance(
             context_state[Block(i)][5] * mean_target + 
             # context_state[Block(i)][7] * minimum_target + 
             context_state[Block(i)][6] * control + 
-            context_state[Block(i)][7] * safe_distance_violation
+            context_state[Block(i)][7] * safe_distance_violation +
+            context_state[Block(i)][8] * lane_center
 
             # # 1.0 * early_target + 
             # 3.0 * mean_target +
