@@ -80,11 +80,11 @@ end
 function create_env(;plot=false)
     CairoMakie.activate!();
     fig = CairoMakie.Figure()
-    !plot ||image_data = CairoMakie.load("experiments/data/07_background.png")
-    !plot ||image_data = image_data[end:-1:1, :]
-    !plot ||image_data = image_data'
+    image_data = CairoMakie.load("experiments/data/07_background.png")
+    image_data = image_data[end:-1:1, :]
+    image_data = image_data'
     ax1 = Axis(fig[1,1], aspect = DataAspect())
-    !plot || trfm = ImageTransformations.recenter(Rotations.RotMatrix(-2.303611),center(image_data))
+    trfm = ImageTransformations.recenter(Rotations.RotMatrix(-2.303611),center(image_data))
 
 
     x_crop_min = 430
@@ -99,9 +99,9 @@ function create_env(;plot=false)
 
     # println(x,' ', y)
 
-    !plot ||image_data = ImageTransformations.warp(image_data, trfm)
-    !plot ||image_data = Origin(0)(image_data)
-    !plot ||image_data = image_data[x_crop_min:x_crop_max, y_crop_min:y_crop_max]
+    image_data = ImageTransformations.warp(image_data, trfm)
+    image_data = Origin(0)(image_data)
+    image_data = image_data[x_crop_min:x_crop_max, y_crop_min:y_crop_max]
     
     x_offset = -34.75
     y_offset = 22
@@ -250,7 +250,7 @@ function create_env(;plot=false)
 
     p1 = [-19.5 51.5]
     p2 = [-21.5 24]
-    !plot || push!(points, [p1, p2])
+    push!(points, [p1, p2])
 
     m8, b8 = solve_line(p1, p2)
     !plot || plot_line(ax1, m8, b8, p2[1], p1[1], :orange)
@@ -289,11 +289,18 @@ function pull_trajectory(recording; dir = "experiments/data/", track = [1, 2, 3]
     println("tracks: ", track)
     for i in eachindex(observation_times)
         println("track ", track[i], " observation times: ", observation_times[i])
+        
     end
+
     
     # Calculate valid time range
-    start_time = maximum(first.(observation_times))
-    end_time = minimum(last.(observation_times))
+    start_time = minimum(first.(observation_times))
+    end_time = maximum(last.(observation_times))
+    println("start_time: ", start_time, " end_time: ", end_time)
+
+    for i in eachindex(observation_times)
+        observation_times[i] = observation_times[i] .- start_time .+ 1
+    end
     
     # Initialize trajectories with proper size
     trajectory_length = div(end_time - start_time, downsample_rate) + 1
@@ -320,10 +327,7 @@ function pull_trajectory(recording; dir = "experiments/data/", track = [1, 2, 3]
     for t in 1:length(raw_trajectories[1])
         concatenated_state = Vector{Float64}[]
         for i in eachindex(track)
-            state = raw_trajectories[i][t]
-            if isnothing(state)
-                state = fill(-1.0, 4)  # Assuming 4 is the state dimension
-            end
+            state = t in observation_times[i] ? raw_trajectories[i][t] : fill(-1.0, 4)
             push!(concatenated_state, state)
         end
         push!(traj, mortar(concatenated_state))
@@ -332,27 +336,26 @@ function pull_trajectory(recording; dir = "experiments/data/", track = [1, 2, 3]
     # Calculate relative observation intervals adjusted for downsampling
     player_time_intervals = []
     for i in eachindex(track)
-        # Ensure intervals start at 1 and are properly downsampled
-        raw_start = observation_times[i][1] - start_time + 1
-        raw_end = observation_times[i][2] - start_time + 1
+        # Convert observation times to indices in the downsampled trajectory
+        ds_times = observation_times[i][1]:observation_times[i][2]
+        ds_indices = ceil.(Int, ds_times ./ downsample_rate)
         
-        # Calculate downsampled indices, ensuring they start at 1
-        ds_start = max(1, ceil(Int, raw_start / downsample_rate))
-        ds_end = ceil(Int, raw_end / downsample_rate)
+        # Ensure indices are valid for the downsampled trajectory
+        valid_indices = filter(idx -> 1 <= idx <= div(length(traj), downsample_rate), ds_indices)
         
-        push!(player_time_intervals, ds_start:ds_end)
+        # Create the interval
+        if !isempty(valid_indices)
+            push!(player_time_intervals, minimum(valid_indices):maximum(valid_indices))
+        else
+            @warn "No valid observation times for player $(i)"
+            push!(player_time_intervals, 1:1)  # Fallback empty interval
+        end
     end
-    
+    println("player_time_intervals: ", player_time_intervals)
     # Downsample trajectory
     downsampled_traj = traj[1:downsample_rate:end]
-    
-    # Ensure observation intervals don't exceed trajectory length
-    final_intervals = [
-        interval.start:min(interval.stop, length(downsampled_traj))
-        for interval in player_time_intervals
-    ]
-    
-    return downsampled_traj, final_intervals
+
+    return downsampled_traj, player_time_intervals
 end
 
 function solve_circle(p1,p2,p3)

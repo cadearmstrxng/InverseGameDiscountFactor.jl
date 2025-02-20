@@ -50,12 +50,12 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
         control_bounds = (; lb = [-5, -pi/4], ub = [5, pi/4]),
         integration_scheme = :forward_euler
     )
+    @infiltrate
     init = GameUtils.init_bicycle_test_game(
         full_state;
-        initial_state = BlockVector([
-            InD_observations[1][1:2]..., 1.0, pi-0.01,
-            InD_observations[1][5:6]..., 0.75, 0.0],
-            [4,4]),
+        initial_state = mortar( 
+            [InD_observations[InD_player_time_intervals[i][1]][Block(i)][1:end]
+            for i in 1:length(tracks)]),
         game_params = mortar([
             [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0] for i in 1:length(tracks)]...]),
         # game_environment = PolygonEnvironment(4, 200),
