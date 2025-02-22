@@ -338,12 +338,10 @@ function pull_trajectory(recording; dir = "experiments/data/", track = [1, 2, 3]
     player_time_intervals = []
     for i in eachindex(track)
         # Convert observation times to indices in the downsampled trajectory
-        ds_times = observation_times[i][1]:observation_times[i][2]
+        ds_times = observation_times[i][1]:observation_times[i][end]
         ds_indices = ceil.(Int, ds_times ./ downsample_rate)
-        
         # Ensure indices are valid for the downsampled trajectory
         valid_indices = filter(idx -> 1 <= idx <= div(length(traj), downsample_rate), ds_indices)
-        
         # Create the interval
         if !isempty(valid_indices)
             push!(player_time_intervals, minimum(valid_indices):maximum(valid_indices))

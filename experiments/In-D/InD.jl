@@ -31,6 +31,7 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
         for i in eachindex(InD_observations)
             write(f, string(round.(InD_observations[i]; digits = 4)), "\n")
         end
+        write(f, "observation times: ", string(InD_player_time_intervals))
     end
     # 780 -> 916 = 136
     # Take 1:
@@ -50,7 +51,6 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
         control_bounds = (; lb = [-5, -pi/4], ub = [5, pi/4]),
         integration_scheme = :forward_euler
     )
-    @infiltrate
     init = GameUtils.init_bicycle_test_game(
         full_state;
         initial_state = mortar( 
