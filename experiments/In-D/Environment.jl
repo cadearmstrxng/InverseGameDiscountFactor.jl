@@ -300,6 +300,7 @@ function pull_trajectory(recording; dir = "experiments/data/", track = [1, 2, 3]
 
     for i in eachindex(observation_times)
         observation_times[i] = observation_times[i] .- start_time .+ 1
+        observation_times[i] = observation_times[i][1]:observation_times[i][2]
     end
     
     # Initialize trajectories with proper size
@@ -351,10 +352,8 @@ function pull_trajectory(recording; dir = "experiments/data/", track = [1, 2, 3]
             push!(player_time_intervals, 1:1)  # Fallback empty interval
         end
     end
-    println("player_time_intervals: ", player_time_intervals)
     # Downsample trajectory
     downsampled_traj = traj[1:downsample_rate:end]
-
     return downsampled_traj, player_time_intervals
 end
 
