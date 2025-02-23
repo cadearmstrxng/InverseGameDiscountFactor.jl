@@ -118,8 +118,8 @@ function graph_trajectories(
         for j in eachindex(trajectories)
             if j == 1 #handle observations pulled from data file differently, format is different :/
                 CairoMakie.lines!(ax1, 
-                    [trajectories[1][t][Block(i)][1] for t in observation_times[1]],
-                    [trajectories[1][t][Block(i)][2] for t in observation_times[1]], 
+                    [trajectories[1][t][Block(i)][1] for t in observation_times[i]],
+                    [trajectories[1][t][Block(i)][2] for t in observation_times[i]], 
                     color = colors[1][i], markersize = 5)
                 CairoMakie.scatter!(ax1,
                     [trajectories[1][end][Block(i)][1]],
@@ -127,12 +127,12 @@ function graph_trajectories(
                     color = colors[1][i], marker=:star5)
             else
                 CairoMakie.lines!(ax1, 
-                    [trajectories[j][Block(t)][(i - 1) * p_state_dim + 1] for t in observation_times[j - 1]],
-                    [trajectories[j][Block(t)][(i - 1) * p_state_dim + 2] for t in observation_times[j - 1]], 
+                    [trajectories[j][Block(t)][(i - 1) * p_state_dim + 1] for t in observation_times[i]],
+                    [trajectories[j][Block(t)][(i - 1) * p_state_dim + 2] for t in observation_times[i]], 
                     color = colors[j][i], markersize = 5)
                 CairoMakie.scatter!(ax1,
-                    [trajectories[j][Block(length(blocks(trajectories[j])))][(i - 1) * p_state_dim + 1]],
-                    [trajectories[j][Block(length(blocks(trajectories[j])))][(i - 1) * p_state_dim + 2]],
+                    [trajectories[j][Block(observation_times[i][end])][(i - 1) * p_state_dim + 1]],
+                    [trajectories[j][Block(observation_times[i][end])][(i - 1) * p_state_dim + 2]],
                     color = colors[j][i], marker=:star5)
             end         
         end

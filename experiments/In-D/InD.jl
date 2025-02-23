@@ -21,10 +21,11 @@ export run_bicycle_sim
 function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
 
     # InD_observations = GameUtils.observe_trajectory(forward_solution, init)
-    # frames = [646, 1001]
+    # frames = [620, 1001]
+    # frames = [646, 1103]
     # frames = [780, 806]
     tracks = [19, 20]
-    downsample_rate = 14
+    downsample_rate = 16
     InD_observations, InD_player_time_intervals = GameUtils.pull_trajectory("07";
         track = tracks, downsample_rate = downsample_rate)
     open("InD_observations.tmp.txt", "w") do f
@@ -46,19 +47,24 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
     # @infiltrate
     dynamics = BicycleDynamics(;
         dt = 0.04*downsample_rate, # needs to become framerate
-        l = 1.0,
-        state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
+        l = 2.0,
+        state_bounds = (; 
+            lb = [-35.0, 20.0, 0.0, -2*pi],  # [x, y, velocity, heading]
+            ub = [10.0, 100.0, 15.0, 2*pi]
+        ),
         control_bounds = (; lb = [-5, -pi/4], ub = [5, pi/4]),
         integration_scheme = :forward_euler
     )
+    # @infiltrate
     init = GameUtils.init_bicycle_test_game(
         full_state;
-        initial_state = mortar( 
-            [InD_observations[InD_player_time_intervals[i][1]][Block(i)][1:end]
-            for i in 1:length(tracks)]),
+        # initial_state = mortar( 
+        #     [InD_observations[InD_player_time_intervals[i][1]][Block(i)][1:end]
+        #     for i in 1:length(tracks)]),
+        initial_state = copy(InD_observations[1]),
         game_params = mortar([
-            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0] for i in 1:length(tracks)]...]),
-        # game_environment = PolygonEnvironment(4, 200),
+            [[InD_observations[InD_player_time_intervals[i][end]][Block(i)][1:2]..., 1.0, 1.0] for i in 1:length(tracks)]...]),
+        game_environment = PolygonEnvironment(4, 200),
         horizon = max(last.(InD_player_time_intervals)...),
         n = length(tracks),
         dt = 0.04*downsample_rate,
@@ -200,11 +206,11 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
         )
     end
 
-    sol_error = norm_sqr(method_sol.recovered_trajectory - vcat(InD_observations...))
+    sol_error = method_sol.sol_error
     !verbose || println("inverse sol error: ", sol_error)
-    warm_sol_error = norm_sqr(method_sol.warm_start_trajectory - vcat(InD_observations...))
-    !verbose || println("warm start sol error: ", warm_sol_error)
-    !verbose || println("% improvement on warm start: ", (warm_sol_error - sol_error) / warm_sol_error * 100)
+    # warm_sol_error = norm_sqr(method_sol.warm_start_trajectory - vcat(InD_observations...))
+    !verbose || println("warm start sol error: ", method_sol.sol_error)
+    # !verbose || println("% improvement on warm start: ", (warm_sol_error - sol_error) / warm_sol_error * 100)
 end
 
 end

@@ -72,8 +72,8 @@ function n_player_collision_avoidance(
             # 0.2 * early_target + 
             1.0 * mean_target + 
             # 0.2 * minimum_target + 
-            0.1 * control + 
-            20 * safe_distance_violation
+            0.1 * control 
+            # 0.1 * safe_distance_violation
         end
         function cost_function(xs, us, context_state)
             num_players = blocksize(xs[1], 1)
@@ -103,13 +103,13 @@ function InD_collision_avoidance(
         control_bounds = (; lb = [-10, -10], ub = [10, 10]),
     ),
     myopic = true,
-    observation_times = [1:25, 1:25, 1:25]
+    observation_times = [1:25 for _ in 1:num_players]
 )
 
     cost = let
         function target_cost(x, context_state, t)
             (myopic ? context_state[3] ^ t : 1) * norm_sqr(x[1:2] - context_state[1:2])
-        end
+        end        
         function control_cost(u, context_state, t)
             norm_sqr(u) * (myopic ? context_state[3] ^ t : 1)
         end
@@ -120,28 +120,32 @@ function InD_collision_avoidance(
             cost = [max(0.0, context_state[4] + 0.02 * context_state[4] - norm(x[Block(i)][1:2] - x[Block(paired_player)][1:2]))^2 for paired_player in [1:(i - 1); (i + 1):num_players]]
             sum(cost) 
         end
-        function cost_for_player(i, xs, us, context_state, T, observation_times)
+        
+        function cost_for_player(i, xs, us, context_state, T, observation_time)
             early_target = target_cost(xs[1][Block(i)], context_state[Block(i)], 1)
-            mean_target = mean([target_cost(xs[t + 1][Block(i)], context_state[Block(i)], t) for t in observation_times[i]])
-            minimum_target = minimum([target_cost(xs[t][Block(i)], context_state[Block(i)],t) for t in observation_times[i]])
-            control = mean([control_cost(us[t][Block(i)], context_state[Block(i)], t) for t in observation_times[i]])
-            unobserved_cost = mean([control_cost(us[t][Block(i)], context_state[Block(i)], t) for t in setdiff(1:T, observation_times[i])])
-            safe_distance_violation = mean([collision_cost(xs[t], i, context_state[Block(i)], t) for t in observation_times[i]])
+            mean_target = mean([target_cost(xs[t + 1][Block(i)], context_state[Block(i)], t) for t in observation_time])
+            minimum_target = minimum([target_cost(xs[t][Block(i)], context_state[Block(i)],t) for t in observation_time])
+            control = mean([control_cost(us[t][Block(i)], context_state[Block(i)], t) for t in observation_time])
+            unobserved_effort_cost = mean([control_cost(us[t][Block(i)], context_state[Block(i)], t) for t in setdiff(1:T, observation_time)])
+            post_unobserved_target_cost = mean([target_cost(xs[t][Block(i)], context_state[Block(i)], t) for t in observation_time[2]+1:T])
+            pre_unobserved_target_cost = mean([target_cost(xs[t][Block(i)], xs[1][Block(i)], t) for t in 1:observation_time[1]-1])
+            safe_distance_violation = mean([collision_cost(xs[t], i, context_state[Block(i)], t) for t in observation_time])
 
             #contex states 6-10
 
             # context_state[Block(i)][5] * early_target + 
-            context_state[Block(i)][5] * mean_target + 
-            # context_state[Block(i)][7] * minimum_target + 
-            context_state[Block(i)][6] * control + 
-            context_state[Block(i)][7] * safe_distance_violation +
-            0.01 * unobserved_cost
+            # context_state[Block(i)][5] * mean_target + 
+            # # context_state[Block(i)][7] * minimum_target + 
+            # context_state[Block(i)][6] * control + 
+            # context_state[Block(i)][7] * safe_distance_violation +
+            # 0.01 * unobserved_cost
 
-            # # 1.0 * early_target + 
-            # 3.0 * mean_target +
-            # # 1.0 * minimum_target + 
-            # 0.01 * control +
-            # 2.0 * safe_distance_violation
+            # 1.0 * early_target + 
+            3.0 * mean_target +
+            # 1.0 * minimum_target + 
+            0.01 * control +
+            2.0 * safe_distance_violation +
+            0.01 * (unobserved_effort_cost + post_unobserved_target_cost)
         end
         function cost_function(xs, us, context_state)
             num_players = blocksize(xs[1], 1)
@@ -305,6 +309,7 @@ function observe_trajectory(trajectory, game_init; blocked_by_time = true)
         map(blocks(trajectory)) do x
             BlockVector(game_init.observation_model(x), [game_init.observation_dim for _ in 1:num_players(game_init.game_structure.game)])
         end
+        observations
     else # observe by state at time t
         BlockVector(game_init.observation_model(trajectory[1:end]), [game_init.observation_dim for _ in 1:num_players(game_init.game_structure.game)])
     end

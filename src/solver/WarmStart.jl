@@ -33,7 +33,7 @@ function warm_start_game(num_players, observation_times;
             # state_size = partial_observation_state_size < 0 ? size(x[1][Block(1)])[1] : partial_observation_state_size
             # num_players = blocksize(x[1], 1)
 
-            sum(map(zip(xᵢ[2:end], yᵢ)) do (xₜ, yₜ)
+            sum(map(zip(xᵢ, yᵢ)) do (xₜ, yₜ)
                 # @infiltrate
                 norm_sqr(xₜ - yₜ)
             end)
@@ -45,7 +45,7 @@ function warm_start_game(num_players, observation_times;
             horizon = length(ys)
             
             for i in 1:num_players
-                xᵢ = [xs[t][Block(i)] for t in min(observation_times[i]...) : max(observation_times[i]...)+1]
+                xᵢ = [xs[t][Block(i)] for t in observation_times[i][1]+1:observation_times[i][end]]
                 yᵢ = [ys[t][Block(i)] for t in observation_times[i]]
 
                 push!(costs, warm_start_cost_for_player(xᵢ, yᵢ))

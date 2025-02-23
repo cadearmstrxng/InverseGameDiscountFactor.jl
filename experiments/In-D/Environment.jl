@@ -328,30 +328,38 @@ function pull_trajectory(recording; dir = "experiments/data/", track = [1, 2, 3]
     for t in 1:length(raw_trajectories[1])
         concatenated_state = Vector{Float64}[]
         for i in eachindex(track)
-            state = t in observation_times[i] ? raw_trajectories[i][t] : fill(-1.0, 4)
+            state = []
+            if !(t in observation_times[i])
+                # Before first observation - use first valid state
+                if t < first(observation_times[i])
+                    state = copy(raw_trajectories[i][first(observation_times[i])])
+                    state[3] = 0.0  # Zero velocity
+                else
+                    # After last observation - use last valid state
+                    state = copy(raw_trajectories[i][last(observation_times[i])])
+                    state[3] = 0.0  # Zero velocity
+                end
+            else
+                state = raw_trajectories[i][t]
+            end
             push!(concatenated_state, state)
         end
         push!(traj, mortar(concatenated_state))
     end
     
     # Calculate relative observation intervals adjusted for downsampling
-    player_time_intervals = []
-    for i in eachindex(track)
-        # Convert observation times to indices in the downsampled trajectory
-        ds_times = observation_times[i][1]:observation_times[i][end]
-        ds_indices = ceil.(Int, ds_times ./ downsample_rate)
-        # Ensure indices are valid for the downsampled trajectory
-        valid_indices = filter(idx -> 1 <= idx <= div(length(traj), downsample_rate), ds_indices)
-        # Create the interval
-        if !isempty(valid_indices)
-            push!(player_time_intervals, minimum(valid_indices):maximum(valid_indices))
-        else
-            @warn "No valid observation times for player $(i)"
-            push!(player_time_intervals, 1:1)  # Fallback empty interval
+    player_time_intervals = [[typemax(Int), typemin(Int)] for _ in eachindex(track)]
+    downsampled_traj = []
+    for i in 1:downsample_rate:length(traj)
+        push!(downsampled_traj, traj[i])
+        for j in eachindex(track)
+            if i in observation_times[j]
+                player_time_intervals[j][1] = min(player_time_intervals[j][1], length(downsampled_traj))
+                player_time_intervals[j][2] = max(player_time_intervals[j][2], length(downsampled_traj))
+            end
         end
     end
-    # Downsample trajectory
-    downsampled_traj = traj[1:downsample_rate:end]
+    player_time_intervals = [Int(player_time_intervals[i][1]):Int(player_time_intervals[i][2]) for i in eachindex(player_time_intervals)]
     return downsampled_traj, player_time_intervals
 end
 

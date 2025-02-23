@@ -32,11 +32,13 @@ function solve_inverse_mcp_game(
         # Filter observations based on observation times for each player
         total_error = 0.0
         for player in 1:num_player
-            obs_times = mcp_game.observation_times[player]
-            player_observed = [τ[Block(player)] for τ in τs_observed]
-            #assumes same observation model for all players
-            player_solution = [observation_model(τs_solution.blocks[t])[length(player_observed[1]) * (player-1) + 1:length(player_observed[1]) * player] for t in obs_times]
-            total_error += norm_sqr(vcat(player_observed...) - vcat(player_solution...))
+            for t in mcp_game.observation_times[player]
+                # player_observed = [τ[Block(player)] for τ in τs_observed]
+                player_observed = τs_observed[t][Block(player)]
+                #assumes same observation model for all players
+                player_solution = observation_model(τs_solution.blocks[t])[length(player_observed) * (player-1) + 1:length(player_observed) * player]
+                total_error += norm_sqr(player_observed - player_solution)
+            end
         end
         
         if solution.status == PATHSolver.MCP_Solved
