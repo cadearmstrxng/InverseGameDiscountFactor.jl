@@ -17,9 +17,9 @@ function run_full_state_monte_carlo(;
     tracks = [19, 20],
     downsample_rate = 14,
     rng = Random.MersenneTwister(1),
-    num_trials = 10,
-    σs = [0.01*i for i in 0:10],
-    # σs = [0.01],
+    num_trials = 1,
+    # σs = [0.01*i for i in 0:2:10],
+    σs = [0.01],
     verbose = true,
     store_all = false
 )
@@ -76,7 +76,8 @@ function run_full_state_monte_carlo(;
         dynamics = dynamics,
         lane_centers = lane_centers
     )
-
+    println(string(init))
+    println(string(init_baseline))
     # Create MCP game solvers
     mcp_solver = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
         init.game_structure.game,
@@ -85,9 +86,9 @@ function run_full_state_monte_carlo(;
     )
 
     baseline_solver = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
-        init.game_structure.game,
-        init.horizon,
-        blocksizes(init.game_parameters, 1);
+        init_baseline.game_structure.game,
+        init_baseline.horizon,
+        [7 for _ in 1:length(tracks)]  # Explicitly specify 7 parameters per player
     )
     
     # Track errors
@@ -128,10 +129,10 @@ function run_full_state_monte_carlo(;
             baseline_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
                 baseline_solver.mcp_game,
                 noisy_observations,
-                init.observation_model,
-                blocksizes(init.game_parameters, 1);
-                initial_state = init.initial_state,
-                hidden_state_guess = init.game_parameters,
+                init_baseline.observation_model,
+                blocksizes(init_baseline.game_parameters, 1);
+                initial_state = init_baseline.initial_state,
+                hidden_state_guess = init_baseline.game_parameters,
                 max_grad_steps = 200,
                 verbose = false,
                 dynamics = dynamics,
@@ -141,7 +142,7 @@ function run_full_state_monte_carlo(;
             errors[σ_idx, trial_idx] = norm_sqr(vcat(InD_observations...) - method_sol.recovered_trajectory) / length(InD_observations)
             parameter_errors[σ_idx, trial_idx] = norm_sqr(init.game_parameters - method_sol.recovered_params)
             baseline_errors[σ_idx, trial_idx] = norm_sqr(vcat(InD_observations...) - baseline_sol.recovered_trajectory) / length(InD_observations)
-            baseline_parameter_errors[σ_idx, trial_idx] = norm_sqr(init.game_parameters - baseline_sol.recovered_params)
+            baseline_parameter_errors[σ_idx, trial_idx] = norm_sqr(init_baseline.game_parameters - baseline_sol.recovered_params)
             
             if store_all
                 push!(observed_trajectories, noisy_observations)
@@ -149,6 +150,22 @@ function run_full_state_monte_carlo(;
                 push!(recovered_params, method_sol.recovered_params)
             end
         end
+    end
+    println("mc study done")
+    open("experiments/In-D/mc_study_results.txt", "w") do f
+        for i in 1:length(σs)
+            write(f, round.(errors[i, :], digits=4), "\n")
+        end
+        for i in 1:length(σs)
+            write(f, round.(baseline_errors[i, :], digits=4), "\n")
+        end
+        for i in 1:length(σs)
+            write(f, round.(parameter_errors[i, :], digits=4), "\n")
+        end
+        for i in 1:length(σs)
+            write(f, round.(baseline_parameter_errors[i, :], digits=4), "\n")
+        end
+        
     end
 
     # Graph results

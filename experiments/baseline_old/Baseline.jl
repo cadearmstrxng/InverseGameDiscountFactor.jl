@@ -2,6 +2,8 @@ module baseline_crosswalk_sim
 #TODO mirror in Crosswalk.jl
 using TrajectoryGamesExamples:
     PolygonEnvironment
+using TrajectoryGamesBase:
+    TrajectoryGame
 using BlockArrays
 
 include("../GameUtils.jl")
