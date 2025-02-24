@@ -21,20 +21,21 @@ function graph_metrics(
     baseline_parameter_error,
     parameter_error,
     σs;
-    observation_mode="full state"
+    observation_mode="full state",
+    pre_prefix = "experiments/crosswalk_sim/"
 ) #TODO needs cleanup
 
-    prefix = "experiments/crosswalk_sim/"*observation_mode*"/"
-    CairoMakie.activate()
+    prefix = pre_prefix*observation_mode*"/"
+    CairoMakie.activate!()
 
     fig1 = CairoMakie.Figure()
     ax1 = CairoMakie.Axis(fig1[1, 1])
 
-    mean_errors = [Statistics.mean(errors[i, :]) for i in 1:size(errors, 1)]
-    stds = [Statistics.std(errors[i, :]) for i in 1:size(errors, 1)]
+    mean_errors = [mean(errors[i, :]) for i in 1:size(errors, 1)]
+    stds = [std(errors[i, :]) for i in 1:size(errors, 1)]
 
-    baseline_mean_errors = [Statistics.mean(baseline_errors[i, :]) for i in 1:size(baseline_errors, 1)]
-    baseline_stds = [Statistics.std(baseline_errors[i, :]) for i in 1:size(baseline_errors, 1)]
+    baseline_mean_errors = [mean(baseline_errors[i, :]) for i in 1:size(baseline_errors, 1)]
+    baseline_stds = [std(baseline_errors[i, :]) for i in 1:size(baseline_errors, 1)]
 
     our_method = CairoMakie.scatter!(ax1, σs, mean_errors, color = (:blue, 0.75))
     CairoMakie.errorbars!(ax1, σs, mean_errors, stds, color = (:blue, 0.75))
@@ -49,11 +50,11 @@ function graph_metrics(
     fig2 = CairoMakie.Figure()
     ax2 = CairoMakie.Axis(fig2[1, 1])
 
-    mean_parameter_errors = [Statistics.mean(parameter_error[i, :]) for i in 1:size(parameter_error, 1)]
-    parameter_stds = [Statistics.std(parameter_error[i, :]) for i in 1:size(parameter_error, 1)]
+    mean_parameter_errors = [mean(parameter_error[i, :]) for i in 1:size(parameter_error, 1)]
+    parameter_stds = [std(parameter_error[i, :]) for i in 1:size(parameter_error, 1)]
 
-    baseline_mean_parameter_errors = [Statistics.mean(baseline_parameter_error[i, :]) for i in 1:size(baseline_parameter_error, 1)]
-    baseline_parameter_stds = [Statistics.std(baseline_parameter_error[i, :]) for i in 1:size(baseline_parameter_error, 1)]
+    baseline_mean_parameter_errors = [mean(baseline_parameter_error[i, :]) for i in 1:size(baseline_parameter_error, 1)]
+    baseline_parameter_stds = [std(baseline_parameter_error[i, :]) for i in 1:size(baseline_parameter_error, 1)]
 
     our_method = CairoMakie.scatter!(ax2, σs, mean_parameter_errors, color = (:blue, 0.75))
     CairoMakie.errorbars!(ax2, σs, mean_parameter_errors, parameter_stds, color = (:blue, 0.75))
