@@ -132,11 +132,11 @@ function InD_collision_avoidance(
             #contex states 6-10
 
             # context_state[Block(i)][5] * early_target + 
-            context_state[Block(i)][5] * mean_target + 
+            context_state[Block(i)][myopic ? 5 : 4] * mean_target + 
             # context_state[Block(i)][7] * minimum_target + 
-            context_state[Block(i)][6] * control + 
-            context_state[Block(i)][7] * safe_distance_violation +
-            context_state[Block(i)][8] * lane_center
+            context_state[Block(i)][myopic ? 6 : 5] * control + 
+            context_state[Block(i)][myopic ? 7 : 6] * safe_distance_violation +
+            context_state[Block(i)][myopic ? 8 : 7] * lane_center
 
             # # 1.0 * early_target + 
             # 3.0 * mean_target +
@@ -238,9 +238,9 @@ function init_bicycle_test_game(
         [2.5, 0, 0.0, 0.0] # player 3
     ]),
     game_params = mortar([
-        [2, 0, 0.6],
-        [0, 0, 0.6],
-        [0, 2, 0.6]
+        [0.0, 0.0, 0.6, 1.0], # target x,y, discount, min_dist
+        [0.0, 0.0, 0.6, 1.0],
+        [0.0, 0.0, 0.6, 1.0]
     ]),
     horizon = 25,
     n = 3,
