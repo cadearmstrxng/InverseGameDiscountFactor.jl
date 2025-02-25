@@ -17,9 +17,9 @@ function run_full_state_monte_carlo(;
     tracks = [19, 20],
     downsample_rate = 14,
     rng = Random.MersenneTwister(1),
-    num_trials = 1,
-    # σs = [0.01*i for i in 0:2:10],
-    σs = [0.01],
+    num_trials = 6,
+    σs = [0.01*i for i in 0:2:10],
+    # σs = [0.01],
     verbose = true,
     store_all = false
 )
@@ -154,16 +154,16 @@ function run_full_state_monte_carlo(;
     println("mc study done")
     open("experiments/In-D/mc_study_results.txt", "w") do f
         for i in 1:length(σs)
-            write(f, round.(errors[i, :], digits=4), "\n")
+            write(f, string(round.(errors[i, :], digits=4), "\n"))
         end
         for i in 1:length(σs)
-            write(f, round.(baseline_errors[i, :], digits=4), "\n")
+            write(f, string(round.(baseline_errors[i, :], digits=4), "\n"))
         end
         for i in 1:length(σs)
-            write(f, round.(parameter_errors[i, :], digits=4), "\n")
+            write(f, string(round.(parameter_errors[i, :], digits=4), "\n"))
         end
         for i in 1:length(σs)
-            write(f, round.(baseline_parameter_errors[i, :], digits=4), "\n")
+            write(f, string(round.(baseline_parameter_errors[i, :], digits=4), "\n"))
         end
         
     end
