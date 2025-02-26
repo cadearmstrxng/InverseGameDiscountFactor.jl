@@ -45,9 +45,10 @@ function warm_start_game(num_players, observation_times;
             horizon = length(ys)
             
             for i in 1:num_players
-                xᵢ = [xs[t][Block(i)] for t in observation_times[i][1]+1:observation_times[i][end]]
-                yᵢ = [ys[t][Block(i)] for t in observation_times[i]]
-
+                obs_range = observation_times[i]
+                xᵢ = [xs[t+1][Block(i)] for t in obs_range]
+                yᵢ = [ys[t][Block(i)] for t in obs_range]
+                
                 push!(costs, warm_start_cost_for_player(xᵢ, yᵢ))
             end
 
@@ -378,7 +379,6 @@ function warm_start(y, initial_state, mcp_game; observation_model = identity,
         partial_observation_state_size = partial_observation_state_size,
         dynamics = dynamics)
 
-    turn_length = 2
     solver = MCPCoupledOptimizationSolverWarmStart(game.game, y, horizon, mcp_game.observation_times)
     mcp_game = solver.mcp_game
 

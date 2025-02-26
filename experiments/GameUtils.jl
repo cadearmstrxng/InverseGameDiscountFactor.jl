@@ -70,10 +70,11 @@ function n_player_collision_avoidance(
             #contex states 6-10
 
             # 0.2 * early_target + 
-            1.0 * mean_target + 
+            1.0 * mean_target +
             # 0.2 * minimum_target + 
-            0.1 * control 
+            1 * control
             # 0.1 * safe_distance_violation
+            # 10.0 * hit_target
         end
         function cost_function(xs, us, context_state)
             num_players = blocksize(xs[1], 1)
@@ -108,16 +109,16 @@ function InD_collision_avoidance(
 
     cost = let
         function target_cost(x, context_state, t)
-            (myopic ? context_state[3] ^ t : 1) * norm_sqr(x[1:2] - context_state[1:2])
+            (myopic ? context_state[3] ^ t : 1) * my_norm_sqr(x[1:2] - context_state[1:2])
         end        
         function control_cost(u, context_state, t)
-            norm_sqr(u) * (myopic ? context_state[3] ^ t : 1)
+            my_norm_sqr(u) * (myopic ? context_state[3] ^ t : 1)
         end
         function lane_center_cost(x, context_state, t)
-            (myopic ? context_state[3] ^ t : 1) * norm_sqr() # not sure how to really go about this. The lane center vector is not necessarily the same length as the state vector, how to resolve?
+            (myopic ? context_state[3] ^ t : 1) * my_norm_sqr(x[1:2] - context_state[1:2]) # not sure how to really go about this. The lane center vector is not necessarily the same length as the state vector, how to resolve?
         end
         function collision_cost(x, i, context_state, t) # TODO find best constant c for ... + c * context_state[4] - ...
-            cost = [max(0.0, context_state[4] + 0.02 * context_state[4] - norm(x[Block(i)][1:2] - x[Block(paired_player)][1:2]))^2 for paired_player in [1:(i - 1); (i + 1):num_players]]
+            cost = [max(0.0, context_state[4] + 0.02 * context_state[4] - my_norm_sqr(x[Block(i)][1:2] - x[Block(paired_player)][1:2]))^2 for paired_player in [1:(i - 1); (i + 1):num_players]]
             sum(cost) 
         end
         
@@ -130,22 +131,26 @@ function InD_collision_avoidance(
             post_unobserved_target_cost = mean([target_cost(xs[t][Block(i)], context_state[Block(i)], t) for t in observation_time[2]+1:T])
             pre_unobserved_target_cost = mean([target_cost(xs[t][Block(i)], xs[1][Block(i)], t) for t in 1:observation_time[1]-1])
             safe_distance_violation = mean([collision_cost(xs[t], i, context_state[Block(i)], t) for t in observation_time])
+            final_target = target_cost(xs[end][Block(i)], context_state[Block(i)], T)
 
             #contex states 6-10
 
             # context_state[Block(i)][5] * early_target + 
             # context_state[Block(i)][5] * mean_target + 
+            context_state[Block(i)][5] * final_target + 
             # # context_state[Block(i)][7] * minimum_target + 
-            # context_state[Block(i)][6] * control + 
+            context_state[Block(i)][6] * control + 
             # context_state[Block(i)][7] * safe_distance_violation +
+            context_state[Block(i)][8] * (pre_unobserved_target_cost + post_unobserved_target_cost)
             # 0.01 * unobserved_cost
 
-            # 1.0 * early_target + 
-            3.0 * mean_target +
-            # 1.0 * minimum_target + 
-            0.01 * control +
-            2.0 * safe_distance_violation +
-            0.01 * (unobserved_effort_cost + post_unobserved_target_cost)
+            # # 1.0 * early_target + 
+            # 3.0 * mean_target +
+            # 10.0 * final_target +
+            # # 1.0 * minimum_target + 
+            # 1.0 * control +
+            # 2.0 * safe_distance_violation +
+            # 0.01 * (pre_unobserved_target_cost + post_unobserved_target_cost)
         end
         function cost_function(xs, us, context_state)
             num_players = blocksize(xs[1], 1)

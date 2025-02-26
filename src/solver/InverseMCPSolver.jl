@@ -67,12 +67,12 @@ function solve_inverse_mcp_game(
         end
         time_exec += grad_step_time
         objective_grad = gradient[2]
-        x0_grad = gradient[3]
+        # x0_grad = gradient[3]
         clamp!(objective_grad, -50, 50)
-        clamp!(x0_grad, -10, 10)
+        # clamp!(x0_grad, -10, 10)
         objective_update = lr * objective_grad
-        x0_update = 1e-3 * x0_grad
-        if norm(objective_update) < 1e-4 && norm(x0_update) < 1e-4
+        # x0_update = 1e-3 * x0_grad
+        if norm(objective_update) < 1e-4 # && norm(x0_update) < 1e-4
             @info "Inner iteration terminates at iteration: "*string(i)
             break
         elseif infeasible_counter >= 4
@@ -80,7 +80,7 @@ function solve_inverse_mcp_game(
             break
         end
         context_state_estimation -= objective_update
-        initial_state -= x0_update
+        # initial_state -= x0_update
     end
     (; context_state_estimation, last_solution, i_, solving_info, time_exec)
 end

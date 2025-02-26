@@ -29,7 +29,7 @@ function TrajectoryGamesBase.get_constraints(environment::indEnvironment, player
     get_constraints(environment, player_index)
 end
 function get_constraints(environment::indEnvironment, player_index = nothing)
-    sigmoid1 = (m1, b1, x; s=1) -> (1/(1+exp(s*(m1*x[1] - x[2] + b1))))
+    sigmoid1 = (m1, b1, x; s=.5) -> (1/(1+exp(s*(m1*x[1] - x[2] + b1))))
     sigmoid_tl = (m1, b1, m2, b2, m3, b3, x) -> sigmoid1(m1, -b1-2, -x) + sigmoid1(m2, -b2, -x) + sigmoid1(m3-0.15, -b3, -x) - .1
     sigmoid_tr = (m1, b1, m2, b2, m3, b3, x) -> sigmoid1(m1, -b1, -x;) + sigmoid1(m2, b2, x) + sigmoid1(m3, -b3+2, -x)- .1
     sigmoid_br = (m1, b1, m2, b2, m3, b3, x) -> sigmoid1(m1, b1 - 2, x) + sigmoid1(m2, b2, x) + sigmoid1(m3, b3+20, x)- .04

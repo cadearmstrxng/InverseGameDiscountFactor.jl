@@ -74,6 +74,7 @@ function solve_myopic_inverse_game(
                 recovered_params = context_state_estimation,
                 recovered_trajectory = inv_sol,
                 warm_start_trajectory = reconstruct_solution(warm_start_sol, mcp_game.game, mcp_game.horizon),
+                warm_start_sol_error = norm_sqr(reconstruct_solution(warm_start_sol, mcp_game.game, mcp_game.horizon) - vcat(observed_trajectory...)),
                 solving_info = solving_info,
                 time_exec = time_exec,
                 )
