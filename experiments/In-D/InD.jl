@@ -35,25 +35,23 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
             write(f, string(round.(InD_observations[i]; digits = 4)), "\n")
         end
     end
-    trk_19_lane_center(x) = -0.00610541116510255*x^2 - 0.116553046264268*x + 65.4396555389841 
-    trk_20_lane_center(x) = 0.000405356859692973*x^4 + 0.0390723153374032*x^3 + 1.40388631159093*x^2 + 22.3233378977068*x + 193.852722156383
-    trk_22_lane_center(x) = 0.238799724199197*x^2 + 14.8710682662040*x + 187.979162321130
-    lane_centers = [trk_19_lane_center, trk_20_lane_center, trk_22_lane_center]
-    # TODO need to time-synch each trajectory
-    # 20: 646 - 1103
-    # 19: 620 - 1001
-    # 22: 780 - 916
-    # 780 -> 916 = 136
-    # Take 1:
-    # 17: 530- 806
-    # 19: 620-1001
-    # 22: 780- 916
-    # 780 -> 806 = 26
+    trk_201_lane_center(x) = 0.0  # Placeholder if no coefficients provided
+    trk_205_lane_center(x) = 0.0  # Placeholder if no coefficients provided
 
-    # potentially use receding horizon - https://arxiv.org/pdf/2302.01999
-    # downsample the trajectory by 5
+    # 6th degree polynomial for track 207
+    trk_207_lane_center(x) = -6.535465682649165e-04*x^6 + 
+                            -0.069559792458210*x^5 + 
+                            -3.033950160533982*x^4 + 
+                            -69.369975733866840*x^3 + 
+                            -8.760325006936075e+02*x^2 + 
+                            -5.782944928944775e+03*x + 
+                            -1.547509969706588e+04
 
-    # @infiltrate
+    # Linear function for track 208
+    trk_208_lane_center(x) = 8.304049624037807*x + 1.866183521575921e+02
+
+    # Update the lane centers array to match the tracks array
+    lane_centers = [trk_201_lane_center, trk_205_lane_center, trk_207_lane_center, trk_208_lane_center]
     dynamics = BicycleDynamics(;
         dt = 0.04*downsample_rate, # needs to become framerate
         l = 1.0,
@@ -67,7 +65,6 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
         initial_state = InD_observations[1],
         game_params = mortar([
             [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0, 1.0] for i in 1:length(tracks)]...]),
-        # game_environment = PolygonEnvironment(4, 200),
         horizon = length(frames[1]:downsample_rate:frames[2]),
         n = length(tracks),
         dt = 0.04*downsample_rate,
@@ -93,48 +90,6 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
     )
     !verbose || println("mcp coupled optimization solver initialized")
 
-    # !verbose || println("solving forward game")
-    # fs_temp = InverseGameDiscountFactor.solve_mcp_game(
-    #     mcp_solver.mcp_game,
-    #     init.initial_state,
-    #     init.game_parameters;
-    #     verbose = false
-    #     )
-    # forward_solution = InverseGameDiscountFactor.reconstruct_solution(
-    #     fs_temp,
-    #     init.game_structure.game,
-    #     init.horizon
-    # )
-    # xs = [BlockVector(forward_solution[Block(t)], [4 for _ in 1:length(tracks)]) for t in 1:init.horizon]
-    # xs = vcat([init.initial_state], xs)
-    # us = [fs_temp.primals[i][4*init.horizon+1:end] for i in 1:length(tracks)]
-    # us = [vcat([us[i][2*t-1:2*t] for i in 1:length(tracks)]...) for t in 1:init.horizon]
-    # us = [BlockVector(us[t], [2 for _ in 1:length(tracks)]) for t in 1:init.horizon]
-
-    # cost_val = mcp_solver.mcp_game.game.cost(xs, us, init.game_parameters)
-    # !verbose || println("forward game solved, cost: ", cost_val)
-    # # @infiltrate
-
-    # # return
-    # !verbose||println("forward game solved, status: ", fs_temp.status)
-    # forward_game_observations = GameUtils.observe_trajectory(forward_solution, init)
-
-    # Add graph comparing forward solution to observations
-    # if graph
-    #     ExperimentGraphingUtils.graph_trajectories(
-    #         "Observed v. Forward Solution",
-    #         [InD_observations, BlockVector(vcat(forward_game_observations...), [length(tracks)*4 for _ in 1:init.horizon])],
-    #         init.game_structure,
-    #         init.horizon;
-    #         colors = [
-    #             [(:red, 1.0), (:blue, 1.0), (:green, 1.0)],
-    #             [(:red, 0.5), (:blue, 0.5), (:green, 0.5)]
-    #         ],
-    #         constraints = get_constraints(init.environment)
-    #     )
-    # end
-    # return
-
     !verbose || println("solving inverse game")
     method_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
         mcp_solver.mcp_game,
@@ -159,9 +114,9 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
             init.game_structure,
             init.horizon;
             colors = [
-                [(:red, 1.0), (:blue, 1.0), (:green, 1.0)],
-                [(:red, 0.5), (:blue, 0.5), (:green, 0.5)],
-                [(:red, 0.2 ), (:blue, 0.2), (:green, 0.2)]
+                [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)],
+                [(:red, 0.5), (:blue, 0.5), (:green, 0.5), (:purple, 0.5)],
+                [(:red, 0.2 ), (:blue, 0.2), (:green, 0.2), (:purple, 0.2)]
             ],
             constraints = get_constraints(init.environment)
         )
