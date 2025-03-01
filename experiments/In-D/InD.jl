@@ -71,7 +71,8 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
         myopic=true,
         verbose = verbose,
         dynamics = dynamics,
-        lane_centers = lane_centers
+        lane_centers = lane_centers,
+        # game_environment = PolygonEnvironment(4, 200)
     )
     !verbose || println("initial state: ", init.initial_state)
     !verbose || println("initial game parameters: ", init.game_parameters)

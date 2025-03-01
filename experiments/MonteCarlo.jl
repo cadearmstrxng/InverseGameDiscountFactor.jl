@@ -13,9 +13,9 @@ include("graphing/ExperimentGraphingUtils.jl")
 include("In-D/InD.jl")
 
 function run_full_state_monte_carlo(;
-    frames = [646, 1001],
-    tracks = [19, 20],
-    downsample_rate = 14,
+    frames = [26158, 26320],
+    tracks = [201, 205, 207, 208],
+    downsample_rate = 9,
     rng = Random.MersenneTwister(1),
     num_trials = 6,
     σs = [0.01*i for i in 0:2:10],
@@ -33,10 +33,21 @@ function run_full_state_monte_carlo(;
         all = false, 
         frames = frames
     )
-    trk_19_lane_center(x) = -0.00610541116510255*x^2 - 0.116553046264268*x + 65.4396555389841 
-    trk_20_lane_center(x) = 0.000405356859692973*x^4 + 0.0390723153374032*x^3 + 1.40388631159093*x^2 + 22.3233378977068*x + 193.852722156383
-    trk_22_lane_center(x) = 0.238799724199197*x^2 + 14.8710682662040*x + 187.979162321130
-    lane_centers = [trk_19_lane_center, trk_20_lane_center, trk_22_lane_center]
+    trk_201_lane_center(x) = 0.0  # Placeholder if no coefficients provided
+    trk_205_lane_center(x) = 0.0  # Placeholder if no coefficients provided
+
+    # 6th degree polynomial for track 207
+    trk_207_lane_center(x) = -6.535465682649165e-04*x^6 + 
+                            -0.069559792458210*x^5 + 
+                            -3.033950160533982*x^4 + 
+                            -69.369975733866840*x^3 + 
+                            -8.760325006936075e+02*x^2 + 
+                            -5.782944928944775e+03*x + 
+                            -1.547509969706588e+04
+
+    # Linear function for track 208
+    trk_208_lane_center(x) = 8.304049624037807*x + 1.866183521575921e+02
+    lane_centers = [trk_201_lane_center, trk_205_lane_center, trk_207_lane_center, trk_208_lane_center]
     dynamics = BicycleDynamics(;
         dt = 0.04*downsample_rate,
         l = 1.0,
@@ -48,10 +59,7 @@ function run_full_state_monte_carlo(;
     # Initialize game with full state observation
     init = GameUtils.init_bicycle_test_game(
         true;
-        initial_state = BlockVector([
-            InD_observations[1][1:2]..., 1.0, pi-0.01,
-            InD_observations[1][5:6]..., 0.75, 0.0],
-            [4,4]),
+        initial_state = InD_observations[1],
         game_params = mortar([
             [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0, 1.0] for i in 1:length(tracks)]...]),
         horizon = length(frames[1]:downsample_rate:frames[2]),
@@ -76,8 +84,6 @@ function run_full_state_monte_carlo(;
         dynamics = dynamics,
         lane_centers = lane_centers
     )
-    println(string(init))
-    println(string(init_baseline))
     # Create MCP game solvers
     mcp_solver = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
         init.game_structure.game,
@@ -88,7 +94,7 @@ function run_full_state_monte_carlo(;
     baseline_solver = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
         init_baseline.game_structure.game,
         init_baseline.horizon,
-        [7 for _ in 1:length(tracks)]  # Explicitly specify 7 parameters per player
+        [7 for _ in 1:length(tracks)]
     )
     
     # Track errors
