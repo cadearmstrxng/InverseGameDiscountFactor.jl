@@ -282,7 +282,7 @@ function pull_trajectory(recording; dir = "experiments/data/", track = [1, 2, 3]
             full_state = [
                 rotate_point(2.303611, raw_state[1:2]) # + [390.5, 585.5]/10
                 norm(raw_state[4:5])
-                (deg2rad(raw_state[3]) + 5.445203653589793) % (2 * pi)
+                (deg2rad(raw_state[3]) + 2.303611) % (2 * pi)
                 ]
             push!(raw_trajectories[idx], full_state)
         end
