@@ -92,10 +92,13 @@ export run_bicycle_sim
 function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
 
     # InD_observations = GameUtils.observe_trajectory(forward_solution, init)
-    frames = [646, 1001]
-    # frames = [780, 806]
-    tracks = [19, 20]
-    downsample_rate = 14
+    frames = [26158, 26320] # 162
+    # 201 25549, 26381
+    # 205 25847,26381
+    # 207,26098,26320
+    # 208,26158,26381,
+    tracks = [201, 205, 207, 208]
+    downsample_rate = 9
     InD_observations = GameUtils.pull_trajectory("07";
         track = tracks, downsample_rate = downsample_rate, all = false, frames = frames)
     open("InD_observations.tmp.txt", "w") do f
@@ -132,10 +135,7 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
 
     init = GameUtils.init_bicycle_test_game(
         full_state;
-        initial_state = BlockVector([
-            InD_observations[1][1:2]..., 1.0, pi-0.01,
-            InD_observations[1][5:6]..., 0.75, 0.0],
-            [4,4]),
+        initial_state = InD_observations[1],
         game_params = mortar([
             [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0, 1.0] for i in 1:length(tracks)]...]),
         # game_environment = PolygonEnvironment(4, 200),
@@ -242,9 +242,9 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
             init.game_structure,
             init.horizon;
             colors = [
-                [(:red, 1.0), (:blue, 1.0), (:green, 1.0)],
-                [(:red, 0.5), (:blue, 0.5), (:green, 0.5)],
-                [(:red, 0.2 ), (:blue, 0.2), (:green, 0.2)]
+                [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)],
+                [(:red, 0.5), (:blue, 0.5), (:green, 0.5), (:purple, 0.5)],
+                [(:red, 0.2 ), (:blue, 0.2), (:green, 0.2), (:purple, 0.2)]
             ],
             constraints = get_constraints(init.environment)
         )
@@ -254,8 +254,9 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
             init.game_structure,
             init.horizon;
             colors = [
-                [(:red, 1.0), (:blue, 1.0), (:green, 1.0)],
-                [(:red, 0.5), (:blue, 0.5), (:green, 0.5)]
+                [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)],
+                [(:red, 0.5), (:blue, 0.5), (:green, 0.5), (:purple, 0.5)],
+                [(:red, 0.2 ), (:blue, 0.2), (:green, 0.2), (:purple, 0.2)]
             ],
             constraints = get_constraints(init.environment)
         )
@@ -265,9 +266,9 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
             init.game_structure,
             init.horizon;
             colors = [
-                [(:red, 0.0), (:blue, 0.0), (:green, 0.0)],
-                [(:red, 1.0), (:blue, 1.0), (:green, 1.0)], 
-                [(:red, 0.5), (:blue, 0.5), (:green, 0.5)]
+                [(:red, 0.0), (:blue, 0.0), (:green, 0.0), (:purple, 0.0)],
+                [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)], 
+                [(:red, 0.5), (:blue, 0.5), (:green, 0.5), (:purple, 0.5)]
             ],
             constraints = get_constraints(init.environment)
         )
