@@ -1,3 +1,4 @@
+using Infiltrator
 function solve_myopic_inverse_game(
     mcp_game,
     observed_trajectory,
@@ -53,7 +54,7 @@ function solve_myopic_inverse_game(
                     last_solution = warm_start_sol,
                     lr = lr
                 )
-            verbose||println("solved, status: ", solving_info.status)
+            # verbose||println("solved, status: ", last_solution.status)
             # if solving_info[end].status == PATHSolver.MCP_Solved
                 inv_sol = reconstruct_solution(solve_mcp_game(mcp_game, initial_state, context_state_estimation; verbose = false), mcp_game.game, mcp_game.horizon)
                 sol_error = norm_sqr(inv_sol - vcat(observed_trajectory...))
