@@ -25,10 +25,10 @@ end
 
 export get_constraints, create_env
 
-function TrajectoryGamesBase.get_constraints(environment::indEnvironment, player_index = nothing)
+function TrajectoryGamesBase.get_constraints(environment::indEnvironment, player_index = 1)
     get_constraints(environment, player_index)
 end
-function get_constraints(environment::indEnvironment, player_index = nothing)
+function get_constraints(environment::indEnvironment, player_index = 1)
     sigmoid1 = (m1, b1, x; s=1) -> (1/(1+exp(s*(m1*x[1] - x[2] + b1))))
     sigmoid_tl = (m1, b1, m2, b2, m3, b3, x) -> sigmoid1(m1, -b1-2, -x) + sigmoid1(m2, -b2, -x) + sigmoid1(m3-0.15, -b3, -x) - .1
     sigmoid_tr = (m1, b1, m2, b2, m3, b3, x) -> sigmoid1(m1, -b1, -x;) + sigmoid1(m2, b2, x) + sigmoid1(m3, -b3+2, -x)- .1
@@ -41,9 +41,15 @@ function get_constraints(environment::indEnvironment, player_index = nothing)
             c = environment.circle_centers[i]
             r = environment.circle_radii[i]
             # @infiltrate
-            push!(constraints,
-                (norm_sqr(position - [c[1], c[2]]) - r^2)
-            )
+            if player_index > 2
+                push!(constraints,
+                    (norm_sqr(position - [c[1], c[2]]) - r^2)
+                )
+            else 
+                push!(constraints,
+                    (norm_sqr(position - [c[1], c[2]]) - (.3r)^2)
+                )
+            end
         end
         m1_3, b1_3 = solve_line(environment.points[1][2], environment.points[2][2])
         m2_3, b2_3 = solve_line(environment.points[3][2], environment.points[4][2])
