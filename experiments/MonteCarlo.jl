@@ -99,9 +99,9 @@ function run_full_state_monte_carlo(;
     
     # Track errors
     errors = Array{Float64}(undef, length(σs), num_trials)
-    parameter_errors = Array{Float64}(undef, length(σs), num_trials)
+    # parameter_errors = Array{Float64}(undef, length(σs), num_trials)
     baseline_errors = Array{Float64}(undef, length(σs), num_trials)
-    baseline_parameter_errors = Array{Float64}(undef, length(σs), num_trials)
+    # baseline_parameter_errors = Array{Float64}(undef, length(σs), num_trials)
     
     observed_trajectories = []
     recovered_trajectories = []
