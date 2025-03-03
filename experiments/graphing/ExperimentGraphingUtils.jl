@@ -22,7 +22,8 @@ function graph_metrics(
     parameter_error,
     σs;
     observation_mode="full state",
-    pre_prefix = "experiments/crosswalk_sim/"
+    pre_prefix = "experiments/crosswalk_sim/",
+    offset = 0.002
 ) #TODO needs cleanup
 
     prefix = pre_prefix*observation_mode*"/"
@@ -37,8 +38,8 @@ function graph_metrics(
     baseline_mean_errors = [mean(baseline_errors[i, :]) for i in 1:size(baseline_errors, 1)]
     baseline_stds = [std(baseline_errors[i, :]) for i in 1:size(baseline_errors, 1)]
 
-    our_method = CairoMakie.scatter!(ax1, σs, mean_errors, color = (:blue, 0.75))
-    CairoMakie.errorbars!(ax1, σs, mean_errors, stds, color = (:blue, 0.75))
+    our_method = CairoMakie.scatter!(ax1, σs .+ offset, mean_errors, color = (:blue, 0.75))
+    CairoMakie.errorbars!(ax1, σs .+ offset, mean_errors, stds, color = (:blue, 0.75))
 
     baseline = CairoMakie.scatter!(ax1, σs, baseline_mean_errors, color = (:red, 0.75))
     CairoMakie.errorbars!(ax1, σs, baseline_mean_errors, baseline_stds, color = (:red, 0.75))

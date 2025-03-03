@@ -17,9 +17,9 @@ function run_full_state_monte_carlo(;
     tracks = [201, 205, 207, 208],
     downsample_rate = 9,
     rng = Random.MersenneTwister(1),
-    num_trials = 50,
-    # σs = [0.01*i for i in 0:2:10],
-    σs = [0.00],
+    num_trials = 2,
+    σs = [0.01*i for i in 0:1:10],
+    # σs = [0.00],
     verbose = true,
     store_all = false
 )
@@ -33,10 +33,9 @@ function run_full_state_monte_carlo(;
         all = false, 
         frames = frames
     )
-    trk_201_lane_center(x) = 0.0  # Placeholder if no coefficients provided
-    trk_205_lane_center(x) = 0.0  # Placeholder if no coefficients provided
 
-    # 6th degree polynomial for track 207
+    trk_201_lane_center(x) = 0.0  # Placeholder
+    trk_205_lane_center(x) = 0.0  
     trk_207_lane_center(x) = -6.535465682649165e-04*x^6 + 
                             -0.069559792458210*x^5 + 
                             -3.033950160533982*x^4 + 
@@ -44,10 +43,9 @@ function run_full_state_monte_carlo(;
                             -8.760325006936075e+02*x^2 + 
                             -5.782944928944775e+03*x + 
                             -1.547509969706588e+04
-
-    # Linear function for track 208
     trk_208_lane_center(x) = 8.304049624037807*x + 1.866183521575921e+02
     lane_centers = [trk_201_lane_center, trk_205_lane_center, trk_207_lane_center, trk_208_lane_center]
+    
     dynamics = BicycleDynamics(;
         dt = 0.04*downsample_rate,
         l = 1.0,
@@ -61,7 +59,7 @@ function run_full_state_monte_carlo(;
         true;
         initial_state = InD_observations[1],
         game_params = mortar([
-            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0, 1.0] for i in 1:length(tracks)]...]),
+            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0, 10.0] for i in 1:length(tracks)]...]),
         horizon = length(frames[1]:downsample_rate:frames[2]),
         n = length(tracks),
         dt = 0.04*downsample_rate,
@@ -75,7 +73,7 @@ function run_full_state_monte_carlo(;
         true;
         initial_state = init.initial_state,
         game_params = mortar([
-            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0] for i in 1:length(tracks)]...]),
+            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 10.0] for i in 1:length(tracks)]...]),
         horizon = init.horizon,
         n = length(tracks),
         dt = 0.04*downsample_rate,
@@ -97,18 +95,15 @@ function run_full_state_monte_carlo(;
         [7 for _ in 1:length(tracks)]
     )
     
-    # Track errors
-    errors = Array{Float64}(undef, length(σs), num_trials)
-    # parameter_errors = Array{Float64}(undef, length(σs), num_trials)
-    baseline_errors = Array{Float64}(undef, length(σs), num_trials)
-    # baseline_parameter_errors = Array{Float64}(undef, length(σs), num_trials)
     
-    observed_trajectories = []
-    recovered_trajectories = []
-    recovered_params = []
+    # observed_trajectories = []
+    # recovered_trajectories = []
+    # recovered_params = []
 
     for σ_idx in eachindex(σs)
         σ = σs[σ_idx]
+        errors = Array{Float64}(undef, num_trials)
+        baseline_errors = Array{Float64}(undef, num_trials)
         for trial_idx in 1:num_trials
             verbose && println("std: ", σ, " trial: ", trial_idx)
 
@@ -145,57 +140,34 @@ function run_full_state_monte_carlo(;
             )
 
             # Record errors for both methods
-            errors[σ_idx, trial_idx] = norm_sqr(vcat(InD_observations...) - method_sol.recovered_trajectory) / length(InD_observations)
-            parameter_errors[σ_idx, trial_idx] = norm_sqr(init.game_parameters - method_sol.recovered_params)
-            baseline_errors[σ_idx, trial_idx] = norm_sqr(vcat(InD_observations...) - baseline_sol.recovered_trajectory) / length(InD_observations)
-            baseline_parameter_errors[σ_idx, trial_idx] = norm_sqr(init_baseline.game_parameters - baseline_sol.recovered_params)
+            errors[trial_idx] = norm_sqr(vcat(InD_observations...) - method_sol.recovered_trajectory) / length(InD_observations)
+            baseline_errors[trial_idx] = norm_sqr(vcat(InD_observations...) - baseline_sol.recovered_trajectory) / length(InD_observations)
             
-            if store_all
-                push!(observed_trajectories, noisy_observations)
-                push!(recovered_trajectories, method_sol.recovered_trajectory)
-                push!(recovered_params, method_sol.recovered_params)
-            end
+            
+            # if store_all
+            #     push!(observed_trajectories, noisy_observations)
+            #     push!(recovered_trajectories, method_sol.recovered_trajectory)
+            #     push!(recovered_params, method_sol.recovered_params)
+            # end
+        end
+        open("experiments/In-D/mc_study_new_traj_errors.txt", "a") do f
+            write(f, "m"*string(σ)*" "*string(round.(errors, digits=4)*"\n"))
+        end
+        open("experiments/In-D/mc_study_baseline_traj_errors.txt", "a") do f
+            write(f, "b"*string(σ)*" "*string(round.(baseline_errors, digits=4)*"\n"))
         end
     end
     println("mc study done")
-    open("experiments/In-D/mc_study_new_traj_errors.txt", "a") do f
-        for i in 1:length(σs)
-            write(f, string(round.(errors[i, :], digits=4), "\n"))
-        end
-    end
-    open("experiments/In-D/mc_study_baseline_traj_errors.txt", "a") do f
-        for i in 1:length(σs)
-            write(f, string(round.(baseline_errors[i, :], digits=4), "\n"))
-        end
-    end
-    # open("experiments/In-D/mc_study_new_param_errors.txt", "a") do f
-    #     for i in 1:length(σs)
-    #         write(f, string(round.(parameter_errors[i, :], digits=4), "\n"))
-    #     end
-    # end
-    # open("experiments/In-D/mc_study_baseline_param_errors.txt", "a") do f
-    #     for i in 1:length(σs)
-    #         write(f, string(round.(baseline_parameter_errors[i, :], digits=4), "\n"))
-    #     end
-    # end
 
     # Graph results
     ExperimentGraphingUtils.graph_metrics(
         baseline_errors,
         errors,
-        baseline_parameter_errors,
-        parameter_errors,
+        [0.0, 0.0],
+        [0.0, 0.0],
         σs;
         observation_mode="InD_full_state",
         pre_prefix = "experiments/In-D/"
-    )
-
-    return (;
-        errors = errors,
-        parameter_errors = parameter_errors,
-        observed_trajectories = observed_trajectories,
-        recovered_trajectories = recovered_trajectories,
-        recovered_params = recovered_params
     )
 end
 
