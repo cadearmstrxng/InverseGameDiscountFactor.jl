@@ -290,9 +290,14 @@ function compare_to_baseline(;full_state=true, graph=true, verbose = true)
     for i in 1:length(tracks)
         println("baseline sol: ", baseline_sol.recovered_params[(i-1)*blocksizes(init_baseline.game_parameters, 1)[1]+1:i*blocksizes(init_baseline.game_parameters, 1)[1]])
     end
+    method_error = norm_sqr(method_sol.recovered_trajectory - vcat(InD_observations...))
+    baseline_error = norm_sqr(baseline_sol.recovered_trajectory - vcat(InD_observations...))
 
-    println("method error: ", norm_sqr(method_sol.recovered_trajectory - vcat(InD_observations...)))
-    println("baseline error: ", norm_sqr(baseline_sol.recovered_trajectory - vcat(InD_observations...)))
+    println("method error: ", method_error)
+    println("baseline error: ", baseline_error)
+
+    println("improvement: ", (baseline_error - method_error) / baseline_error * 100)
+
 
     ExperimentGraphingUtils.graph_trajectories(
         "Observed v. Recovered v. Baseline",
