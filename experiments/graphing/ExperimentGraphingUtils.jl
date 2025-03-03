@@ -47,23 +47,23 @@ function graph_metrics(
     CairoMakie.save(prefix*"TrajectoryErrorGraph.png", fig1)
 
 
-    fig2 = CairoMakie.Figure()
-    ax2 = CairoMakie.Axis(fig2[1, 1])
+    # fig2 = CairoMakie.Figure()
+    # ax2 = CairoMakie.Axis(fig2[1, 1])
 
-    mean_parameter_errors = [mean(parameter_error[i, :]) for i in 1:size(parameter_error, 1)]
-    parameter_stds = [std(parameter_error[i, :]) for i in 1:size(parameter_error, 1)]
+    # mean_parameter_errors = [mean(parameter_error[i, :]) for i in 1:size(parameter_error, 1)]
+    # parameter_stds = [std(parameter_error[i, :]) for i in 1:size(parameter_error, 1)]
 
-    baseline_mean_parameter_errors = [mean(baseline_parameter_error[i, :]) for i in 1:size(baseline_parameter_error, 1)]
-    baseline_parameter_stds = [std(baseline_parameter_error[i, :]) for i in 1:size(baseline_parameter_error, 1)]
+    # baseline_mean_parameter_errors = [mean(baseline_parameter_error[i, :]) for i in 1:size(baseline_parameter_error, 1)]
+    # baseline_parameter_stds = [std(baseline_parameter_error[i, :]) for i in 1:size(baseline_parameter_error, 1)]
 
-    our_method = CairoMakie.scatter!(ax2, σs, mean_parameter_errors, color = (:blue, 0.75))
-    CairoMakie.errorbars!(ax2, σs, mean_parameter_errors, parameter_stds, color = (:blue, 0.75))
+    # our_method = CairoMakie.scatter!(ax2, σs, mean_parameter_errors, color = (:blue, 0.75))
+    # CairoMakie.errorbars!(ax2, σs, mean_parameter_errors, parameter_stds, color = (:blue, 0.75))
 
-    baseline = CairoMakie.scatter!(ax2, σs, baseline_mean_parameter_errors, color = (:red, 0.75))
-    CairoMakie.errorbars!(ax2, σs, baseline_mean_parameter_errors, baseline_parameter_stds, color = (:red, 0.75))
+    # baseline = CairoMakie.scatter!(ax2, σs, baseline_mean_parameter_errors, color = (:red, 0.75))
+    # CairoMakie.errorbars!(ax2, σs, baseline_mean_parameter_errors, baseline_parameter_stds, color = (:red, 0.75))
 
-    CairoMakie.axislegend(ax2, [our_method, baseline], ["Our Method", "Baseline"], position = :lt)
-    CairoMakie.save(prefix*"ParameterErrorGraph.png", fig2)
+    # CairoMakie.axislegend(ax2, [our_method, baseline], ["Our Method", "Baseline"], position = :lt)
+    # CairoMakie.save(prefix*"ParameterErrorGraph.png", fig2)
 
 end
 
