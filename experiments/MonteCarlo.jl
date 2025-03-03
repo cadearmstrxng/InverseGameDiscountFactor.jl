@@ -17,9 +17,9 @@ function run_full_state_monte_carlo(;
     tracks = [201, 205, 207, 208],
     downsample_rate = 9,
     rng = Random.MersenneTwister(1),
-    num_trials = 6,
-    σs = [0.01*i for i in 0:2:10],
-    # σs = [0.01],
+    num_trials = 50,
+    # σs = [0.01*i for i in 0:2:10],
+    σs = [0.00],
     verbose = true,
     store_all = false
 )
@@ -158,21 +158,26 @@ function run_full_state_monte_carlo(;
         end
     end
     println("mc study done")
-    open("experiments/In-D/mc_study_results.txt", "w") do f
+    open("experiments/In-D/mc_study_new_traj_errors.txt", "a") do f
         for i in 1:length(σs)
             write(f, string(round.(errors[i, :], digits=4), "\n"))
         end
+    end
+    open("experiments/In-D/mc_study_baseline_traj_errors.txt", "a") do f
         for i in 1:length(σs)
             write(f, string(round.(baseline_errors[i, :], digits=4), "\n"))
         end
-        for i in 1:length(σs)
-            write(f, string(round.(parameter_errors[i, :], digits=4), "\n"))
-        end
-        for i in 1:length(σs)
-            write(f, string(round.(baseline_parameter_errors[i, :], digits=4), "\n"))
-        end
-        
     end
+    # open("experiments/In-D/mc_study_new_param_errors.txt", "a") do f
+    #     for i in 1:length(σs)
+    #         write(f, string(round.(parameter_errors[i, :], digits=4), "\n"))
+    #     end
+    # end
+    # open("experiments/In-D/mc_study_baseline_param_errors.txt", "a") do f
+    #     for i in 1:length(σs)
+    #         write(f, string(round.(baseline_parameter_errors[i, :], digits=4), "\n"))
+    #     end
+    # end
 
     # Graph results
     ExperimentGraphingUtils.graph_metrics(
