@@ -27,11 +27,23 @@ end
 
 function shared_collision_avoidance_coupling_constraints(num_players, min_distance)
     function coupling_constraint(xs, us)
+        # mapreduce(vcat, 1:(num_players - 1)) do player_i
+        #     mapreduce(vcat, (player_i + 1):num_players) do paired_player
+        #         map(xs) do x
+        #             my_norm_sqr(x[Block(player_i)][1:2] - x[Block(paired_player)][1:2]) -
+        #             min_distance^2
+        #         end
+        #     end
+        # end
         mapreduce(vcat, 1:(num_players - 1)) do player_i
             mapreduce(vcat, (player_i + 1):num_players) do paired_player
                 map(xs) do x
-                    my_norm_sqr(x[Block(player_i)][1:2] - x[Block(paired_player)][1:2]) -
-                    min_distance^2
+                    if (player_i == 1 && paired_player == 2)
+                        return 1000.0
+                    else
+                        my_norm_sqr(x[Block(player_i)][1:2] - x[Block(paired_player)][1:2]) -
+                        min_distance^2
+                    end
                 end
             end
         end
@@ -117,9 +129,13 @@ function InD_collision_avoidance(
 
             #  * cost # not sure how to really go about this. The lane center vector is not necessarily the same length as the state vector, how to resolve?
         end
-        function collision_cost(x, i, context_state, t) # TODO find best constant c for ... + c * context_state[4] - ...
-            cost = [max(0.0, context_state[4] + 0.02 * context_state[4] - norm(x[Block(i)][1:2] - x[Block(paired_player)][1:2]))^2 for paired_player in [1:(i - 1); (i + 1):num_players]]
-            sum(cost) 
+        function collision_cost(x, i, context_state, t)
+            if (i == 1 || i == 2)
+                cost = [max(0.0, context_state[4] + 0.02 * context_state[4] - norm(x[Block(i)][1:2] - x[Block(paired_player)][1:2]))^2 for paired_player in 3:4]
+            else
+                cost = [max(0.0, context_state[4] + 0.02 * context_state[4] - norm(x[Block(i)][1:2] - x[Block(paired_player)][1:2]))^2 for paired_player in [1:(i - 1); (i + 1):num_players]]
+            end
+            sum(cost)
         end
         function cost_for_player(i, xs, us, context_state, T)
             early_target = target_cost(xs[1][Block(i)], context_state[Block(i)], 1)
@@ -135,8 +151,8 @@ function InD_collision_avoidance(
             context_state[Block(i)][myopic ? 5 : 4] * mean_target + 
             # context_state[Block(i)][7] * minimum_target + 
             context_state[Block(i)][myopic ? 6 : 5] * control +
-            context_state[Block(i)][myopic ? 7 : 6] * safe_distance_violation +
-            context_state[Block(i)][myopic ? 8 : 7] * lane_center
+            # context_state[Block(i)][myopic ? 7 : 6] * safe_distance_violation +
+            (i > 2 ? context_state[Block(i)][myopic ? 8 : 7] * lane_center : 0.0)
 
             # # 1.0 * early_target + 
             # 3.0 * mean_target +
