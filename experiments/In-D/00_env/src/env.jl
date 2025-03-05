@@ -22,7 +22,7 @@ function plot_background_with_equations(; equations=[], resolution=(1000, 1000),
     ax = Axis(fig[1, 1], aspect=DataAspect())
     
     # Load background image
-    img = load("00_background.png")
+    img = load("./src/00_background.png")
     
     # Process image to remove black background
     if remove_black
@@ -183,42 +183,37 @@ function generate_road_equations(;circles = true, ellipses = true, lines = true)
         # Line 1 (Left, Up)
         p1 = [420, 505]
         p2 = [595, 485]
-        push!(equations, line_equation(p1, p2, false, p1[1]:p2[1]))  # Inside is to the right
-        
         # Line 2 (Up, Left)
-        p1 = [640, 935]
-        p2 = [730, 605]
-        push!(equations, line_equation(p1, p2, true, p1[1]:p2[1], p2[2]:p1[2]))  # Both x and y range constraints
-        
+        p3 = [730, 605]
+        p4 = [640, 935]
+        #intersector:
+        push!(equations, three_line_sigmoid(p1, p2, 1, p3, p4, -1, p2, p3, 1))
+
         # Line 3 (Up, Right)
         p1 = [800, 795]
         p2 = [835, 575]
-        push!(equations, line_equation(p1, p2, true, p1[1]:p2[1]))  # Inside is to the left (below)
-        
         # Line 4 (Right, Up)
-        p1 = [925, 500]
-        p2 = [1050, 525]
-        push!(equations, line_equation(p1, p2, true, p1[1]:p2[1]))  # Inside is to the left
+        p3 = [925, 500]
+        p4 = [1050, 525]
+        push!(equations, three_line_sigmoid(p1, p2, 1, p3, p4, 1, p2, p3, 1))
         
         # Line 5 (Right, Lower)
         p1 = [925, 425]
         p2 = [1100, 465]
-        push!(equations, line_equation(p1, p2, true, p1[1]:p2[1], 200:1000))  # Inside is to the left
         
         # Line 6 (Lower, Right)
-        p1 = [850, 305]
-        p2 = [920, 5]
-        push!(equations, line_equation(p1, p2, true, p1[1]:p2[1], 1:300))  # Inside is to the left
+        p3 = [850, 305]
+        p4 = [920, 5]
+        push!(equations, three_line_sigmoid(p1, p2, -1, p3, p4, 1, p3, p1, -1))
         
         # Line 7 (Lower, Left)
         p1 = [730, 350]
         p2 = [850, 5]
-        push!(equations, line_equation(p1, p2, true, p1[1]:p2[1]))  # Inside is to the right
         
         # Line 8 (Left, Lower)
-        p1 = [490, 425]
-        p2 = [640, 410]
-        push!(equations, line_equation(p1, p2, true, p1[1]:p2[1]))  # Inside is to the right
+        p3 = [490, 425]
+        p4 = [640, 410]
+        push!(equations, three_line_sigmoid(p1, p2, -1, p3, p4, -1, p1, p4, -1))
     end
 
     return equations
@@ -288,44 +283,12 @@ function solve_line(p1, p2)
     return m, b
 end
 
-"""
-    line_equation(p1, p2, flip_sign=false, x_range=nothing, y_range=nothing)
+function three_line_sigmoid(p1, p2, flip1, p3, p4, flip2, p5, p6, flip3)
+    m1, b1 = solve_line(p1, p2)
+    m2, b2 = solve_line(p3, p4)
+    m3, b3 = solve_line(p5, p6)
 
-Create a function that represents the equation of a line passing through two points.
-The function returns negative values on one side of the line, zero on the line.
-- `flip_sign` determines which side of the line is considered "inside" (negative).
-- `x_range` optional range to limit the line to specific x-coordinates
-- `y_range` optional range to limit the line to specific y-coordinates
-"""
-function line_equation(p1, p2, flip_sign=false, x_range=nothing, y_range=nothing)
-    # Check if the points make a valid line
-    if p1[1] == p2[1] && p1[2] == p2[2]
-        # Return a constant function if points are the same
-        return (x, y) -> 1000.0
-    end
-    
-    m, b = solve_line(p1, p2)
-    
-    center_point = [785, 470]
-    sign_factor = flip_sign ? -1 : 1
-    test_value = center_point[2] - m * center_point[1] - b
-    sign_correction = sign(test_value) * sign_factor
-    
-    return (x, y) -> begin
-        # Check if x is within the specified range
-        if x_range !== nothing && !(x in x_range)
-            return 1.0  # Return a value that ensures the point is not plotted
-        end
-        
-        # Check if y is within the specified range
-        if y_range !== nothing && !(y in y_range)
-            return 1.0  # Return a value that ensures the point is not plotted
-        end
-        
-        val = sign_correction * (y - m * x - b)
-        # Use raw value instead of sigmoid for consistent comparison
-        return sigmoid(-val)
-    end
+    return (x, y) -> sigmoid(flip1*(m1 * x + b1 - y)) + sigmoid(flip2*(m2 * x + b2 - y)) + sigmoid(flip3*(m3 * x + b3 - y))
 end
 
 """
