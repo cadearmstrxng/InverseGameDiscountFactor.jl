@@ -14,7 +14,8 @@ struct MCPGame{T1<:TrajectoryGame,T2<:ParametricMCPs.ParametricMCP,T3,T4}
 end
 
 function MCPGame(game, horizon, context_state_block_dimensions = 0)
-    num_player = num_players(game)
+    # num_player = num_players(game.dynamics)
+    num_player = 1
     state_dimension = state_dim(game.dynamics)
     control_dimension = control_dim(game.dynamics)
     problem_size = horizon * (state_dimension + control_dimension)

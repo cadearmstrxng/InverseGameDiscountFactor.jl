@@ -28,17 +28,17 @@ Main function to run the forward game solver with default parameters.
 function main()
     # Run with default parameters
     forward_solution, init, fig = run_forward_game(
-        data_id = "00",
-        tracks = [36], # left
+        # data_id = "00",
+        # tracks = [36], # left
         # tracks = [37], # bottom
         # tracks = [57], # right
-        downsample_rate = 14,
+        # downsample_rate = 14,
         verbose = true, 
         show_plot = true
     )
     
     println("Forward game solved successfully!")
-    return forward_solution, init, fig
+    # return forward_solution, init, fig
 end
 
 """
@@ -71,16 +71,16 @@ Returns a tuple containing:
 function run_forward_game(;
     data_id = "00",
     tracks = [36],
-    downsample_rate = 1,
+    downsample_rate = 10,
     verbose = true, 
     show_plot = true
 )
-    # 1. Pull data from the data directory
-    observations = pull_trajectory(data_id;
-        track = tracks, 
-        downsample_rate = downsample_rate, 
-        all = false
-    )
+    # # 1. Pull data from the data directory
+    # observations = pull_trajectory(data_id;
+    #     track = tracks, 
+    #     downsample_rate = downsample_rate, 
+    #     all = false
+    # )
     # 2. Set up bicycle dynamics
     dynamics = BicycleDynamics(;
         dt = 0.04 * downsample_rate, # Time step based on framerate and downsample rate
@@ -91,10 +91,13 @@ function run_forward_game(;
     )
     # 3. Initialize the game
     init = init_game(;
-        initial_state = observations[1],
-        goals = [observations[end][Block(i)][1:2] for i in 1:length(tracks)],
+        # initial_state = observations[1],
+        initial_state = [700, 900, 10, 3*pi/2],
+        # goals = [observations[end][Block(i)][1:2] for i in 1:length(tracks)],
+        goals = [[500, 450]], # left
         # Use our new environment function that uses equations from env.jl
-        horizon=length(observations),
+        # horizon=length(observations),
+        horizon = 20,
         dt = 0.04 * downsample_rate,
         verbose = verbose,
         dynamics = dynamics,
@@ -257,7 +260,7 @@ function basic_game_structure(
         end
         TrajectoryGameCost(cost_function, GeneralSumCostStructure())
     end
-    dynamics = ProductDynamics([dynamics for _ in 1:num_players])
+    # dynamics = ProductDynamics([dynamics for _ in 1:num_players])
     TrajectoryGame(
         dynamics,
         cost,
@@ -321,6 +324,7 @@ function rotate_point(theta, point)
 end
 
 function pull_trajectory(recording; dir = "../../data/", track = [1, 2, 3], all = false, downsample_rate = 1, fill_traj = false)
+    scale_down_factor = 10
     file = CSV.File(dir*recording*"_tracks.csv")
     raw_trajectories = (all) ? [[] for _ in 1:max(file[:trackId]...)+1] : [[] for _ in eachindex(track)]
     data_to_pull = [:xCenter, :yCenter, :heading, :xVelocity, :yVelocity, :xAcceleration, :yAcceleration, :width, :length,]
@@ -329,8 +333,8 @@ function pull_trajectory(recording; dir = "../../data/", track = [1, 2, 3], all 
         if !isnothing(idx)
             raw_state = [row[i] for i in data_to_pull]
             full_state = [
-                rotate_point(2.303611, raw_state[1:2]) # + [390.5, 585.5]/10
-                norm(raw_state[4:5])
+                scale_down_factor * rotate_point(2.303611, raw_state[1:2]) # + [390.5, 585.5]/10
+                scale_down_factor * norm(raw_state[4:5])
                 (deg2rad(raw_state[3]) + 5.445203653589793) % (2 * pi)
                 ]
             push!(raw_trajectories[idx], full_state)
