@@ -29,7 +29,9 @@ function main()
     # Run with default parameters
     forward_solution, init, fig = run_forward_game(
         data_id = "00",
-        tracks = [36], 
+        tracks = [36], # left
+        # tracks = [37], # bottom
+        # tracks = [57], # right
         downsample_rate = 14,
         verbose = true, 
         show_plot = true
