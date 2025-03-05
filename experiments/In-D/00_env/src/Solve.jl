@@ -23,7 +23,7 @@ function solve_mcp_game(
         else
             x0_value = ForwardDiff.value.(x0)
             z = zeros(length(parametric_mcp.lower_bounds))
-            control_block_dimensions = 2
+            control_block_dimensions = [2]
             state_dimension = state_dim(dynamics)
             dummy_strategy =
                 (x, t) ->

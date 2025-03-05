@@ -19,8 +19,8 @@ function MCPGame(game, horizon, context_state_block_dimensions = 0)
     state_dimension = state_dim(game.dynamics)
     control_dimension = control_dim(game.dynamics)
     problem_size = horizon * (state_dimension + control_dimension)
-    state_block_dimensions = [state_dim(game.dynamics.subsystems[ii]) for ii in 1:num_player]
-    control_block_dimensions = [control_dim(game.dynamics.subsystems[ii]) for ii in 1:num_player]
+    state_block_dimensions = [state_dimension]
+    control_block_dimensions = [control_dimension]
 
     x0, z, context_state = let
         @variables(
@@ -85,7 +85,8 @@ function MCPGame(game, horizon, context_state_block_dimensions = 0)
     private_constraint_per_player = let
         map(1:num_player) do ii
             environment_constraints = get_constraints(game.env, ii)
-            subdynamics = game.dynamics.subsystems[ii]
+            # subdynamics = game.dynamics.subsystems[ii]
+            subdynamics = game.dynamics
             private_inequality_constraints = let
                 state_box_constraints = get_constraints_from_box_bounds(state_bounds(subdynamics))
                 control_box_constraints =
