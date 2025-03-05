@@ -127,6 +127,8 @@ function run_forward_game(;
         init.goals;
         verbose = false
     )
+
+    verbose && println("Forward game solved, status: ", fs_temp.status)
     
     # 6. Reconstruct the solution
     forward_solution = reconstruct_solution(
@@ -135,31 +137,13 @@ function run_forward_game(;
         init.horizon
     )
     
-    if verbose
-        # Extract state and control trajectories
-        xs = [BlockVector(forward_solution[Block(t)], [4 for _ in 1:length(tracks)]) for t in 1:init.horizon]
-        xs = vcat([init.initial_state], xs)
-        
-        us = [fs_temp.primals[i][4*init.horizon+1:end] for i in 1:length(tracks)]
-        us = [vcat([us[i][2*t-1:2*t] for i in 1:length(tracks)]...) for t in 1:init.horizon]
-        us = [BlockVector(us[t], [2 for _ in 1:length(tracks)]) for t in 1:init.horizon]
-        
-        # Calculate cost value
-        cost_val = mcp_solver.mcp_game.game.cost(xs, us, init.game_parameters)
-        println("Forward game solved, status: ", fs_temp.status)
-        println("Cost: ", cost_val)
-    end
-    
-    # Observe the trajectory (convert to observation space)
-    forward_game_observations = observe_trajectory(forward_solution, init)
-    
     # 7. Plot the trajectories on the environment
     fig = nothing
     if show_plot
         # Create figure with environment and trajectories
         fig = plot_trajectories(
             observations, 
-            forward_game_observations, 
+            forward_solution, 
             tracks, 
             init.horizon;
             data_id = data_id
@@ -186,10 +170,10 @@ Returns the figure object with plotted trajectories.
 function plot_trajectories(observations, forward_observations, tracks, horizon; data_id = "07")
     # Create figure with road boundaries using the plotting functions from env.jl
     # First generate the road equations
-    equations = generate_road_equations(circles = true, ellipses = false, lines = true)
+    equations = Env00.generate_road_equations(circles = true, ellipses = false, lines = true)
     
     # Use the plot_background_with_equations function from env.jl to create the base figure
-    fig, ax = plot_background_with_equations(
+    fig, ax = Env00.plot_background_with_equations(
         equations = equations, 
         resolution = (1000, 1000),
         show_plot = false,  # Don't display yet
@@ -366,14 +350,38 @@ function pull_trajectory(recording; dir = "../../data/", track = [1, 2, 3], all 
     return traj[1:downsample_rate:end]
 end
 
-function observe_trajectory(trajectory, game_init; blocked_by_time = true)
-    if blocked_by_time
-        map(blocks(trajectory)) do x
-            BlockVector(game_init.observation_model(x), [game_init.observation_dim for _ in 1:num_players(game_init.game_structure)])
+"""
+Structure of output is as follows:
+
+ - [[x₁¹; x₂¹];[x₁²; x₂²];...;[x₁ᵀ; x₂ᵀ]] where xᵢʲ is the state of player i at time j in block vectors for each time
+
+This structure is not consistent with MyopicSolver, do not pass in result to myopic solver.
+
+"""
+function reconstruct_solution(solution, game, horizon)
+    num_player = num_players(game)
+    player_state_dimension = convert(Int64, state_dim(game.dynamics)/num_player)
+
+    primals = solution.primals
+    solution = []
+    for primal in primals
+        vars = []
+        for i in primal
+            push!(vars, i)
         end
-    else # observe by state at time t
-        BlockVector(game_init.observation_model(trajectory[1:end]), [game_init.observation_dim for _ in 1:num_players(game_init.game_structure)])
+        push!(solution,vars)
     end
+
+    player_states = [solution[i][1:player_state_dimension*horizon] for i in 1:num_player]
+    solution = []
+    for t in 1:horizon
+        for i in 1:num_player
+            push!(solution, 
+                BlockVector(player_states[i][(t-1) * player_state_dimension + 1: t * player_state_dimension],
+                    [player_state_dimension for _ in 1:num_player]
+                )
+            )
+        end
+    end
+    solution
 end
-
-
