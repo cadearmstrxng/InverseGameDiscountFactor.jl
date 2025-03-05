@@ -112,7 +112,7 @@ Returns an array of functions that take (x,y) coordinates and return values that
 - Zero on the boundary
 - Positive outside the shape
 """
-function generate_road_equations(;circles = true, ellipses = true, lines = true)
+function generate_road_equations(;circles = true, ellipses = false, lines = true)
     equations = []
     
     if circles
@@ -288,7 +288,7 @@ function three_line_sigmoid(p1, p2, flip1, p3, p4, flip2, p5, p6, flip3)
     m2, b2 = solve_line(p3, p4)
     m3, b3 = solve_line(p5, p6)
 
-    return (x, y) -> sigmoid(flip1*(m1 * x + b1 - y)) + sigmoid(flip2*(m2 * x + b2 - y)) + sigmoid(flip3*(m3 * x + b3 - y))
+    return (x, y) -> sigmoid(flip1*0.01*(m1 * x + b1 - y)) + sigmoid(flip2*0.01*(m2 * x + b2 - y)) + sigmoid(flip3*0.01*(m3 * x + b3 - y))
 end
 
 """

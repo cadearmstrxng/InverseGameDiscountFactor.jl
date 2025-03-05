@@ -34,6 +34,7 @@ function solve_mcp_game(
         end
         z
     end
+    println("did the derivative")
 
     θ = [x0; context_state]
 
@@ -41,15 +42,14 @@ function solve_mcp_game(
         parametric_mcp,
         θ;
         initial_guess = z,
-        verbose,
-        cumulative_iteration_limit = 100_000,
-        proximal_perturbation = 1e-2,
+        verbose = true,
+        cumulative_iteration_limit = 1000,
+        proximal_perturbation = 1e-4,
         use_basics = true,
         use_start = true,
-        # convergence_tolerance = 1e-4,
-        lr = lr
     ) # change this to David's package -> MixedComplementarityProblem.PrimalDualMCP (mcp.jl)
 
+    println("did the solve")
     primals = map(1:num_players(game)) do ii
         variables[index_sets.τ_idx_set[ii]]
     end

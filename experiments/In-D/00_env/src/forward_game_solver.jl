@@ -94,7 +94,7 @@ function run_forward_game(;
         # initial_state = observations[1],
         initial_state = [700, 900, 10, 3*pi/2],
         # goals = [observations[end][Block(i)][1:2] for i in 1:length(tracks)],
-        goals = [[500, 450]], # left
+        goals = [[700, 800]], # left
         # Use our new environment function that uses equations from env.jl
         # horizon=length(observations),
         horizon = 20,
