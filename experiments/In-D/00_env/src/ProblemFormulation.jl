@@ -204,7 +204,7 @@ function MCPGame(game, horizon, context_state_block_dimensions = 0)
 
     parameter_dimension = length(θ)
     parametric_mcp =
-        ParametricMCPs.ParametricMCP(fill_F!, fill_J!, fill_J_params!, lb, ub, parameter_dimension, length(z))
+        ParametricMCPs.ParametricMCP(fill_F!, fill_J!, fill_J_params!, lb, ub, parameter_dimension) #, length(z))
 
     MCPGame(game, parametric_mcp, index_sets, horizon)
 end

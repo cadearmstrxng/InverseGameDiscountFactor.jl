@@ -50,9 +50,7 @@ function solve_mcp_game(
     ) # change this to David's package -> MixedComplementarityProblem.PrimalDualMCP (mcp.jl)
 
     println("did the solve")
-    primals = map(1:num_players(game)) do ii
-        variables[index_sets.τ_idx_set[ii]]
-    end
+    primals = variables[index_sets.τ_idx_set[1]]
 
     (; primals, variables, status, info)
 end

@@ -22,7 +22,8 @@ function plot_background_with_equations(; equations=[], resolution=(1000, 1000),
     ax = Axis(fig[1, 1], aspect=DataAspect())
     
     # Load background image
-    img = load("./src/00_background.png")
+    # println(pwd())
+    img = load("./experiments/In-D/00_env/src/00_background.png")
     
     # Process image to remove black background
     if remove_black
@@ -265,8 +266,8 @@ function circle_equation(p1, p2, p3)
     h, k, r = solve_circle(p1, p2, p3)
     
     return (x, y) -> begin
-        val = (x - h)^2 + (y - k)^2 - r^2
-        return sigmoid(val)
+        (x - h)^2 + (y - k)^2 - r^2
+        # return sigmoid(val)
     end
 end
 

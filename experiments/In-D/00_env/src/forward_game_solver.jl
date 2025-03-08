@@ -86,7 +86,7 @@ function run_forward_game(;
         dt = 0.04 * downsample_rate, # Time step based on framerate and downsample rate
         l = 1.0, # Vehicle length
         state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
-        control_bounds = (; lb = [-5, -pi/4], ub = [5, pi/4]), # Speed and steering angle bounds
+        control_bounds = (; lb = [-2000, -pi/4], ub = [2000, pi/4]), # Speed and steering angle bounds
         integration_scheme = :forward_euler
     )
     # 3. Initialize the game
@@ -97,7 +97,7 @@ function run_forward_game(;
         goals = [[700, 800]], # left
         # Use our new environment function that uses equations from env.jl
         # horizon=length(observations),
-        horizon = 20,
+        horizon = 5,
         dt = 0.04 * downsample_rate,
         verbose = verbose,
         dynamics = dynamics,
@@ -145,7 +145,7 @@ function run_forward_game(;
     if show_plot
         # Create figure with environment and trajectories
         fig = plot_trajectories(
-            observations, 
+            # observations, 
             forward_solution, 
             tracks, 
             init.horizon;
@@ -170,7 +170,8 @@ Parameters:
 
 Returns the figure object with plotted trajectories.
 """
-function plot_trajectories(observations, forward_observations, tracks, horizon; data_id = "07")
+function plot_trajectories(# observations, 
+                forward_observations, tracks, horizon; data_id = "07")
     # Create figure with road boundaries using the plotting functions from env.jl
     # First generate the road equations
     equations = Env00.generate_road_equations(circles = true, ellipses = false, lines = true)
@@ -184,26 +185,28 @@ function plot_trajectories(observations, forward_observations, tracks, horizon; 
     )
     
     # Plot the trajectories
-    colors = [(:red, 1.0), (:blue, 1.0), (:green, 1.0)]
+    colors = [(:cyan, 1.0), (:blue, 1.0), (:green, 1.0)]
     
     # Plot observed trajectories
-    for i in eachindex(tracks)
-        lines!(ax, 
-            [observations[t][Block(i)][1] for t in 1:horizon],
-            [observations[t][Block(i)][2] for t in 1:horizon], 
-            color = colors[i], 
-            linewidth = 2,
-            label = "Observed Track $(tracks[i])")
-    end
+    # for i in eachindex(tracks)
+    #     lines!(ax, 
+    #         [observations[t][Block(i)][1] for t in 1:horizon],
+    #         [observations[t][Block(i)][2] for t in 1:horizon], 
+    #         color = colors[i], 
+    #         linewidth = 2,
+    #         label = "Observed Track $(tracks[i])")
+    # end
+    # println([forward_observations[t][1][1] for t in 1:horizon])
+    println(forward_observations[1])
     
     # Plot forward solution trajectories
     for i in eachindex(tracks)
         lines!(ax, 
-            [forward_observations[t][Block(i)][1] for t in 1:horizon],
-            [forward_observations[t][Block(i)][2] for t in 1:horizon], 
-            color = (colors[i][1], 0.5), 
-            linewidth = 2,
-            linestyle = :dash,
+            [forward_observations[t][1][1] for t in 1:horizon],
+            [forward_observations[t][2][1] for t in 1:horizon], 
+            color = (colors[i][1], 1), 
+            linewidth = 3,
+            # linestyle = :dash,
             label = "Forward Solution Track $(tracks[i])")
     end
     
@@ -363,7 +366,7 @@ This structure is not consistent with MyopicSolver, do not pass in result to myo
 
 """
 function reconstruct_solution(solution, game, horizon)
-    num_player = num_players(game)
+    num_player = 1
     player_state_dimension = convert(Int64, state_dim(game.dynamics)/num_player)
 
     primals = solution.primals
@@ -376,7 +379,7 @@ function reconstruct_solution(solution, game, horizon)
         push!(solution,vars)
     end
 
-    player_states = [solution[i][1:player_state_dimension*horizon] for i in 1:num_player]
+    player_states = [solution[1:player_state_dimension*horizon]]
     solution = []
     for t in 1:horizon
         for i in 1:num_player
