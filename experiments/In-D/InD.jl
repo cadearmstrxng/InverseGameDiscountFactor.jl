@@ -174,7 +174,7 @@ function compare_to_baseline(;full_state=true, graph=true, verbose = true)
     # 207,26098,26320
     # 208,26158,26381,
     tracks = [201, 205, 207, 208]
-    downsample_rate = 9
+    downsample_rate = 6
     σ = 0.0
     rng = MersenneTwister(1234)
     Random.seed!(rng)
@@ -297,6 +297,9 @@ function compare_to_baseline(;full_state=true, graph=true, verbose = true)
     println("baseline error: ", baseline_error)
 
     println("improvement: ", (baseline_error - method_error) / baseline_error * 100)
+
+    println("method recovered params: ", method_sol.recovered_params)
+    println("baseline recovered params: ", baseline_sol.recovered_params)
 
 
     ExperimentGraphingUtils.graph_trajectories(
