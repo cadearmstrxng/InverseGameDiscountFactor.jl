@@ -10,62 +10,63 @@ using BlockArrays:
 using ImageTransformations
 using Rotations
 using OffsetArrays:Origin
+using CSV
+using DataFrames
 
 using Infiltrator
 
 include("../../src/utils/Utils.jl")
 
 function graph_metrics(
-    baseline_errors,
-    errors, 
-    baseline_parameter_error,
-    parameter_error,
-    σs;
+    baseline_file::String,
+    our_method_file::String;
     observation_mode="full state",
-    pre_prefix = "experiments/crosswalk_sim/",
-    offset = 0.002
-) #TODO needs cleanup
-
-    prefix = pre_prefix*observation_mode*"/"
+    pre_prefix = "./experiments/In-D/",
+)
+    prefix = pre_prefix
     CairoMakie.activate!()
 
-    fig1 = CairoMakie.Figure()
-    ax1 = CairoMakie.Axis(fig1[1, 1])
+    # Read the CSV files
+    baseline_data = CSV.read(baseline_file, DataFrame)
+    our_method_data = CSV.read(our_method_file, DataFrame)
 
-    mean_errors = [mean(errors[i, :]) for i in 1:size(errors, 1)]
-    stds = [std(errors[i, :]) for i in 1:size(errors, 1)]
+    # Extract noise levels, strip 'b' prefix, and convert to numeric values
+    σs = parse.(Float64, replace.(baseline_data[:, 1], "b" => ""))
+    
+    # Calculate means and standard deviations
+    baseline_means = mean(Matrix(baseline_data[:, 2:end]), dims=2)[:, 1]
+    baseline_stds = std(Matrix(baseline_data[:, 2:end]), dims=2)[:, 1]
+    
+    our_method_means = mean(Matrix(our_method_data[:, 2:end]), dims=2)[:, 1]
+    our_method_stds = std(Matrix(our_method_data[:, 2:end]), dims=2)[:, 1]
 
-    baseline_mean_errors = [mean(baseline_errors[i, :]) for i in 1:size(baseline_errors, 1)]
-    baseline_stds = [std(baseline_errors[i, :]) for i in 1:size(baseline_errors, 1)]
+    # Create the figure
+    fig = Figure()
+    ax = Axis(fig[1, 1],
+        xlabel = "Noise Level (σ)",
+        ylabel = "Trajectory Error",
+        title = "Trajectory Error vs Noise Level"
+    )
 
-    our_method = CairoMakie.scatter!(ax1, σs .+ offset, mean_errors, color = (:blue, 0.75))
-    CairoMakie.errorbars!(ax1, σs .+ offset, mean_errors, stds, color = (:blue, 0.75))
+    # Plot baseline with non-negative lower bound
+    lines!(ax, σs, baseline_means, color=:red, label="Baseline")
+    band!(ax, σs, 
+          max.(baseline_means - baseline_stds, 0), 
+          baseline_means + baseline_stds, 
+          color=(:red, 0.2), label="Baseline ±1σ")
 
-    baseline = CairoMakie.scatter!(ax1, σs, baseline_mean_errors, color = (:red, 0.75))
-    CairoMakie.errorbars!(ax1, σs, baseline_mean_errors, baseline_stds, color = (:red, 0.75))
+    # Plot our method with non-negative lower bound
+    lines!(ax, σs, our_method_means, color=:blue, label="Our Method")
+    band!(ax, σs, 
+          max.(our_method_means - our_method_stds, 0), 
+          our_method_means + our_method_stds, 
+          color=(:blue, 0.2), label="Our Method ±1σ")
 
-    CairoMakie.axislegend(ax1, [our_method, baseline], ["Our Method", "Baseline"], position = :lt)
-    CairoMakie.save(prefix*"TrajectoryErrorGraph.png", fig1)
+    # Add legend
+    axislegend(ax, position=:lt)
 
-
-    # fig2 = CairoMakie.Figure()
-    # ax2 = CairoMakie.Axis(fig2[1, 1])
-
-    # mean_parameter_errors = [mean(parameter_error[i, :]) for i in 1:size(parameter_error, 1)]
-    # parameter_stds = [std(parameter_error[i, :]) for i in 1:size(parameter_error, 1)]
-
-    # baseline_mean_parameter_errors = [mean(baseline_parameter_error[i, :]) for i in 1:size(baseline_parameter_error, 1)]
-    # baseline_parameter_stds = [std(baseline_parameter_error[i, :]) for i in 1:size(baseline_parameter_error, 1)]
-
-    # our_method = CairoMakie.scatter!(ax2, σs, mean_parameter_errors, color = (:blue, 0.75))
-    # CairoMakie.errorbars!(ax2, σs, mean_parameter_errors, parameter_stds, color = (:blue, 0.75))
-
-    # baseline = CairoMakie.scatter!(ax2, σs, baseline_mean_parameter_errors, color = (:red, 0.75))
-    # CairoMakie.errorbars!(ax2, σs, baseline_mean_parameter_errors, baseline_parameter_stds, color = (:red, 0.75))
-
-    # CairoMakie.axislegend(ax2, [our_method, baseline], ["Our Method", "Baseline"], position = :lt)
-    # CairoMakie.save(prefix*"ParameterErrorGraph.png", fig2)
-
+    # Save the figure
+    save(prefix*"/"*observation_mode*"_TrajectoryErrorGraph.png", fig)
 end
 
 function graph_trajectories(
