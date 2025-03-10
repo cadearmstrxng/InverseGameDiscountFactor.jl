@@ -16,10 +16,10 @@ include("In-D/InD.jl")
 function run_full_state_monte_carlo(;
     frames = [26158, 26320],
     tracks = [201, 205, 207, 208],
-    downsample_rate = 9,
+    downsample_rate = 6,
     rng = Random.MersenneTwister(1),
-    num_trials = 2,
-    σs = [0.01*i for i in 0:1:2],
+    num_trials = 50,
+    σs = [0.002*i for i in 0:50],
     # σs = [0.00],
     verbose = true,
     store_all = false
