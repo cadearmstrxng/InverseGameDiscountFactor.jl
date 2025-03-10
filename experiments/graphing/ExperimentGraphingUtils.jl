@@ -26,12 +26,17 @@ function graph_metrics(
     prefix = pre_prefix
     CairoMakie.activate!()
 
-    # Read the CSV files
-    baseline_data = CSV.read(baseline_file, DataFrame)
-    our_method_data = CSV.read(our_method_file, DataFrame)
+    # Read the CSV files with explicit header=false to ensure we get all rows
+    baseline_data = CSV.read(baseline_file, DataFrame, header=false)
+    our_method_data = CSV.read(our_method_file, DataFrame, header=false)
 
     # Extract noise levels, strip 'b' prefix, and convert to numeric values
-    σs = parse.(Float64, replace.(baseline_data[:, 1], "b" => ""))
+    noise_levels = baseline_data[:, 1]
+    σs = [parse(Float64, replace(String(level), "b" => "")) for level in noise_levels]
+    
+    # Debug print to check the data
+    println("Noise levels: ", noise_levels)
+    println("Parsed σs: ", σs)
     
     # Calculate means and standard deviations
     baseline_means = mean(Matrix(baseline_data[:, 2:end]), dims=2)[:, 1]
