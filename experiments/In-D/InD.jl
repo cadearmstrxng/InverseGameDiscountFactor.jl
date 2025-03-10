@@ -186,6 +186,7 @@ function compare_to_baseline(;full_state=true, graph=true, verbose = true)
         all = false, 
         frames = frames
     )
+    InD_observations = full_state ? InD_observations : [observation[1:2] for observation in InD_observations]
     trk_201_lane_center(x) = 0.0  # Placeholder if no coefficients provided
     trk_205_lane_center(x) = 0.0  # Placeholder if no coefficients provided
 
@@ -211,7 +212,7 @@ function compare_to_baseline(;full_state=true, graph=true, verbose = true)
 
     # Initialize game with full state observation
     init = GameUtils.init_bicycle_test_game(
-        true;
+        full_state;
         initial_state = InD_observations[1],
         game_params = mortar([
             [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0, 10.0] for i in 1:length(tracks)]...]),
@@ -225,7 +226,7 @@ function compare_to_baseline(;full_state=true, graph=true, verbose = true)
     )
 
     init_baseline = GameUtils.init_bicycle_test_game(
-        true;
+        full_state;
         initial_state = init.initial_state,
         game_params = mortar([
             [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 10.0] for i in 1:length(tracks)]...]),
@@ -329,6 +330,131 @@ function compare_to_baseline(;full_state=true, graph=true, verbose = true)
     )
         
         
+end
+
+function compare_noise_levels(;full_state=true, noise_levels=[0.0, 0.01, 0.05, 0.1], verbose=true)
+    # Same trajectory data as other functions
+    frames = [26158, 26320] # 162
+    tracks = [201, 205, 207, 208]
+    downsample_rate = 6
+    rng = MersenneTwister(1234)
+    Random.seed!(rng)
+
+    # Get real trajectory data
+    InD_observations = GameUtils.pull_trajectory("07";
+        track = tracks, 
+        downsample_rate = downsample_rate, 
+        all = false, 
+        frames = frames
+    )
+    InD_observations = full_state ? InD_observations : [observation[1:2] for observation in InD_observations]
+    
+    # Lane center functions
+    trk_201_lane_center(x) = 0.0
+    trk_205_lane_center(x) = 0.0
+    trk_207_lane_center(x) = -6.535465682649165e-04*x^6 + 
+                            -0.069559792458210*x^5 + 
+                            -3.033950160533982*x^4 + 
+                            -69.369975733866840*x^3 + 
+                            -8.760325006936075e+02*x^2 + 
+                            -5.782944928944775e+03*x + 
+                            -1.547509969706588e+04
+    trk_208_lane_center(x) = 8.304049624037807*x + 1.866183521575921e+02
+    
+    lane_centers = [trk_201_lane_center, trk_205_lane_center, trk_207_lane_center, trk_208_lane_center]
+    
+    # Setup dynamics
+    dynamics = BicycleDynamics(;
+        dt = 0.04*downsample_rate,
+        l = 1.0,
+        state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
+        control_bounds = (; lb = [-5, -pi/4], ub = [5, pi/4]),
+        integration_scheme = :forward_euler
+    )
+
+    # Initialize base game with full state observation
+    init = GameUtils.init_bicycle_test_game(
+        full_state;
+        initial_state = InD_observations[1],
+        game_params = mortar([
+            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0, 10.0] for i in 1:length(tracks)]...]),
+        horizon = length(frames[1]:downsample_rate:frames[2]),
+        n = length(tracks),
+        dt = 0.04*downsample_rate,
+        myopic=true,
+        verbose = false,
+        dynamics = dynamics,
+        lane_centers = lane_centers
+    )
+
+    # Create MCP game solver
+    mcp_solver = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
+        init.game_structure.game,
+        init.horizon,
+        blocksizes(init.game_parameters, 1)
+    )
+
+    # Storage for results
+    all_solutions = []
+    all_errors = []
+    
+    # Run experiment for each noise level
+    for σ in noise_levels
+        if verbose
+            println("Running with noise level σ = ", σ)
+        end
+        
+        # Apply noise to observations
+        noisy_observations = map(InD_observations) do obs
+            BlockVector(init.observation_model(obs, σ=σ),
+                [Int64(state_dim(init.game_structure.game.dynamics) ÷ num_players(init.game_structure.game)) 
+                for _ in 1:num_players(init.game_structure.game)])
+        end
+        
+        # Solve inverse game with the noisy observations
+        method_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
+            mcp_solver.mcp_game,
+            noisy_observations,
+            init.observation_model,
+            blocksizes(init.game_parameters, 1);
+            initial_state = init.initial_state,
+            hidden_state_guess = init.game_parameters,
+            max_grad_steps = 200,
+            verbose = verbose,
+            dynamics = dynamics,
+        )
+        
+        # Calculate error
+        error = norm_sqr(method_sol.recovered_trajectory - vcat(InD_observations...))
+        
+        push!(all_solutions, method_sol)
+        push!(all_errors, error)
+        
+        if verbose
+            println("Error at noise level σ = ", σ, ": ", error)
+            for i in 1:length(tracks)
+                block_size = blocksizes(init.game_parameters, 1)[1]
+                recovered_params = method_sol.recovered_params[(i-1)*block_size+1:i*block_size]
+                println("Player ", i, " recovered params: ", recovered_params)
+            end
+        end
+
+        player_state_dim = state_dim(init.game_structure.game.dynamics) ÷ num_players(init.game_structure.game)
+
+        # Write the solved trajectory to a text file
+        open("solved_trajectory_$(σ).txt", "w") do f
+            for state in method_sol.recovered_trajectory.blocks
+                for i in 1:length(tracks)
+                    write(f, string(round.(state[(i-1)*player_state_dim + 1:i*player_state_dim]; digits = 4)), "\n")
+                end
+                write(f, "--------------------------------\n")
+            end
+        end
+
+        if verbose
+            println("Solved trajectory for noise level σ = ", σ, " written to solved_trajectory_$(σ).txt")
+        end
+    end
 end
 
 end
