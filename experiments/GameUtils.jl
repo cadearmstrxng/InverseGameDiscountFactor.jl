@@ -295,9 +295,12 @@ function init_bicycle_test_game(
         observation_dim = 2
         observation_model = 
             (x; σ = σ_) -> 
-            vcat(
-                [ x[state_dim[1]*i-(state_dim[1]-1):state_dim[1]*i-(state_dim[1]-2)]
-                    for i in 1:n]...
+            BlockVector(
+                vcat(
+                    [ x[state_dim[1]*i-(state_dim[1]-1):state_dim[1]*i-(state_dim[1]-2)] .+ σ * randn(2)
+                        for i in 1:n]...
+                ),
+                [2 for _ in 1:n]
             )
     end
     !verbose || println("observation model initialized")

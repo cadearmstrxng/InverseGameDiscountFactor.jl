@@ -46,7 +46,7 @@ function warm_start_game(num_players;
             horizon = length(ys)
             
             for i in 1:num_players
-                xᵢ = [xs[t][Block(i)] for t in 1:(horizon+1)]
+                xᵢ = [observation_model(xs[t])[Block(i)] for t in 1:(horizon+1)]
                 yᵢ = [ys[t][Block(i)] for t in 1:horizon]
 
                 push!(costs, warm_start_cost_for_player(xᵢ, yᵢ))
