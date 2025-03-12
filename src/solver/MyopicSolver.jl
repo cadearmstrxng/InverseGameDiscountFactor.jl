@@ -57,6 +57,7 @@ function solve_myopic_inverse_game(
             # verbose||println("solved, status: ", last_solution.status)
             # if solving_info[end].status == PATHSolver.MCP_Solved
                 inv_sol = reconstruct_solution(solve_mcp_game(mcp_game, initial_state, context_state_estimation; verbose = false), mcp_game.game, mcp_game.horizon)
+                inv_sol = vcat([observation_model(x) for x in inv_sol.blocks]...)
                 sol_error = norm_sqr(inv_sol - vcat(observed_trajectory...))
 
 

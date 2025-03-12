@@ -166,7 +166,7 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
     !verbose || println("% improvement on warm start: ", (warm_sol_error - sol_error) / warm_sol_error * 100)
 end
 
-function compare_to_baseline(;full_state=true, graph=true, verbose = true)
+function compare_to_baseline(;full_state=false, graph=true, verbose = true)
     # InD_observations = GameUtils.observe_trajectory(forward_solution, init)
     frames = [26158, 26320] # 162
     # 201 25549, 26381
@@ -186,7 +186,14 @@ function compare_to_baseline(;full_state=true, graph=true, verbose = true)
         all = false, 
         frames = frames
     )
-    InD_observations = full_state ? InD_observations : [observation[1:2] for observation in InD_observations]
+    first_full_observation = InD_observations[1]
+    InD_observations = full_state ? 
+        InD_observations :
+        [BlockVector(
+            mapreduce(x -> x[1:2], vcat, observation.blocks),
+            [2 for _ in 1:length(tracks)]) 
+        for observation in InD_observations]
+
     trk_201_lane_center(x) = 0.0  # Placeholder if no coefficients provided
     trk_205_lane_center(x) = 0.0  # Placeholder if no coefficients provided
 
@@ -213,7 +220,7 @@ function compare_to_baseline(;full_state=true, graph=true, verbose = true)
     # Initialize game with full state observation
     init = GameUtils.init_bicycle_test_game(
         full_state;
-        initial_state = InD_observations[1],
+        initial_state = first_full_observation,
         game_params = mortar([
             [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0, 10.0] for i in 1:length(tracks)]...]),
         horizon = length(frames[1]:downsample_rate:frames[2]),
@@ -252,9 +259,7 @@ function compare_to_baseline(;full_state=true, graph=true, verbose = true)
     )
 
     noisy_observations = map(InD_observations) do obs
-        BlockVector(init.observation_model(obs, σ=σ),
-            [Int64(state_dim(init.game_structure.game.dynamics) ÷ num_players(init.game_structure.game)) 
-            for _ in 1:num_players(init.game_structure.game)])
+        obs .+ σ * randn(size(obs))
     end
 
     # Solve inverse game with both methods
