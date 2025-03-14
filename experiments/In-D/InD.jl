@@ -462,4 +462,180 @@ function compare_noise_levels(;full_state=true, noise_levels=[0.0, 0.01, 0.05, 0
     end
 end
 
+function generate_visualization()
+    CairoMakie.activate!();
+    fig = CairoMakie.Figure()
+    image_data = CairoMakie.load("experiments/data/07_background.png")
+    image_data = image_data[end:-1:1, :]
+    image_data = image_data'
+    ax1 = Axis(fig[1,1], aspect = DataAspect())
+    trfm = ImageTransformations.recenter(Rotations.RotMatrix(-2.303611),center(image_data))
+
+    x_crop_min = 430
+    x_crop_max = 875
+    y_crop_min = 225
+    y_crop_max = 1025
+    
+    scale = 1/10.25
+
+    x = (x_crop_max - x_crop_min) * scale
+    y = (y_crop_max - y_crop_min) * scale
+
+    # println(x,' ', y)
+
+    image_data = ImageTransformations.warp(image_data, trfm)
+    image_data = Origin(0)(image_data)
+    image_data = image_data[x_crop_min:x_crop_max, y_crop_min:y_crop_max]
+    
+    x_offset = -34.75
+    y_offset = 22
+
+    # println(x_offset..(x+x_offset-2), ' ', y_offset..(y-2+y_offset))
+
+    image!(ax1,
+        x_offset..(x+x_offset),
+        y_offset..(y+y_offset),
+        image_data)
+
+    num_players = 4
+    horizon = 28
+
+    # Get real data
+    frames = [26158, 26320]
+    tracks = [201, 205, 207, 208]
+    downsample_rate = 6
+    InD_observations = GameUtils.pull_trajectory("07";
+        track = tracks, downsample_rate = downsample_rate, all = false, frames = frames)
+
+    InD_observations = let 
+        new_observations = []
+        for observation_t in InD_observations
+            # states = [observation_t[Block(i)] for i in 1:num_players]
+            for i in 1:num_players
+                push!(new_observations, observation_t[Block(i)])
+            end
+            # push!(new_observations, observation_t[Block(i)] for i in 1:num_players)
+        end
+        BlockVector(new_observations, [num_players for _ in 1:horizon])
+    end
+
+    # Get trajectories
+    t1 = open("solved_trajectory_0.0.txt") do f
+        t = readlines(f)
+        new_t = []
+        for line in t
+            if line == "--------------------------------"
+                continue
+            end
+            push!(new_t, parse.(Float64, split(chop(line; head=1, tail=1), ',')))
+        end
+        BlockVector(new_t, [num_players for _ in 1:horizon])
+    end
+
+    t2 = open("solved_trajectory_0.1.txt") do f
+        t = readlines(f)
+        new_t = []
+        for line in t
+            if line == "--------------------------------"
+                continue
+            end
+            push!(new_t, parse.(Float64, split(chop(line; head=1, tail=1), ',')))
+        end
+        BlockVector(new_t, [num_players for _ in 1:horizon])
+    end
+
+    t3 = open("solved_trajectory_0.01.txt") do f
+        t = readlines(f)
+        new_t = []
+        for line in t
+            if line == "--------------------------------"
+                continue
+            end
+            push!(new_t, parse.(Float64, split(chop(line; head=1, tail=1), ',')))
+        end
+        BlockVector(new_t, [num_players for _ in 1:horizon])
+    end
+
+    t4 = open("solved_trajectory_0.05.txt") do f
+        t = readlines(f)
+        new_t = []
+        for line in t
+            if line == "--------------------------------"
+                continue
+            end
+            push!(new_t, parse.(Float64, split(chop(line; head=1, tail=1), ',')))
+        end
+        BlockVector(new_t, [num_players for _ in 1:horizon])
+    end
+
+    # Get position data
+
+    InD_observations = BlockVector([observation[1:2] for observation in InD_observations], [num_players for _ in 1:horizon])
+    trajectory = BlockVector([t[1:2] for t in t1], [num_players for _ in 1:horizon])
+
+    # Add noise to observations
+
+    σ = 0.01
+    state_dim = 2
+
+    observation_model = 
+            (obs; σ = σ_) -> 
+                [ x .+ σ * randn(state_dim)
+                    for x in obs]
+            
+
+    noisy_observations = observation_model(InD_observations, σ=σ)
+
+    # Plot Data
+
+    Observations_x_player_1 = [noisy_observations[Block(t)][1][1] for t in 1:horizon]
+    Observations_y_player_1 = [noisy_observations[Block(t)][1][2] for t in 1:horizon]
+    Observations_x_player_2 = [noisy_observations[Block(t)][2][1] for t in 1:horizon]
+    Observations_y_player_2 = [noisy_observations[Block(t)][2][2] for t in 1:horizon]
+    Observations_x_player_3 = [noisy_observations[Block(t)][3][1] for t in 1:horizon]
+    Observations_y_player_3 = [noisy_observations[Block(t)][3][2] for t in 1:horizon]
+    Observations_x_player_4 = [noisy_observations[Block(t)][4][1] for t in 1:horizon]
+    Observations_y_player_4 = [noisy_observations[Block(t)][4][2] for t in 1:horizon]
+    Inverse_x_player_1 = [trajectory[Block(t)][1][1] for t in 1:horizon]
+    Inverse_y_player_1 = [trajectory[Block(t)][1][2] for t in 1:horizon]
+    Inverse_x_player_2 = [trajectory[Block(t)][2][1] for t in 1:horizon]
+    Inverse_y_player_2 = [trajectory[Block(t)][2][2] for t in 1:horizon]
+    Inverse_x_player_3 = [trajectory[Block(t)][3][1] for t in 1:horizon]
+    Inverse_y_player_3 = [trajectory[Block(t)][3][2] for t in 1:horizon]
+    Inverse_x_player_4 = [trajectory[Block(t)][4][1] for t in 1:horizon]
+    Inverse_y_player_4 = [trajectory[Block(t)][4][2] for t in 1:horizon]
+
+    p1_observations = scatter!(ax1, Observations_x_player_1, Observations_y_player_1, color = :red, markersize = 5, alpha = 0.5)
+    p2_observations = scatter!(ax1, Observations_x_player_2, Observations_y_player_2, color = :blue, markersize = 5, alpha = 0.5)
+    p3_observations = scatter!(ax1, Observations_x_player_3, Observations_y_player_3, color = :green, markersize = 5, alpha = 0.5)
+    p4_observations = scatter!(ax1, Observations_x_player_4, Observations_y_player_4, color = :purple, markersize = 5, alpha = 0.5)
+
+    p1_inverse = lines!(ax1, Inverse_x_player_1, Inverse_y_player_1, color = :red)
+    p2_inverse = lines!(ax1, Inverse_x_player_2, Inverse_y_player_2, color = :blue)
+    p3_inverse = lines!(ax1, Inverse_x_player_3, Inverse_y_player_3, color = :green)
+    p4_inverse = lines!(ax1, Inverse_x_player_4, Inverse_y_player_4, color = :purple)
+
+    Legend(fig[1,2],[
+        p1_observations, 
+        p2_observations, 
+        p3_observations, 
+        p4_observations, 
+        p1_inverse, 
+        p2_inverse, 
+        p3_inverse, 
+        p4_inverse
+        ], [
+        "Player 1 Observation",
+        "Player 2 Observation",
+        "Player 3 Observation",
+        "Player 4 Observation",
+        "Player 1 Inverse",
+        "Player 2 Inverse",
+        "Player 3 Inverse",
+        "Player 4 Inverse"
+    ])
+
+    CairoMakie.save("InD_visualization", fig)
+end
+
 end
