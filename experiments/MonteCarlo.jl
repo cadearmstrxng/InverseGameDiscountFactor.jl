@@ -13,7 +13,7 @@ include("GameUtils.jl")
 include("graphing/ExperimentGraphingUtils.jl")
 include("In-D/InD.jl")
 
-function run_full_state_monte_carlo(;
+function run_monte_carlo(;
     frames = [26158, 26320],
     tracks = [201, 205, 207, 208],
     downsample_rate = 6,
@@ -22,18 +22,19 @@ function run_full_state_monte_carlo(;
     σs = [0.002*i for i in 0:50],
     # σs = [0.00],
     verbose = true,
-    store_all = false
+    store_all = false,
+    full_state = false
 )
     # Set randomness
     Random.seed!(rng)
 
-    # Clear previous error files
-    open("experiments/In-D/mc_study_new_traj_errors.txt", "w") do f
-        # Opening in write mode clears the file
-    end
-    open("experiments/In-D/mc_study_baseline_traj_errors.txt", "w") do f
-        # Opening in write mode clears the file
-    end
+    # # Clear previous error files
+    # open("experiments/In-D/mc_study_new_partial_1:2_traj_errors.txt", "w") do f
+    #     # Opening in write mode clears the file
+    # end
+    # open("experiments/In-D/mc_study_baseline_partial_1:2_traj_errors.txt", "w") do f
+    #     # Opening in write mode clears the file
+    # end
 
     # Get real trajectory data
     InD_observations = GameUtils.pull_trajectory("07";
@@ -42,6 +43,13 @@ function run_full_state_monte_carlo(;
         all = false, 
         frames = frames
     )
+    init_state = InD_observations[1]
+    InD_observations = full_state ? 
+        InD_observations :
+        [BlockVector(
+            mapreduce(x -> x[1:2], vcat, observation.blocks),
+            [2 for _ in 1:length(tracks)]) 
+        for observation in InD_observations]
 
     trk_201_lane_center(x) = 0.0  # Placeholder
     trk_205_lane_center(x) = 0.0  
@@ -65,8 +73,8 @@ function run_full_state_monte_carlo(;
 
     # Initialize game with full state observation
     init = GameUtils.init_bicycle_test_game(
-        true;
-        initial_state = InD_observations[1],
+        full_state;
+        initial_state = init_state,
         game_params = mortar([
             [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0, 10.0] for i in 1:length(tracks)]...]),
         horizon = length(frames[1]:downsample_rate:frames[2]),
@@ -79,7 +87,7 @@ function run_full_state_monte_carlo(;
     )
 
     init_baseline = GameUtils.init_bicycle_test_game(
-        true;
+        full_state;
         initial_state = init.initial_state,
         game_params = mortar([
             [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 10.0] for i in 1:length(tracks)]...]),
@@ -119,9 +127,7 @@ function run_full_state_monte_carlo(;
 
             # Add noise to real observations
             noisy_observations = map(InD_observations) do obs
-                BlockVector(init.observation_model(obs, σ=σ),
-                    [Int64(state_dim(init.game_structure.game.dynamics) ÷ num_players(init.game_structure.game)) 
-                    for _ in 1:num_players(init.game_structure.game)])
+                obs .+ σ * randn(size(obs))
             end
 
             # Solve inverse game with both methods

@@ -2,511 +2,511 @@
 
 ## Noise level σ = 0.0
 
-average_improvement @ 0.0 11.5488
-average_percentage_improvement @ 0.0 20.2933
-baseline_std @ 0.0 0.0
-new_std @ 0.0 0.0
+average_improvement @ 0.0 26.1022
+average_percentage_improvement @ 0.0 46.2915
+baseline_std @ 0.0 0.5253
+new_std @ 0.0 15.1521
 p_value @ 0.0 0.0
 significant @ 0.0 true
 likelihood_of_improvement @ 0.0 100.0%
 
 ## Noise level σ = 0.002
 
-average_improvement @ 0.002 29.7424
-average_percentage_improvement @ 0.002 38.7297
-baseline_std @ 0.002 42.3733
-new_std @ 0.002 12.3199
-p_value @ 0.002 1.1e-5
+average_improvement @ 0.002 22.7683
+average_percentage_improvement @ 0.002 35.4934
+baseline_std @ 0.002 33.3318
+new_std @ 0.002 16.6935
+p_value @ 0.002 0.0
 significant @ 0.002 true
 likelihood_of_improvement @ 0.002 100.0%
 
 ## Noise level σ = 0.004
 
-average_improvement @ 0.004 21.4426
-average_percentage_improvement @ 0.004 25.418
-baseline_std @ 0.004 116.2152
-new_std @ 0.004 105.8954
-p_value @ 0.004 0.166301
-significant @ 0.004 false
-likelihood_of_improvement @ 0.004 83.37%
+average_improvement @ 0.004 24.3532
+average_percentage_improvement @ 0.004 32.4182
+baseline_std @ 0.004 94.5009
+new_std @ 0.004 77.7963
+p_value @ 0.004 0.023347
+significant @ 0.004 true
+likelihood_of_improvement @ 0.004 97.67%
 
 ## Noise level σ = 0.006
 
-average_improvement @ 0.006 26.258
-average_percentage_improvement @ 0.006 35.787
-baseline_std @ 0.006 21.5432
-new_std @ 0.006 18.4896
+average_improvement @ 0.006 28.4661
+average_percentage_improvement @ 0.006 41.3229
+baseline_std @ 0.006 49.8102
+new_std @ 0.006 19.628
 p_value @ 0.006 0.0
 significant @ 0.006 true
 likelihood_of_improvement @ 0.006 100.0%
 
 ## Noise level σ = 0.008
 
-average_improvement @ 0.008 43.1511
-average_percentage_improvement @ 0.008 44.6158
-baseline_std @ 0.008 129.2598
-new_std @ 0.008 19.0523
-p_value @ 0.008 0.012409
+average_improvement @ 0.008 28.3426
+average_percentage_improvement @ 0.008 38.6932
+baseline_std @ 0.008 94.4954
+new_std @ 0.008 19.5443
+p_value @ 0.008 0.001808
 significant @ 0.008 true
-likelihood_of_improvement @ 0.008 98.76%
+likelihood_of_improvement @ 0.008 99.82%
 
 ## Noise level σ = 0.01
 
-average_improvement @ 0.01 43.6115
-average_percentage_improvement @ 0.01 47.7268
-baseline_std @ 0.01 106.5154
-new_std @ 0.01 16.6197
-p_value @ 0.01 0.004199
+average_improvement @ 0.01 28.7206
+average_percentage_improvement @ 0.01 39.7911
+baseline_std @ 0.01 77.8313
+new_std @ 0.01 19.3022
+p_value @ 0.01 0.000366
 significant @ 0.01 true
-likelihood_of_improvement @ 0.01 99.58%
+likelihood_of_improvement @ 0.01 99.96%
 
 ## Noise level σ = 0.012
 
-average_improvement @ 0.012 21.4337
-average_percentage_improvement @ 0.012 29.681
-baseline_std @ 0.012 17.8696
-new_std @ 0.012 13.2522
+average_improvement @ 0.012 22.3505
+average_percentage_improvement @ 0.012 35.025
+baseline_std @ 0.012 29.9144
+new_std @ 0.012 17.6387
 p_value @ 0.012 0.0
 significant @ 0.012 true
 likelihood_of_improvement @ 0.012 100.0%
 
 ## Noise level σ = 0.014
 
-average_improvement @ 0.014 33.1134
-average_percentage_improvement @ 0.014 39.6846
-baseline_std @ 0.014 46.0763
-new_std @ 0.014 20.4988
-p_value @ 0.014 8.0e-6
+average_improvement @ 0.014 21.885
+average_percentage_improvement @ 0.014 30.7739
+baseline_std @ 0.014 43.5367
+new_std @ 0.014 40.9454
+p_value @ 0.014 0.000268
 significant @ 0.014 true
-likelihood_of_improvement @ 0.014 100.0%
+likelihood_of_improvement @ 0.014 99.97%
 
 ## Noise level σ = 0.016
 
-average_improvement @ 0.016 19.4425
-average_percentage_improvement @ 0.016 26.8704
-baseline_std @ 0.016 23.6838
-new_std @ 0.016 21.8448
-p_value @ 0.016 3.0e-5
+average_improvement @ 0.016 18.0813
+average_percentage_improvement @ 0.016 29.4874
+baseline_std @ 0.016 21.7237
+new_std @ 0.016 22.3972
+p_value @ 0.016 0.0
 significant @ 0.016 true
 likelihood_of_improvement @ 0.016 100.0%
 
 ## Noise level σ = 0.018000000000000002
 
-average_improvement @ 0.018000000000000002 22.3692
-average_percentage_improvement @ 0.018000000000000002 29.8531
-baseline_std @ 0.018000000000000002 20.5495
-new_std @ 0.018000000000000002 37.3498
-p_value @ 0.018000000000000002 0.000215
-significant @ 0.018000000000000002 true
-likelihood_of_improvement @ 0.018000000000000002 99.98%
+average_improvement @ 0.018000000000000002 11.0607
+average_percentage_improvement @ 0.018000000000000002 16.2762
+baseline_std @ 0.018000000000000002 43.8894
+new_std @ 0.018000000000000002 80.9987
+p_value @ 0.018000000000000002 0.119747
+significant @ 0.018000000000000002 false
+likelihood_of_improvement @ 0.018000000000000002 88.03%
 
 ## Noise level σ = 0.02
 
-average_improvement @ 0.02 29.6589
-average_percentage_improvement @ 0.02 38.5945
-baseline_std @ 0.02 41.1847
-new_std @ 0.02 18.537
-p_value @ 0.02 1.1e-5
+average_improvement @ 0.02 25.1597
+average_percentage_improvement @ 0.02 37.5771
+baseline_std @ 0.02 44.0573
+new_std @ 0.02 19.6089
+p_value @ 0.02 0.0
 significant @ 0.02 true
 likelihood_of_improvement @ 0.02 100.0%
 
 ## Noise level σ = 0.022
 
-average_improvement @ 0.022 23.366
-average_percentage_improvement @ 0.022 32.4091
-baseline_std @ 0.022 22.0547
-new_std @ 0.022 17.8364
+average_improvement @ 0.022 18.5968
+average_percentage_improvement @ 0.022 29.7297
+baseline_std @ 0.022 21.0565
+new_std @ 0.022 20.2576
 p_value @ 0.022 0.0
 significant @ 0.022 true
 likelihood_of_improvement @ 0.022 100.0%
 
 ## Noise level σ = 0.024
 
-average_improvement @ 0.024 39.7408
-average_percentage_improvement @ 0.024 45.5505
-baseline_std @ 0.024 59.0837
-new_std @ 0.024 15.0709
-p_value @ 0.024 1.0e-5
+average_improvement @ 0.024 28.9577
+average_percentage_improvement @ 0.024 40.4229
+baseline_std @ 0.024 50.6707
+new_std @ 0.024 18.5269
+p_value @ 0.024 0.0
 significant @ 0.024 true
 likelihood_of_improvement @ 0.024 100.0%
 
 ## Noise level σ = 0.026000000000000002
 
-average_improvement @ 0.026000000000000002 25.8435
-average_percentage_improvement @ 0.026000000000000002 34.4294
-baseline_std @ 0.026000000000000002 22.4129
-new_std @ 0.026000000000000002 16.0472
-p_value @ 0.026000000000000002 0.0
+average_improvement @ 0.026000000000000002 22.0345
+average_percentage_improvement @ 0.026000000000000002 32.5782
+baseline_std @ 0.026000000000000002 34.0669
+new_std @ 0.026000000000000002 22.051
+p_value @ 0.026000000000000002 1.0e-6
 significant @ 0.026000000000000002 true
 likelihood_of_improvement @ 0.026000000000000002 100.0%
 
 ## Noise level σ = 0.028
 
-average_improvement @ 0.028 39.1113
-average_percentage_improvement @ 0.028 43.7333
-baseline_std @ 0.028 102.111
-new_std @ 0.028 16.3855
-p_value @ 0.028 0.004292
+average_improvement @ 0.028 30.8991
+average_percentage_improvement @ 0.028 39.1589
+baseline_std @ 0.028 108.3177
+new_std @ 0.028 29.5396
+p_value @ 0.028 0.003075
 significant @ 0.028 true
-likelihood_of_improvement @ 0.028 99.57%
+likelihood_of_improvement @ 0.028 99.69%
 
 ## Noise level σ = 0.03
 
-average_improvement @ 0.03 42.6456
-average_percentage_improvement @ 0.03 44.7558
-baseline_std @ 0.03 109.2343
-new_std @ 0.03 21.6719
-p_value @ 0.03 0.005882
+average_improvement @ 0.03 27.9394
+average_percentage_improvement @ 0.03 36.7342
+baseline_std @ 0.03 82.7179
+new_std @ 0.03 36.304
+p_value @ 0.03 0.001572
 significant @ 0.03 true
-likelihood_of_improvement @ 0.03 99.41%
+likelihood_of_improvement @ 0.03 99.84%
 
 ## Noise level σ = 0.032
 
-average_improvement @ 0.032 17.6154
-average_percentage_improvement @ 0.032 23.8182
-baseline_std @ 0.032 16.636
-new_std @ 0.032 57.3897
-p_value @ 0.032 0.020357
+average_improvement @ 0.032 16.4178
+average_percentage_improvement @ 0.032 24.5101
+baseline_std @ 0.032 35.7574
+new_std @ 0.032 44.3677
+p_value @ 0.032 0.00193
 significant @ 0.032 true
-likelihood_of_improvement @ 0.032 97.96%
+likelihood_of_improvement @ 0.032 99.81%
 
 ## Noise level σ = 0.034
 
-average_improvement @ 0.034 15.635
-average_percentage_improvement @ 0.034 21.8956
-baseline_std @ 0.034 19.1419
-new_std @ 0.034 24.1902
-p_value @ 0.034 0.000219
+average_improvement @ 0.034 16.6021
+average_percentage_improvement @ 0.034 25.7384
+baseline_std @ 0.034 25.2898
+new_std @ 0.034 33.4344
+p_value @ 0.034 6.0e-6
 significant @ 0.034 true
-likelihood_of_improvement @ 0.034 99.98%
+likelihood_of_improvement @ 0.034 100.0%
 
 ## Noise level σ = 0.036000000000000004
 
-average_improvement @ 0.036000000000000004 24.849
-average_percentage_improvement @ 0.036000000000000004 33.8594
-baseline_std @ 0.036000000000000004 18.3824
-new_std @ 0.036000000000000004 18.2252
-p_value @ 0.036000000000000004 0.0
+average_improvement @ 0.036000000000000004 23.5688
+average_percentage_improvement @ 0.036000000000000004 33.5921
+baseline_std @ 0.036000000000000004 47.2419
+new_std @ 0.036000000000000004 21.2366
+p_value @ 0.036000000000000004 1.3e-5
 significant @ 0.036000000000000004 true
 likelihood_of_improvement @ 0.036000000000000004 100.0%
 
 ## Noise level σ = 0.038
 
-average_improvement @ 0.038 38.7218
-average_percentage_improvement @ 0.038 47.3029
-baseline_std @ 0.038 47.7513
-new_std @ 0.038 15.3197
+average_improvement @ 0.038 26.9688
+average_percentage_improvement @ 0.038 38.1821
+baseline_std @ 0.038 41.4993
+new_std @ 0.038 21.3282
 p_value @ 0.038 0.0
 significant @ 0.038 true
 likelihood_of_improvement @ 0.038 100.0%
 
 ## Noise level σ = 0.04
 
-average_improvement @ 0.04 34.859
-average_percentage_improvement @ 0.04 41.3642
-baseline_std @ 0.04 87.5532
-new_std @ 0.04 15.8396
-p_value @ 0.04 0.004302
+average_improvement @ 0.04 25.2573
+average_percentage_improvement @ 0.04 36.3249
+baseline_std @ 0.04 64.5286
+new_std @ 0.04 19.6544
+p_value @ 0.04 0.00015
 significant @ 0.04 true
-likelihood_of_improvement @ 0.04 99.57%
+likelihood_of_improvement @ 0.04 99.99%
 
 ## Noise level σ = 0.042
 
-average_improvement @ 0.042 29.8368
-average_percentage_improvement @ 0.042 37.2698
-baseline_std @ 0.042 47.6101
-new_std @ 0.042 19.0683
-p_value @ 0.042 1.1e-5
+average_improvement @ 0.042 26.1318
+average_percentage_improvement @ 0.042 36.2105
+baseline_std @ 0.042 52.6772
+new_std @ 0.042 36.9964
+p_value @ 0.042 2.3e-5
 significant @ 0.042 true
 likelihood_of_improvement @ 0.042 100.0%
 
 ## Noise level σ = 0.044
 
-average_improvement @ 0.044 22.4751
-average_percentage_improvement @ 0.044 29.3857
-baseline_std @ 0.044 21.487
-new_std @ 0.044 23.3547
-p_value @ 0.044 9.0e-6
+average_improvement @ 0.044 14.1654
+average_percentage_improvement @ 0.044 21.2487
+baseline_std @ 0.044 21.8118
+new_std @ 0.044 34.1457
+p_value @ 0.044 0.00023
 significant @ 0.044 true
-likelihood_of_improvement @ 0.044 100.0%
+likelihood_of_improvement @ 0.044 99.98%
 
 ## Noise level σ = 0.046
 
-average_improvement @ 0.046 16.3688
-average_percentage_improvement @ 0.046 20.1558
-baseline_std @ 0.046 56.4324
-new_std @ 0.046 88.2002
-p_value @ 0.046 0.131683
-significant @ 0.046 false
-likelihood_of_improvement @ 0.046 86.83%
+average_improvement @ 0.046 18.6479
+average_percentage_improvement @ 0.046 26.8863
+baseline_std @ 0.046 43.3953
+new_std @ 0.046 65.1527
+p_value @ 0.046 0.007248
+significant @ 0.046 true
+likelihood_of_improvement @ 0.046 99.28%
 
 ## Noise level σ = 0.048
 
-average_improvement @ 0.048 28.3964
-average_percentage_improvement @ 0.048 36.8479
-baseline_std @ 0.048 25.0016
-new_std @ 0.048 19.4467
+average_improvement @ 0.048 18.0574
+average_percentage_improvement @ 0.048 28.4406
+baseline_std @ 0.048 24.62
+new_std @ 0.048 23.4836
 p_value @ 0.048 0.0
 significant @ 0.048 true
 likelihood_of_improvement @ 0.048 100.0%
 
 ## Noise level σ = 0.05
 
-average_improvement @ 0.05 23.3065
-average_percentage_improvement @ 0.05 30.977
-baseline_std @ 0.05 18.2147
-new_std @ 0.05 16.1039
-p_value @ 0.05 0.0
+average_improvement @ 0.05 18.3082
+average_percentage_improvement @ 0.05 27.9781
+baseline_std @ 0.05 21.2737
+new_std @ 0.05 27.3939
+p_value @ 0.05 1.0e-6
 significant @ 0.05 true
 likelihood_of_improvement @ 0.05 100.0%
 
 ## Noise level σ = 0.052000000000000005
 
-average_improvement @ 0.052000000000000005 23.7382
-average_percentage_improvement @ 0.052000000000000005 30.3853
-baseline_std @ 0.052000000000000005 19.7049
-new_std @ 0.052000000000000005 20.9712
+average_improvement @ 0.052000000000000005 22.258
+average_percentage_improvement @ 0.052000000000000005 32.071
+baseline_std @ 0.052000000000000005 33.883
+new_std @ 0.052000000000000005 21.9305
 p_value @ 0.052000000000000005 0.0
 significant @ 0.052000000000000005 true
 likelihood_of_improvement @ 0.052000000000000005 100.0%
 
 ## Noise level σ = 0.054
 
-average_improvement @ 0.054 32.3918
-average_percentage_improvement @ 0.054 40.2623
-baseline_std @ 0.054 24.1871
-new_std @ 0.054 19.0565
-p_value @ 0.054 0.0
+average_improvement @ 0.054 21.1024
+average_percentage_improvement @ 0.054 29.0579
+baseline_std @ 0.054 34.469
+new_std @ 0.054 87.1389
+p_value @ 0.054 0.014616
 significant @ 0.054 true
-likelihood_of_improvement @ 0.054 100.0%
+likelihood_of_improvement @ 0.054 98.54%
 
 ## Noise level σ = 0.056
 
-average_improvement @ 0.056 35.359
-average_percentage_improvement @ 0.056 41.119
-baseline_std @ 0.056 58.0243
-new_std @ 0.056 17.3687
-p_value @ 0.056 8.6e-5
+average_improvement @ 0.056 25.2724
+average_percentage_improvement @ 0.056 35.6197
+baseline_std @ 0.056 45.9443
+new_std @ 0.056 25.4849
+p_value @ 0.056 2.0e-6
 significant @ 0.056 true
-likelihood_of_improvement @ 0.056 99.99%
+likelihood_of_improvement @ 0.056 100.0%
 
 ## Noise level σ = 0.058
 
-average_improvement @ 0.058 29.737
-average_percentage_improvement @ 0.058 35.785
-baseline_std @ 0.058 39.1233
-new_std @ 0.058 20.5109
-p_value @ 0.058 6.0e-6
+average_improvement @ 0.058 32.3125
+average_percentage_improvement @ 0.058 40.1953
+baseline_std @ 0.058 70.2096
+new_std @ 0.058 21.539
+p_value @ 0.058 1.0e-5
 significant @ 0.058 true
 likelihood_of_improvement @ 0.058 100.0%
 
 ## Noise level σ = 0.06
 
-average_improvement @ 0.06 29.2645
-average_percentage_improvement @ 0.06 35.8759
-baseline_std @ 0.06 33.9852
-new_std @ 0.06 33.852
-p_value @ 0.06 3.6e-5
+average_improvement @ 0.06 29.4067
+average_percentage_improvement @ 0.06 39.3026
+baseline_std @ 0.06 47.8785
+new_std @ 0.06 29.3352
+p_value @ 0.06 0.0
 significant @ 0.06 true
 likelihood_of_improvement @ 0.06 100.0%
 
 ## Noise level σ = 0.062
 
-average_improvement @ 0.062 36.8959
-average_percentage_improvement @ 0.062 40.4035
-baseline_std @ 0.062 107.4838
-new_std @ 0.062 18.9312
-p_value @ 0.062 0.010984
+average_improvement @ 0.062 29.8885
+average_percentage_improvement @ 0.062 39.0358
+baseline_std @ 0.062 84.7509
+new_std @ 0.062 23.6957
+p_value @ 0.062 0.000503
 significant @ 0.062 true
-likelihood_of_improvement @ 0.062 98.9%
+likelihood_of_improvement @ 0.062 99.95%
 
 ## Noise level σ = 0.064
 
-average_improvement @ 0.064 20.4545
-average_percentage_improvement @ 0.064 28.3833
-baseline_std @ 0.064 18.2854
-new_std @ 0.064 17.9758
-p_value @ 0.064 1.0e-6
+average_improvement @ 0.064 22.3156
+average_percentage_improvement @ 0.064 34.4715
+baseline_std @ 0.064 20.879
+new_std @ 0.064 20.1534
+p_value @ 0.064 0.0
 significant @ 0.064 true
 likelihood_of_improvement @ 0.064 100.0%
 
 ## Noise level σ = 0.066
 
-average_improvement @ 0.066 21.2154
-average_percentage_improvement @ 0.066 29.2471
-baseline_std @ 0.066 22.2792
-new_std @ 0.066 22.1489
-p_value @ 0.066 1.0e-5
+average_improvement @ 0.066 15.5402
+average_percentage_improvement @ 0.066 24.4698
+baseline_std @ 0.066 21.2372
+new_std @ 0.066 26.6816
+p_value @ 0.066 8.0e-6
 significant @ 0.066 true
 likelihood_of_improvement @ 0.066 100.0%
 
 ## Noise level σ = 0.068
 
-average_improvement @ 0.068 28.5835
-average_percentage_improvement @ 0.068 35.7189
-baseline_std @ 0.068 20.1117
-new_std @ 0.068 31.8706
-p_value @ 0.068 2.0e-6
+average_improvement @ 0.068 21.6405
+average_percentage_improvement @ 0.068 32.3353
+baseline_std @ 0.068 21.2182
+new_std @ 0.068 28.2301
+p_value @ 0.068 0.0
 significant @ 0.068 true
 likelihood_of_improvement @ 0.068 100.0%
 
 ## Noise level σ = 0.07
 
-average_improvement @ 0.07 28.178
-average_percentage_improvement @ 0.07 34.6321
-baseline_std @ 0.07 40.3335
-new_std @ 0.07 20.8159
-p_value @ 0.07 4.0e-6
+average_improvement @ 0.07 27.0769
+average_percentage_improvement @ 0.07 37.2272
+baseline_std @ 0.07 45.7809
+new_std @ 0.07 21.78
+p_value @ 0.07 0.0
 significant @ 0.07 true
 likelihood_of_improvement @ 0.07 100.0%
 
 ## Noise level σ = 0.07200000000000001
 
-average_improvement @ 0.07200000000000001 24.6348
-average_percentage_improvement @ 0.07200000000000001 31.8653
-baseline_std @ 0.07200000000000001 25.4097
-new_std @ 0.07200000000000001 20.5638
-p_value @ 0.07200000000000001 2.0e-6
+average_improvement @ 0.07200000000000001 21.615
+average_percentage_improvement @ 0.07200000000000001 31.6238
+baseline_std @ 0.07200000000000001 34.2389
+new_std @ 0.07200000000000001 22.0077
+p_value @ 0.07200000000000001 1.0e-6
 significant @ 0.07200000000000001 true
 likelihood_of_improvement @ 0.07200000000000001 100.0%
 
 ## Noise level σ = 0.074
 
-average_improvement @ 0.074 33.6059
-average_percentage_improvement @ 0.074 40.4506
-baseline_std @ 0.074 58.0066
-new_std @ 0.074 19.3751
-p_value @ 0.074 0.000129
+average_improvement @ 0.074 28.727
+average_percentage_improvement @ 0.074 39.3056
+baseline_std @ 0.074 56.6957
+new_std @ 0.074 21.3519
+p_value @ 0.074 1.0e-6
 significant @ 0.074 true
-likelihood_of_improvement @ 0.074 99.99%
+likelihood_of_improvement @ 0.074 100.0%
 
 ## Noise level σ = 0.076
 
-average_improvement @ 0.076 23.0144
-average_percentage_improvement @ 0.076 30.7609
-baseline_std @ 0.076 27.2755
-new_std @ 0.076 19.2878
-p_value @ 0.076 3.0e-6
+average_improvement @ 0.076 23.8197
+average_percentage_improvement @ 0.076 34.4915
+baseline_std @ 0.076 29.7781
+new_std @ 0.076 32.4227
+p_value @ 0.076 0.0
 significant @ 0.076 true
 likelihood_of_improvement @ 0.076 100.0%
 
 ## Noise level σ = 0.078
 
-average_improvement @ 0.078 17.801
-average_percentage_improvement @ 0.078 23.0441
-baseline_std @ 0.078 17.8852
-new_std @ 0.078 31.0398
-p_value @ 0.078 9.6e-5
+average_improvement @ 0.078 15.9013
+average_percentage_improvement @ 0.078 24.1394
+baseline_std @ 0.078 20.9698
+new_std @ 0.078 28.9962
+p_value @ 0.078 1.0e-6
 significant @ 0.078 true
-likelihood_of_improvement @ 0.078 99.99%
+likelihood_of_improvement @ 0.078 100.0%
 
 ## Noise level σ = 0.08
 
-average_improvement @ 0.08 23.4237
-average_percentage_improvement @ 0.08 29.582
-baseline_std @ 0.08 33.3614
-new_std @ 0.08 19.5271
-p_value @ 0.08 2.1e-5
+average_improvement @ 0.08 17.5951
+average_percentage_improvement @ 0.08 25.1129
+baseline_std @ 0.08 34.0734
+new_std @ 0.08 23.1205
+p_value @ 0.08 2.6e-5
 significant @ 0.08 true
 likelihood_of_improvement @ 0.08 100.0%
 
 ## Noise level σ = 0.082
 
-average_improvement @ 0.082 43.7405
-average_percentage_improvement @ 0.082 47.8647
-baseline_std @ 0.082 88.6395
-new_std @ 0.082 19.1634
-p_value @ 0.082 0.000819
+average_improvement @ 0.082 23.6509
+average_percentage_improvement @ 0.082 31.6211
+baseline_std @ 0.082 68.9721
+new_std @ 0.082 81.8571
+p_value @ 0.082 0.016466
 significant @ 0.082 true
-likelihood_of_improvement @ 0.082 99.92%
+likelihood_of_improvement @ 0.082 98.35%
 
 ## Noise level σ = 0.084
 
-average_improvement @ 0.084 29.8792
-average_percentage_improvement @ 0.084 36.172
-baseline_std @ 0.084 37.983
-new_std @ 0.084 18.6314
-p_value @ 0.084 1.7e-5
+average_improvement @ 0.084 32.158
+average_percentage_improvement @ 0.084 41.5264
+baseline_std @ 0.084 51.9323
+new_std @ 0.084 20.8383
+p_value @ 0.084 0.0
 significant @ 0.084 true
 likelihood_of_improvement @ 0.084 100.0%
 
 ## Noise level σ = 0.08600000000000001
 
-average_improvement @ 0.08600000000000001 41.0073
-average_percentage_improvement @ 0.08600000000000001 45.2518
-baseline_std @ 0.08600000000000001 122.6073
-new_std @ 0.08600000000000001 16.1747
-p_value @ 0.08600000000000001 0.009706
+average_improvement @ 0.08600000000000001 34.0963
+average_percentage_improvement @ 0.08600000000000001 43.1755
+baseline_std @ 0.08600000000000001 100.0017
+new_std @ 0.08600000000000001 19.5018
+p_value @ 0.08600000000000001 0.000365
 significant @ 0.08600000000000001 true
-likelihood_of_improvement @ 0.08600000000000001 99.03%
+likelihood_of_improvement @ 0.08600000000000001 99.96%
 
 ## Noise level σ = 0.088
 
-average_improvement @ 0.088 8.4557
-average_percentage_improvement @ 0.088 11.7892
-baseline_std @ 0.088 20.5628
-new_std @ 0.088 47.3951
-p_value @ 0.088 0.121597
-significant @ 0.088 false
-likelihood_of_improvement @ 0.088 87.84%
+average_improvement @ 0.088 12.7143
+average_percentage_improvement @ 0.088 19.6344
+baseline_std @ 0.088 29.4164
+new_std @ 0.088 38.9485
+p_value @ 0.088 0.002539
+significant @ 0.088 true
+likelihood_of_improvement @ 0.088 99.75%
 
 ## Noise level σ = 0.09
 
-average_improvement @ 0.09 28.3112
-average_percentage_improvement @ 0.09 36.6689
-baseline_std @ 0.09 17.9977
-new_std @ 0.09 17.447
+average_improvement @ 0.09 22.0734
+average_percentage_improvement @ 0.09 31.3551
+baseline_std @ 0.09 29.5726
+new_std @ 0.09 24.7911
 p_value @ 0.09 0.0
 significant @ 0.09 true
 likelihood_of_improvement @ 0.09 100.0%
 
 ## Noise level σ = 0.092
 
-average_improvement @ 0.092 17.0695
-average_percentage_improvement @ 0.092 22.8087
-baseline_std @ 0.092 23.3479
-new_std @ 0.092 47.5995
-p_value @ 0.092 0.015152
+average_improvement @ 0.092 19.8746
+average_percentage_improvement @ 0.092 28.6607
+baseline_std @ 0.092 39.4834
+new_std @ 0.092 37.4322
+p_value @ 0.092 0.000178
 significant @ 0.092 true
-likelihood_of_improvement @ 0.092 98.48%
+likelihood_of_improvement @ 0.092 99.98%
 
 ## Noise level σ = 0.094
 
-average_improvement @ 0.094 34.7127
-average_percentage_improvement @ 0.094 42.565
-baseline_std @ 0.094 42.2396
-new_std @ 0.094 18.3703
-p_value @ 0.094 1.0e-6
+average_improvement @ 0.094 29.2935
+average_percentage_improvement @ 0.094 40.6001
+baseline_std @ 0.094 40.3913
+new_std @ 0.094 20.947
+p_value @ 0.094 0.0
 significant @ 0.094 true
 likelihood_of_improvement @ 0.094 100.0%
 
 ## Noise level σ = 0.096
 
-average_improvement @ 0.096 16.4547
-average_percentage_improvement @ 0.096 23.0472
-baseline_std @ 0.096 19.8265
-new_std @ 0.096 21.8339
-p_value @ 0.096 8.8e-5
+average_improvement @ 0.096 22.2774
+average_percentage_improvement @ 0.096 32.7322
+baseline_std @ 0.096 42.564
+new_std @ 0.096 22.4601
+p_value @ 0.096 5.0e-6
 significant @ 0.096 true
-likelihood_of_improvement @ 0.096 99.99%
+likelihood_of_improvement @ 0.096 100.0%
 
 ## Noise level σ = 0.098
 
-average_improvement @ 0.098 51.8111
-average_percentage_improvement @ 0.098 47.7051
-baseline_std @ 0.098 151.9149
-new_std @ 0.098 29.1799
-p_value @ 0.098 0.011293
+average_improvement @ 0.098 30.0396
+average_percentage_improvement @ 0.098 36.9411
+baseline_std @ 0.098 111.2136
+new_std @ 0.098 27.4047
+p_value @ 0.098 0.005029
 significant @ 0.098 true
-likelihood_of_improvement @ 0.098 98.87%
+likelihood_of_improvement @ 0.098 99.5%
 
 ## Noise level σ = 0.1
 
-average_improvement @ 0.1 19.3602
-average_percentage_improvement @ 0.1 25.9458
-baseline_std @ 0.1 29.1634
-new_std @ 0.1 19.1999
-p_value @ 0.1 0.000171
+average_improvement @ 0.1 21.8772
+average_percentage_improvement @ 0.1 30.3209
+baseline_std @ 0.1 84.6252
+new_std @ 0.1 26.6124
+p_value @ 0.1 0.005167
 significant @ 0.1 true
-likelihood_of_improvement @ 0.1 99.98%
+likelihood_of_improvement @ 0.1 99.48%
 
