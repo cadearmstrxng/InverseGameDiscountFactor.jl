@@ -20,8 +20,8 @@ include("../../src/utils/Utils.jl")
 function graph_metrics(
     baseline_file::String,
     our_method_file::String;
-    observation_mode="full state",
-    pre_prefix = "./experiments/In-D/",
+    observation_mode="both",
+    pre_prefix = "./experiments/In-D/"
 )
     prefix = pre_prefix
     CairoMakie.activate!()
@@ -30,48 +30,148 @@ function graph_metrics(
     baseline_data = CSV.read(baseline_file, DataFrame, header=false)
     our_method_data = CSV.read(our_method_file, DataFrame, header=false)
 
-    # Extract noise levels, strip 'b' prefix, and convert to numeric values
-    noise_levels = baseline_data[:, 1]
-    σs = [parse(Float64, replace(String(level), "b" => "")) for level in noise_levels]
+    # Calculate the number of noise levels by assuming equal division between full and partial state
+    num_noise_levels = div(nrow(baseline_data), 2)
+    
+    # Verify the assumption works for both files
+    if nrow(baseline_data) != 2 * num_noise_levels || nrow(our_method_data) != 2 * num_noise_levels
+        @warn "The data files don't appear to have exactly 2 equal parts (full/partial state). Using first half as full state, second half as partial state."
+    end
+    
+    # Split the dataframes into full state and partial state parts
+    baseline_full_data = baseline_data[1:num_noise_levels, :]
+    baseline_partial_data = baseline_data[(num_noise_levels+1):end, :]
+    
+    our_method_full_data = our_method_data[1:num_noise_levels, :]
+    our_method_partial_data = our_method_data[(num_noise_levels+1):end, :]
+    
+    # Ensure the noise levels are the same for both full and partial data
+    full_σs = [parse(Float64, replace(String(level), r"^[bm]" => "")) for level in baseline_full_data[:, 1]]
+    partial_σs = [parse(Float64, replace(String(level), r"^[bm]" => "")) for level in baseline_partial_data[:, 1]]
+    
+    if full_σs != partial_σs
+        @warn "Noise levels don't match between full and partial state data"
+        # Use full state noise levels as the reference
+        σs = full_σs
+    else
+        σs = full_σs
+    end
     
     # Debug print to check the data
-    println("Noise levels: ", noise_levels)
-    println("Parsed σs: ", σs)
+    println("Number of noise levels detected: ", num_noise_levels)
+    println("Noise levels: ", σs)
     
-    # Calculate means and standard deviations
-    baseline_means = mean(Matrix(baseline_data[:, 2:end]), dims=2)[:, 1]
-    baseline_stds = std(Matrix(baseline_data[:, 2:end]), dims=2)[:, 1]
+    # Calculate means and standard deviations for full state
+    baseline_full_means = mean(Matrix(baseline_full_data[:, 2:end]), dims=2)[:, 1]
+    baseline_full_stds = std(Matrix(baseline_full_data[:, 2:end]), dims=2)[:, 1]
     
-    our_method_means = mean(Matrix(our_method_data[:, 2:end]), dims=2)[:, 1]
-    our_method_stds = std(Matrix(our_method_data[:, 2:end]), dims=2)[:, 1]
-
-    # Create the figure
-    fig = Figure()
-    ax = Axis(fig[1, 1],
+    our_method_full_means = mean(Matrix(our_method_full_data[:, 2:end]), dims=2)[:, 1]
+    our_method_full_stds = std(Matrix(our_method_full_data[:, 2:end]), dims=2)[:, 1]
+    
+    # Calculate means and standard deviations for partial state
+    baseline_partial_means = mean(Matrix(baseline_partial_data[:, 2:end]), dims=2)[:, 1]
+    baseline_partial_stds = std(Matrix(baseline_partial_data[:, 2:end]), dims=2)[:, 1]
+    
+    our_method_partial_means = mean(Matrix(our_method_partial_data[:, 2:end]), dims=2)[:, 1]
+    our_method_partial_stds = std(Matrix(our_method_partial_data[:, 2:end]), dims=2)[:, 1]
+    
+    # Create figure for all methods together (original plot)
+    fig_all = Figure()
+    ax_all = Axis(fig_all[1, 1],
         xlabel = "Noise Level (σ)",
         ylabel = "Trajectory Error",
-        title = "Trajectory Error vs Noise Level"
+        title = "Trajectory Error vs Noise Level (All Methods)"
     )
 
-    # Plot baseline with non-negative lower bound
-    lines!(ax, σs, baseline_means, color=:red, label="Baseline")
-    band!(ax, σs, 
-          max.(baseline_means - baseline_stds, 0), 
-          baseline_means + baseline_stds, 
-          color=(:red, 0.2), label="Baseline ±1σ")
+    # Plot baseline with non-negative lower bound (full state)
+    lines!(ax_all, σs, baseline_full_means, color=:red, label="Baseline (Full State)")
+    band!(ax_all, σs, 
+          max.(baseline_full_means - baseline_full_stds, 0), 
+          baseline_full_means + baseline_full_stds, 
+          color=(:red, 0.1))  # Reduced opacity
 
-    # Plot our method with non-negative lower bound
-    lines!(ax, σs, our_method_means, color=:blue, label="Our Method")
-    band!(ax, σs, 
-          max.(our_method_means - our_method_stds, 0), 
-          our_method_means + our_method_stds, 
-          color=(:blue, 0.2), label="Our Method ±1σ")
+    # Plot our method with non-negative lower bound (full state)
+    lines!(ax_all, σs, our_method_full_means, color=:blue, label="Our Method (Full State)")
+    band!(ax_all, σs, 
+          max.(our_method_full_means - our_method_full_stds, 0), 
+          our_method_full_means + our_method_full_stds, 
+          color=(:blue, 0.1))  # Reduced opacity
+          
+    # Plot baseline with non-negative lower bound (partial state)
+    lines!(ax_all, σs, baseline_partial_means, color=:green, linestyle=:dash, label="Baseline (Partial State)")
+    band!(ax_all, σs, 
+          max.(baseline_partial_means - baseline_partial_stds, 0), 
+          baseline_partial_means + baseline_partial_stds, 
+          color=(:green, 0.1))  # Reduced opacity
+
+    # Plot our method with non-negative lower bound (partial state)
+    lines!(ax_all, σs, our_method_partial_means, color=:brown, linestyle=:dash, label="Our Method (Partial State)")
+    band!(ax_all, σs, 
+          max.(our_method_partial_means - our_method_partial_stds, 0), 
+          our_method_partial_means + our_method_partial_stds, 
+          color=(:brown, 0.1))  # Reduced opacity
 
     # Add legend
-    axislegend(ax, position=:lt)
+    axislegend(ax_all, position=:lt)
 
-    # Save the figure
-    save(prefix*"/"*observation_mode*"_TrajectoryErrorGraph.png", fig)
+    # Save the all methods figure
+    save(prefix*"/"*observation_mode*"_AllMethods_TrajectoryErrorGraph.png", fig_all)
+    
+    # Create figure for baseline comparison
+    fig_baseline = Figure()
+    ax_baseline = Axis(fig_baseline[1, 1],
+        xlabel = "Noise Level (σ)",
+        ylabel = "Trajectory Error",
+        title = "Baseline: Full State vs Partial State"
+    )
+    
+    # Plot baseline full state
+    lines!(ax_baseline, σs, baseline_full_means, color=:red, label="Full State")
+    band!(ax_baseline, σs, 
+          max.(baseline_full_means - baseline_full_stds, 0), 
+          baseline_full_means + baseline_full_stds, 
+          color=(:red, 0.1))  # Reduced opacity
+    
+    # Plot baseline partial state
+    lines!(ax_baseline, σs, baseline_partial_means, color=:green, linestyle=:dash, label="Partial State")
+    band!(ax_baseline, σs, 
+          max.(baseline_partial_means - baseline_partial_stds, 0), 
+          baseline_partial_means + baseline_partial_stds, 
+          color=(:green, 0.1))  # Reduced opacity
+    
+    axislegend(ax_baseline, position=:lt)
+    
+    # Save the baseline comparison figure
+    save(prefix*"/"*observation_mode*"_Baseline_Comparison.png", fig_baseline)
+    
+    # Create figure for our method comparison
+    fig_our = Figure()
+    ax_our = Axis(fig_our[1, 1],
+        xlabel = "Noise Level (σ)",
+        ylabel = "Trajectory Error",
+        title = "Our Method: Full State vs Partial State"
+    )
+    
+    # Plot our method full state
+    lines!(ax_our, σs, our_method_full_means, color=:blue, label="Full State")
+    band!(ax_our, σs, 
+          max.(our_method_full_means - our_method_full_stds, 0), 
+          our_method_full_means + our_method_full_stds, 
+          color=(:blue, 0.1))  # Reduced opacity
+    
+    # Plot our method partial state
+    lines!(ax_our, σs, our_method_partial_means, color=:brown, linestyle=:dash, label="Partial State")
+    band!(ax_our, σs, 
+          max.(our_method_partial_means - our_method_partial_stds, 0), 
+          our_method_partial_means + our_method_partial_stds, 
+          color=(:brown, 0.1))  # Reduced opacity
+    
+    axislegend(ax_our, position=:lt)
+    
+    # Save the our method comparison figure
+    save(prefix*"/"*observation_mode*"_OurMethod_Comparison.png", fig_our)
+    
+    return σs, baseline_full_means, our_method_full_means, baseline_partial_means, our_method_partial_means
 end
 
 function graph_trajectories(
