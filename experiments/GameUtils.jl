@@ -287,9 +287,12 @@ function init_bicycle_test_game(
         observation_dim = state_dim[1]
         observation_model = 
             (x; σ = σ_) -> 
-            vcat(
-                [ x[state_dim[1] * (i - 1)+1:state_dim[1]*i] .+ σ * randn(state_dim[1])
-                    for i in 1:n]...
+            BlockVector(
+                vcat(
+                    [ x[state_dim[1] * (i - 1)+1:state_dim[1]*i] .+ σ * randn(state_dim[1])
+                        for i in 1:n]...
+                ),
+                [state_dim[1] for _ in 1:n]
             )
     else
         observation_dim = 2
