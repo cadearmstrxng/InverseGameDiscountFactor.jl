@@ -10,7 +10,8 @@ function solve_mcp_game(
     context_state;
     initial_guess = nothing,
     verbose = false,
-    lr = 1e-3
+    lr = 1e-3,
+    rh_horizon = 5
 )
     (; game, parametric_mcp, index_sets, horizon) = mcp_game
     (; dynamics) = game
@@ -37,6 +38,11 @@ function solve_mcp_game(
     end
 
     θ = [x0; context_state]
+
+    initial_state = z
+    for i in 1:horizon - rh_horizon
+
+    end
 
     variables, status, info = ParametricMCPs.solve(
         parametric_mcp,

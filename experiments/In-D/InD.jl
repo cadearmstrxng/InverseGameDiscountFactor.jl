@@ -168,6 +168,7 @@ end
 
 function compare_to_baseline(;full_state=false, graph=true, verbose = true)
     # InD_observations = GameUtils.observe_trajectory(forward_solution, init)
+    rh_horizon = 5
     frames = [26158, 26320] # 162
     # 201 25549, 26381
     # 205 25847,26381
@@ -274,6 +275,7 @@ function compare_to_baseline(;full_state=false, graph=true, verbose = true)
         max_grad_steps = 200,
         verbose = false,
         dynamics = dynamics,
+        rh_horizon = rh_horizon
     )
     println("done")
     print("solving inverse game baseline method...")
@@ -288,6 +290,7 @@ function compare_to_baseline(;full_state=false, graph=true, verbose = true)
         max_grad_steps = 200,
         verbose = false,
         dynamics = dynamics,
+        rh_horizon = rh_horizon
     )
     println("done")
     for i in 1:length(tracks)
