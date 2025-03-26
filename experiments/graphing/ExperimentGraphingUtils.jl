@@ -24,14 +24,15 @@ function graph_metrics(
     pre_prefix = "./experiments/In-D/",
     partial_state_included=true,
     std_dev_threshold=2.5,
-    show_outliers=false
+    show_outliers=false,
+    show_data_points=true
 )
     prefix = pre_prefix
     CairoMakie.activate!()
 
-    data_point_opacity = 0.2
+    data_point_opacity = 0.3
     outlier_point_opacity = data_point_opacity / 3
-    band_opacity = 0.3
+    band_opacity = 0.35
 
     # Read the CSV files with explicit header=false to ensure we get all rows
     baseline_data = CSV.read(baseline_file, DataFrame, header=false)
@@ -126,7 +127,7 @@ function graph_metrics(
         color=(:red, band_opacity))
 
     # Scatter plot for individual baseline full state data points
-    for col in eachindex(baseline_full_individual_points[1, :])
+    show_data_points && for col in eachindex(baseline_full_individual_points[1, :])
         for row in eachindex(σs)
             # Determine if this point is an outlier
             is_outlier = baseline_full_outlier_masks[row][col]
@@ -146,7 +147,7 @@ function graph_metrics(
         color=(:blue, band_opacity))
         
     # Scatter plot for individual our method full state data points
-    for col in eachindex(our_method_full_individual_points[1, :])
+    show_data_points && for col in eachindex(our_method_full_individual_points[1, :])
         for row in eachindex(σs)
             # Determine if this point is an outlier
             is_outlier = our_method_full_outlier_masks[row][col]
@@ -166,7 +167,7 @@ function graph_metrics(
         color=(:green, band_opacity))
         
     # Scatter plot for individual baseline partial state data points
-    if partial_state_included
+    if partial_state_included && show_data_points
         for col in eachindex(baseline_partial_individual_points[1, :])
             for row in eachindex(σs)
                 # Determine if this point is an outlier
@@ -188,7 +189,7 @@ function graph_metrics(
         color=(:brown, band_opacity))
         
     # Scatter plot for individual our method partial state data points
-    if partial_state_included
+    if partial_state_included && show_data_points
         for col in eachindex(our_method_partial_individual_points[1, :])
             for row in eachindex(σs)
                 # Determine if this point is an outlier
@@ -224,7 +225,7 @@ function graph_metrics(
         color=(:red, band_opacity))
         
     # Scatter plot for individual baseline full state data points
-    for col in eachindex(baseline_full_individual_points[1, :])
+    show_data_points && for col in eachindex(baseline_full_individual_points[1, :])
         for row in eachindex(σs)
             # Determine if this point is an outlier
             is_outlier = baseline_full_outlier_masks[row][col]
@@ -278,7 +279,7 @@ function graph_metrics(
         color=(:blue, band_opacity))
         
     # Scatter plot for individual our method full state data points
-    for col in eachindex(our_method_full_individual_points[1, :])
+    show_data_points && for col in eachindex(our_method_full_individual_points[1, :])
         for row in eachindex(σs)
             # Determine if this point is an outlier
             is_outlier = our_method_full_outlier_masks[row][col]
@@ -298,7 +299,7 @@ function graph_metrics(
         color=(:brown, band_opacity))
         
     # Scatter plot for individual our method partial state data points
-    if partial_state_included
+    if partial_state_included && show_data_points
         for col in eachindex(our_method_partial_individual_points[1, :])
             for row in eachindex(σs)
                 # Determine if this point is an outlier
