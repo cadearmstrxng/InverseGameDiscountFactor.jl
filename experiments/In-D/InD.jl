@@ -60,19 +60,21 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
         integration_scheme = :forward_euler
     )
 
+    rh_horizon = length(frames[1]:downsample_rate:frames[2])
+    horizon_window = 10
+    # Initialize game with full state observation
     init = GameUtils.init_bicycle_test_game(
         full_state;
         initial_state = InD_observations[1],
         game_params = mortar([
-            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0, 1.0] for i in 1:length(tracks)]...]),
-        horizon = length(frames[1]:downsample_rate:frames[2]),
+            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0, 10.0] for i in 1:length(tracks)]...]),
+        horizon = horizon_window,
         n = length(tracks),
         dt = 0.04*downsample_rate,
         myopic=true,
         verbose = verbose,
         dynamics = dynamics,
-        lane_centers = lane_centers,
-        # game_environment = PolygonEnvironment(4, 200)
+        lane_centers = lane_centers
     )
     !verbose || println("initial state: ", init.initial_state)
     !verbose || println("initial game parameters: ", init.game_parameters)
@@ -168,7 +170,6 @@ end
 
 function compare_to_baseline(;full_state=false, graph=true, verbose = true)
     # InD_observations = GameUtils.observe_trajectory(forward_solution, init)
-    rh_horizon = 5
     frames = [26158, 26320] # 162
     # 201 25549, 26381
     # 205 25847,26381
@@ -218,13 +219,15 @@ function compare_to_baseline(;full_state=false, graph=true, verbose = true)
         integration_scheme = :forward_euler
     )
 
+    rh_horizon = length(frames[1]:downsample_rate:frames[2])
+    horizon_window = 10
     # Initialize game with full state observation
     init = GameUtils.init_bicycle_test_game(
         full_state;
         initial_state = first_full_observation,
         game_params = mortar([
             [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0, 10.0] for i in 1:length(tracks)]...]),
-        horizon = length(frames[1]:downsample_rate:frames[2]),
+        horizon = horizon_window,
         n = length(tracks),
         dt = 0.04*downsample_rate,
         myopic=true,

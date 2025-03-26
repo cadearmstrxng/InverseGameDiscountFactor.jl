@@ -12,7 +12,7 @@ function solve_myopic_inverse_game(
     rng = Random.MersenneTwister(1),
     dynamics = nothing,
     lr = 1e-3,
-    rh_horizon = 5
+    rh_horizon = 25
 )
     !verbose || println("solving ... ")
     initial_state = (isnothing(initial_state)) ? BlockVector(deepcopy(observed_trajectory[1]), collect(blocksizes(observed_trajectory[1], 1))) : initial_state
@@ -22,24 +22,24 @@ function solve_myopic_inverse_game(
         BlockVector(hidden_state_guess, collect(hidden_state_dim))
     !verbose || println("hidden state: ", hidden_state_0)
     
-    warm_start_sol = 
-        expand_warm_start(
-            warm_start(
-                observed_trajectory,
-                initial_state,
-                mcp_game.horizon;
-                num_players = num_players(mcp_game.game),
-                observation_model = observation_model,
-                partial_observation_state_size = Int64(size(observed_trajectory[1], 1) // num_players(mcp_game.game)),
-                dynamics = dynamics),
-            mcp_game)
+    # warm_start_sol = 
+    #     expand_warm_start(
+    #         warm_start(
+    #             observed_trajectory,
+    #             initial_state,
+    #             rh_horizon;
+    #             num_players = num_players(mcp_game.game),
+    #             observation_model = observation_model,
+    #             partial_observation_state_size = Int64(size(observed_trajectory[1], 1) // num_players(mcp_game.game)),
+    #             dynamics = dynamics),
+    #         mcp_game)
     
-    if verbose 
-        open("warm_start_sol.txt", "w") do io
-            write(io, string(warm_start_sol))
-        end
-        !verbose || println("warm start sol: ", warm_start_sol.status)
-    end
+    # if verbose 
+    #     open("warm_start_sol.txt", "w") do io
+    #         write(io, string(warm_start_sol))
+    #     end
+    #     !verbose || println("warm start sol: ", warm_start_sol.status)
+    # end
     #TODO would be nice to check if warm start solution is feasible
     # for attempt in 1:retries_on_divergence
         # try
@@ -49,10 +49,10 @@ function solve_myopic_inverse_game(
                     initial_state,
                     observed_trajectory,
                     hidden_state_0,
-                    mcp_game.horizon;
+                    rh_horizon;
                     observation_model = observation_model,         
                     max_grad_steps = max_grad_steps,
-                    last_solution = warm_start_sol,
+                    # last_solution = warm_start_sol,
                     lr = lr,
                     rh_horizon = rh_horizon
                 )
