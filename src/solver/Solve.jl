@@ -11,7 +11,7 @@ function solve_mcp_game(
     initial_guess = nothing,
     verbose = false,
     lr = 1e-3,
-    rh_horizon = 5
+    total_horizon = 5
 )
     (; game, parametric_mcp, index_sets, horizon) = mcp_game
     (; dynamics) = game
@@ -40,8 +40,7 @@ function solve_mcp_game(
         end
         z
     end
-    @infiltrate
-    for i in 1:horizon - rh_horizon
+    for i in 1:total_horizon - horizon
         θ = [x0; context_state]
         variables, status, info = ParametricMCPs.solve(
             parametric_mcp,
@@ -65,17 +64,25 @@ function solve_mcp_game(
             push!(final_primals_us[ii], primals[ii][controls_offset[ii]:controls_offset[ii] + control_block_dimensions[ii] - 1])
         end
 
-        z = ChainRulesCore.ignore_derivatives() do
-            first_action = (x, t) -> BlockVector(vcat([primals[ii][state_dimensions[ii]*horizon + 1:state_dimensions[ii]*horizon + sum(control_block_dimensions[ii])] for ii in 1:num_players(game)]...),
-                control_block_dimensions)
-            xs = rollout(dynamics, first_action, x0, horizon + 1).xs[2:end] # may need to increase to horizon + 2 if size doesn't fit
-            x0 = xs[1]
-            xs = reduce(vcat, xs)
-            z[1:(sum(state_dimensions) * horizon)] = ForwardDiff.value.(xs)
-            z
+        if i == total_horizon - horizon
+            final_primals_xs = map(1:num_players(game)) do ii
+                push!(final_primals_xs[ii], primals[ii][state_dimensions[ii]+1:state_dimensions[ii]*horizon])
+            end
+            final_primals_us = map(1:num_players(game)) do ii
+                push!(final_primals_us[ii], primals[ii][controls_offset[ii]+control_block_dimensions[ii]:end])
+            end
+        else
+            z = ChainRulesCore.ignore_derivatives() do
+                first_action = (x, t) -> BlockVector(vcat([primals[ii][state_dimensions[ii]*horizon + 1:state_dimensions[ii]*horizon + sum(control_block_dimensions[ii])] for ii in 1:num_players(game)]...),
+                    control_block_dimensions)
+                xs = rollout(dynamics, first_action, x0, horizon + 1).xs[2:end] # may need to increase to horizon + 2 if size doesn't fit
+                x0 = xs[1]
+                xs = reduce(vcat, xs)
+                z[1:(sum(state_dimensions) * horizon)] = ForwardDiff.value.(xs)
+                z
+            end
         end
     end
-
     primals = map(1:num_players(game)) do ii
         vcat(vcat(final_primals_xs[ii]...), vcat(final_primals_us[ii]...))
     end

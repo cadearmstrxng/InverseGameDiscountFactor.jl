@@ -60,7 +60,7 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
         integration_scheme = :forward_euler
     )
 
-    rh_horizon = length(frames[1]:downsample_rate:frames[2])
+    total_horizon = length(frames[1]:downsample_rate:frames[2])
     horizon_window = 10
     # Initialize game with full state observation
     init = GameUtils.init_bicycle_test_game(
@@ -106,6 +106,7 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
         retries_on_divergence = 3,
         verbose = verbose,
         dynamics = dynamics,
+        total_horizon = total_horizon
     )
     !verbose || println("finished inverse game")
     !verbose || println("recovered pararms: ", method_sol.recovered_params)
@@ -219,7 +220,7 @@ function compare_to_baseline(;full_state=false, graph=true, verbose = true)
         integration_scheme = :forward_euler
     )
 
-    rh_horizon = length(frames[1]:downsample_rate:frames[2])
+    total_horizon = length(frames[1]:downsample_rate:frames[2])
     horizon_window = 10
     # Initialize game with full state observation
     init = GameUtils.init_bicycle_test_game(
@@ -278,7 +279,7 @@ function compare_to_baseline(;full_state=false, graph=true, verbose = true)
         max_grad_steps = 200,
         verbose = false,
         dynamics = dynamics,
-        rh_horizon = rh_horizon
+        total_horizon = total_horizon
     )
     println("done")
     print("solving inverse game baseline method...")
@@ -293,7 +294,7 @@ function compare_to_baseline(;full_state=false, graph=true, verbose = true)
         max_grad_steps = 200,
         verbose = false,
         dynamics = dynamics,
-        rh_horizon = rh_horizon
+        total_horizon = total_horizon
     )
     println("done")
     for i in 1:length(tracks)

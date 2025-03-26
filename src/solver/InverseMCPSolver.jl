@@ -3,10 +3,9 @@ function solve_inverse_mcp_game(
     initial_state,
     τs_observed,
     initial_estimation,
-    horizon;
+    total_horizon;
     observation_model = identity,
     max_grad_steps = 150, lr = 1e-5, last_solution = nothing, discount_threshold = 1e-4,
-    rh_horizon = 10
 )
     function observe_trajectory(x)
         vcat([observation_model(state_t) for state_t in x.blocks]...)
@@ -18,16 +17,16 @@ function solve_inverse_mcp_game(
     """
     function likelihood_cost(τs_observed, context_state_estimation, initial_state)
         solution = solve_mcp_game(mcp_game, initial_state, 
-            context_state_estimation; initial_guess = last_solution, rh_horizon = rh_horizon)
+            context_state_estimation; initial_guess = last_solution, total_horizon = total_horizon)
         if solution.status != PATHSolver.MCP_Solved
             @info "Inner solve did not converge properly, re-initializing..."
             solution = solve_mcp_game(mcp_game, initial_state, 
-                context_state_estimation; initial_guess = nothing)
+                context_state_estimation; initial_guess = nothing, total_horizon = total_horizon)
         end
         push!(solving_info, solution.info)
         last_solution = solution.status == PATHSolver.MCP_Solved ? (; primals = ForwardDiff.value.(solution.primals),
-        variables = ForwardDiff.value.(solution.variables), status = solution.status) : nothing
-        τs_solution = reconstruct_solution(solution, mcp_game.game, horizon)
+        variables = solution.variables, status = solution.status) : nothing
+        τs_solution = reconstruct_solution(solution, mcp_game.game, total_horizon)
         observed_τs_solution = observe_trajectory(τs_solution)
         
         if solution.status == PATHSolver.MCP_Solved
