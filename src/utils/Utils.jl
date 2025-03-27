@@ -64,7 +64,6 @@ This structure is not consistent with MyopicSolver, do not pass in result to myo
 function reconstruct_solution(solution, game, horizon)
     num_player = num_players(game)
     player_state_dimension = convert(Int64, state_dim(game.dynamics)/num_player)
-    @infiltrate
     if typeof(solution) == NamedTuple{(:primals, :variables, :status), Tuple{Vector{Vector{ForwardDiff.Dual{Nothing, Float64, 14}}}, Vector{Float64}, PATHSolver.MCP_Termination}} || typeof(solution) == NamedTuple{(:primals, :variables, :status), Tuple{Vector{Vector{ForwardDiff.Dual{Nothing, Float64, 12}}}, Vector{Float64}, PATHSolver.MCP_Termination}}
         primals = solution.primals
         solution = []
@@ -84,7 +83,7 @@ function reconstruct_solution(solution, game, horizon)
     else
         # player1state = solution.primals[1][1:player_state_dimension*horizon]
         # player2state = solution.primals[2][1:player_state_dimension*horizon]
-        player_states = [ForwardDiff.value.(solution.primals[i][1:player_state_dimension*horizon]) for i in 1:num_player]
+        player_states = [solution.primals[i][1:player_state_dimension*horizon] for i in 1:num_player]
     end
     solution = []
     for t in 1:horizon

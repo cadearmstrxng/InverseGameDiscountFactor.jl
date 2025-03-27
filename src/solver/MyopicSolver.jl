@@ -43,7 +43,7 @@ function solve_myopic_inverse_game(
     #TODO would be nice to check if warm start solution is feasible
     # for attempt in 1:retries_on_divergence
         # try
-            context_state_estimation, last_solution, i_, solving_info, time_exec = 
+            context_state_estimation, last_solution, i_, solving_info, time_exec, all_trajectories = 
                 solve_inverse_mcp_game(
                     mcp_game,
                     initial_state,
@@ -55,6 +55,8 @@ function solve_myopic_inverse_game(
                     # last_solution = warm_start_sol,
                     lr = lr,
                 )
+            @info "inverse game took $(time_exec) seconds"
+            animate_optimization_progress(all_trajectories)
             # verbose||println("solved, status: ", last_solution.status)
             # if solving_info[end].status == PATHSolver.MCP_Solved
                 inv_sol = reconstruct_solution(solve_mcp_game(mcp_game, initial_state, context_state_estimation; verbose = false), mcp_game.game, mcp_game.horizon)

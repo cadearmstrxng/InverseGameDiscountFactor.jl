@@ -37,6 +37,7 @@ using ForwardDiff: ForwardDiff
 using Zygote: Zygote
 using ParametricMCPs: ParametricMCPs
 using Statistics
+using Plots: Plots
 
 # include("utils/ExampleProblems.jl")
 # using .ExampleProblems: n_player_collision_avoidance, CollisionAvoidanceGame
