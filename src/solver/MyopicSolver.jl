@@ -43,7 +43,7 @@ function solve_myopic_inverse_game(
     #TODO would be nice to check if warm start solution is feasible
     # for attempt in 1:retries_on_divergence
         # try
-            context_state_estimation, last_solution, i_, solving_info, time_exec, all_trajectories = 
+            context_state_estimation, last_solution, i_, solving_info, time_exec, all_trajectories, context_states = 
                 solve_inverse_mcp_game(
                     mcp_game,
                     initial_state,
@@ -56,10 +56,23 @@ function solve_myopic_inverse_game(
                     lr = lr,
                 )
             @info "inverse game took $(time_exec) seconds"
-            animate_optimization_progress(all_trajectories)
+            animate_optimization_progress(all_trajectories, mcp_game)
             # verbose||println("solved, status: ", last_solution.status)
             # if solving_info[end].status == PATHSolver.MCP_Solved
-                inv_sol = reconstruct_solution(solve_mcp_game(mcp_game, initial_state, context_state_estimation; verbose = false), mcp_game.game, mcp_game.horizon)
+                sol = solve_mcp_game(mcp_game, initial_state, context_state_estimation; verbose = false)
+                if length(sol.primals[1]) == 0
+                    @info "No solution found"
+                    return (;
+                    sol_error = Inf,
+                    recovered_params = context_state_estimation,
+                    recovered_trajectory = [],
+                    warm_start_trajectory = [],
+                    solving_info = solving_info,
+                    time_exec = time_exec,
+                    context_states = context_states,
+                    )
+                end
+                inv_sol = reconstruct_solution(sol, mcp_game.game, mcp_game.horizon)
                 inv_sol = vcat([observation_model(x) for x in inv_sol.blocks]...)
                 sol_error = norm_sqr(inv_sol - vcat(observed_trajectory...))
 
@@ -71,6 +84,7 @@ function solve_myopic_inverse_game(
                 warm_start_trajectory = reconstruct_solution(warm_start_sol, mcp_game.game, mcp_game.horizon),
                 solving_info = solving_info,
                 time_exec = time_exec,
+                context_states = context_states,
                 )
             # end
         # catch e

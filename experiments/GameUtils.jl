@@ -99,7 +99,8 @@ function n_player_collision_avoidance(
         dynamics,
         cost,
         environment,
-        shared_collision_avoidance_coupling_constraints(num_players, min_distance),
+        # shared_collision_avoidance_coupling_constraints(num_players, min_distance),
+        nothing
     )
     CollisionAvoidanceGame(game)
 end

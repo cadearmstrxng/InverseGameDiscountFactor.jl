@@ -30,8 +30,9 @@ function solve_inverse_mcp_game(
         last_solution = solution.status == PATHSolver.MCP_Solved ? (; primals = ForwardDiff.value.(solution.primals),
         variables = solution.variables, status = solution.status) : nothing
         τs_solution = reconstruct_solution(solution, mcp_game.game, total_horizon)
-        ChainRulesCore.ignore() do
-        push!(all_trajectories, ForwardDiff.value.(deepcopy(τs_solution)))
+        ChainRulesCore.ignore_derivatives() do
+            push!(all_trajectories, ForwardDiff.value.(deepcopy(τs_solution)))
+            println("solving status: ", solution.status)
         end
         
         observed_τs_solution = observe_trajectory(τs_solution)
@@ -47,6 +48,7 @@ function solve_inverse_mcp_game(
     infeasible_counter = 0
     solving_info = []
     context_state_estimation = initial_estimation
+    context_states = [context_state_estimation]
     i_ = 0
     time_exec = 0
     grad_step_time = 0
@@ -84,34 +86,41 @@ function solve_inverse_mcp_game(
         end
         context_state_estimation -= objective_update
         initial_state -= x0_update
+        push!(context_states, context_state_estimation)
     end
-    (; context_state_estimation, last_solution, i_, solving_info, time_exec, all_trajectories)
+    for context_state in context_states
+        println("context_state_estimation: ")
+        for player_cs in 1:8:length(context_state)
+            println("\t", round.(context_state[player_cs:player_cs+7], digits=4))
+        end
+    end
+    (; context_state_estimation, last_solution, i_, solving_info, time_exec, all_trajectories, context_states)
 end
 
 # Add a new function to create an animation
-function animate_optimization_progress(all_trajectories; fps=5)
+function animate_optimization_progress(all_trajectories, mcp_game; fps=1//3)
     n_frames = length(all_trajectories)
+    n = num_players(mcp_game.game)
+    player_state_dimension = convert(Int64, state_dim(mcp_game.game.dynamics)/n)
+    horizon = mcp_game.horizon
     anim = Plots.@animate for i in 1:n_frames
         trajectory = all_trajectories[i]
         
-        # Extract x and y coordinates from the trajectory
-        # Adjust this based on your state representation
-        xs = [state[1] for state in trajectory.blocks]
-        ys = [state[2] for state in trajectory.blocks]
+        # Create a single plot for all players
+        p = Plots.plot(title="Trajectory Optimization Progress (Frame $i/$n_frames)",
+                      xlabel="X Position",
+                      ylabel="Y Position",
+                      legend=:topleft)
         
-        Plots.plot(xs, ys, 
-             label="Iteration $i",
-             title="Trajectory Optimization Progress",
-             xlabel="X Position",
-             ylabel="Y Position",
-             legend=:topleft)
-        
-        # Optionally plot the observed trajectory for comparison
-        # plot!(observed_xs, observed_ys, label="Observed", line=:dash)
-        
-        # Add any additional plotting customization here
+        # Add each player's trajectory to the same plot
+        for j in 1:n
+            xs = [state[(j-1) * player_state_dimension + 1] for state in trajectory.blocks[1:horizon-1]]
+            ys = [state[(j-1) * player_state_dimension + 2] for state in trajectory.blocks[1:horizon-1]]
+            Plots.plot!(p, xs, ys, label="Player $j")
+        end
     end
     
     Plots.gif(anim, "trajectory_optimization.gif", fps=fps)
+    display(anim)
 end
 

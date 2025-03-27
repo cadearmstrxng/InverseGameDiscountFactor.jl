@@ -72,13 +72,12 @@ function solve_mcp_game(
                 push!(final_primals_us[ii], primals[ii][controls_offset[ii]+control_block_dimensions[ii]:end])
             end
         else
+            previous_action = (x, t) -> (length(primals[1]) > controls_offset[1] + (t-1)*control_block_dimensions[1]) ? BlockVector(vcat([primals[ii][controls_offset[ii] + (t-1)*control_block_dimensions[ii]:controls_offset[ii] - 1 + t*control_block_dimensions[ii]] for ii in 1:num_players(game)]...),
+                    control_block_dimensions) : BlockVector(zeros(sum(control_block_dimensions)), control_block_dimensions)
+            xs = rollout(dynamics, previous_action, x0, horizon + 1).xs[2:end]
+            x0 = xs[1]
             z = ChainRulesCore.ignore_derivatives() do
-                first_action = (x, t) -> BlockVector(vcat([primals[ii][state_dimensions[ii]*horizon + 1:state_dimensions[ii]*horizon + sum(control_block_dimensions[ii])] for ii in 1:num_players(game)]...),
-                    control_block_dimensions)
-                xs = rollout(dynamics, first_action, x0, horizon + 1).xs[2:end] # may need to increase to horizon + 2 if size doesn't fit
-                x0 = xs[1]
-                xs = reduce(vcat, xs)
-                z[1:(sum(state_dimensions) * horizon)] = ForwardDiff.value.(xs)
+                z[1:(sum(state_dimensions) * horizon)] = ForwardDiff.value.(reduce(vcat, xs))
                 z
             end
         end

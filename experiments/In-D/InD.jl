@@ -27,7 +27,7 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
     # 207,26098,26320
     # 208,26158,26381,
     tracks = [201, 205, 207, 208]
-    downsample_rate = 9
+    downsample_rate = 17
     InD_observations = GameUtils.pull_trajectory("07";
         track = tracks, downsample_rate = downsample_rate, all = false, frames = frames)
     open("InD_observations.tmp.txt", "w") do f
@@ -106,7 +106,8 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
         retries_on_divergence = 3,
         verbose = verbose,
         dynamics = dynamics,
-        total_horizon = total_horizon
+        total_horizon = total_horizon,
+        lr = 1e-8
     )
     !verbose || println("finished inverse game")
     !verbose || println("recovered pararms: ", method_sol.recovered_params)
