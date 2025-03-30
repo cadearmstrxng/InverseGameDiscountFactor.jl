@@ -27,7 +27,8 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
     # 207,26098,26320
     # 208,26158,26381,
     tracks = [201, 205, 207, 208]
-    downsample_rate = 17
+    # downsample_rate = 17
+    downsample_rate = 6
     InD_observations = GameUtils.pull_trajectory("07";
         track = tracks, downsample_rate = downsample_rate, all = false, frames = frames)
     open("InD_observations.tmp.txt", "w") do f
@@ -61,7 +62,7 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
     )
 
     total_horizon = length(frames[1]:downsample_rate:frames[2])
-    horizon_window = 10
+    horizon_window = 15
     # Initialize game with full state observation
     init = GameUtils.init_bicycle_test_game(
         full_state;
@@ -92,6 +93,29 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
         blocksizes(init.game_parameters, 1)
     )
     !verbose || println("mcp coupled optimization solver initialized")
+
+
+    !verbose || println("solving forward game")
+    raw_sol = InverseGameDiscountFactor.solve_mcp_game(
+        mcp_solver.mcp_game,
+        init.initial_state,
+        init.game_parameters;
+        verbose = false,
+        total_horizon = total_horizon
+        )
+    !verbose || println("forward game solved: ", raw_sol.status)
+    forward_solution = InverseGameDiscountFactor.reconstruct_solution(
+        raw_sol,
+        init.game_structure.game,
+        init.horizon
+    )
+    ExperimentGraphingUtils.graph_trajectories(
+        "Forward Game",
+        [InD_observations, forward_solution],
+        init.game_structure,
+        init.horizon
+    )
+    return
 
     !verbose || println("solving inverse game")
     method_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(

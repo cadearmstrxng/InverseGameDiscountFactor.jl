@@ -362,7 +362,7 @@ function graph_trajectories(
     trajectories,
     game_structure,
     horizon;
-    colors = [[(:red, 1.0), (:blue, 1.0), (:green, 1.0)], [(:red, 0.75), (:blue, 0.75), (:green, 0.75)]],
+    colors = [[(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:yellow, 1.0)], [(:red, 0.75), (:blue, 0.75), (:green, 0.75), (:yellow, 0.75)]],
     constraints = nothing
     # TODO automatically generate default colors based on number of players?
 )
