@@ -63,7 +63,7 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
         full_state;
         initial_state = InD_observations[1],
         game_params = mortar([
-            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0, 1.0] for i in 1:length(tracks)]...]),
+            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0, 5.0] for i in 1:length(tracks)]...]),
         horizon = length(frames[1]:downsample_rate:frames[2]),
         n = length(tracks),
         dt = 0.04*downsample_rate,
@@ -89,6 +89,27 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
         blocksizes(init.game_parameters, 1)
     )
     !verbose || println("mcp coupled optimization solver initialized")
+
+
+    # forward_sol = InverseGameDiscountFactor.solve_mcp_game(
+    #     mcp_solver.mcp_game,
+    #     init.initial_state,
+    #     init.game_parameters;
+    # )
+    # traj = InverseGameDiscountFactor.reconstruct_solution(forward_sol, init.game_structure.game, init.horizon)
+    # ExperimentGraphingUtils.graph_trajectories(
+    #     "Forward game",
+    #     [InD_observations, traj],
+    #     init.game_structure,
+    #     init.horizon;
+    #     colors = [
+    #         [(:red, 0.5), (:blue, 0.5), (:green, 0.5), (:purple, 0.5)],
+    #         [(:red, 1.0 ), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)]
+    #     ],
+    #     constraints = get_constraints(init.environment)
+    # )
+    # return
+
 
     !verbose || println("solving inverse game")
     method_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
