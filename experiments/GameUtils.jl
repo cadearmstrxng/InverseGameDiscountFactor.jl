@@ -111,10 +111,8 @@ function InD_collision_avoidance(
     environment,
     min_distance = 1.0, # context state 5
     collision_avoidance_coefficient = 20.0,
-    dynamics = planar_double_integrator(;
-        state_bounds = (; lb = [-Inf, -Inf, -0.8, -0.8], ub = [Inf, Inf, 0.8, 0.8]),
-        control_bounds = (; lb = [-10, -10], ub = [10, 10]),
-    ),
+    ped_dynamics = nothing,
+    car_dynamics = nothing,
     myopic = true)
 
     cost = let
@@ -138,28 +136,27 @@ function InD_collision_avoidance(
             end
             sum(cost)
         end
+        function conversation_cost(x, i, context_state, t)
+            dist = norm_sqr(x[1:2] - context_state[1:2])
+            (myopic ? context_state[3] ^ t : 1) * (exp(-dist) + exp(dist - 5))
+        end
         function cost_for_player(i, xs, us, context_state, T)
-            early_target = target_cost(xs[1][Block(i)], context_state[Block(i)], 1)
             mean_target = mean([target_cost(xs[t + 1][Block(i)], context_state[Block(i)], t) for t in 1:T])
-            minimum_target = minimum([target_cost(xs[t][Block(i)], context_state[Block(i)],t) for t in 1:T])
             control = mean([control_cost(us[t][Block(i)], context_state[Block(i)], t) for t in 1:T])
             safe_distance_violation = mean([collision_cost(xs[t], i, context_state[Block(i)], t) for t in 1:T])
             lane_center = mean([lane_center_cost(xs[t+1][Block(i)], i, context_state[Block(i)], t) for t in 1:T])
+            ped_conversation_cost = mean([conversation_cost(xs[t], i, context_state[Block(i)], t) for t in 1:T])
 
-            #contex states 6-10
-
-            # context_state[Block(i)][5] * early_target + 
             context_state[Block(i)][myopic ? 5 : 4] * mean_target + 
-            # context_state[Block(i)][7] * minimum_target + 
             context_state[Block(i)][myopic ? 6 : 5] * control +
             context_state[Block(i)][myopic ? 7 : 6] * safe_distance_violation +
+
+            # costs unique to cars
             (i > 2 ? context_state[Block(i)][myopic ? 8 : 7] * lane_center : 0.0)
 
-            # # 1.0 * early_target + 
-            # 3.0 * mean_target +
-            # # 1.0 * minimum_target + 
-            # 0.01 * control +
-            # 2.0 * safe_distance_violation
+            # costs unique to pedestrians
+            # (i < 3 ? context_state[Block(i)][myopic ? 9 : 8] * ped_conversation_cost : 0.0)
+
         end
         function cost_function(xs, us, context_state)
             num_players = blocksize(xs[1], 1)
@@ -168,12 +165,13 @@ function InD_collision_avoidance(
         end
         TrajectoryGameCost(cost_function, GeneralSumCostStructure())
     end
-    dynamics = ProductDynamics([dynamics for _ in 1:num_players])
+    dynamics = ProductDynamics(vcat([ped_dynamics for _ in 1:2]..., [car_dynamics for _ in 3:num_players]...))
     game = TrajectoryGame(
         dynamics,
         cost,
         environment,
-        shared_collision_avoidance_coupling_constraints(num_players, min_distance),
+        # shared_collision_avoidance_coupling_constraints(num_players, min_distance),
+        nothing
     )
     CollisionAvoidanceGame(game)
 
@@ -198,10 +196,8 @@ function init_crosswalk_game(
     horizon = 25,
     num_players = 2,
     myopic = false,
-    dynamics = planar_double_integrator(;
-        state_bounds = (; lb = [-Inf, -Inf, -0.8, -0.8], ub = [Inf, Inf, 0.8, 0.8]),
-        control_bounds = (; lb = [-10, -10], ub = [10, 10]),
-    )
+    ped_dynamics = nothing,
+    car_dynamics = nothing,
 )
     game_structure = n_player_collision_avoidance(
         num_players;
@@ -264,13 +260,8 @@ function init_bicycle_test_game(
     dt = 0.04,
     myopic = false,
     verbose = false,
-    dynamics = BicycleDynamics(;
-        dt = dt, # needs to become framerate
-        l = 1.0,
-        state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
-        control_bounds = (; lb = [-5, -pi/2], ub = [5, pi/2]),
-        integration_scheme = :forward_euler
-    ),
+    ped_dynamics = nothing,
+    car_dynamics = nothing,
     lane_centers = nothing,
 )
     !verbose || print("initializing game ... ")
@@ -280,7 +271,8 @@ function init_bicycle_test_game(
         environment = game_environment,
         min_distance = 0.5,
         collision_avoidance_coefficient = 5.0,
-        dynamics = dynamics,
+        ped_dynamics = ped_dynamics,
+        car_dynamics = car_dynamics,
         myopic = myopic
     )
     !verbose || print(" game structure initialized\n")

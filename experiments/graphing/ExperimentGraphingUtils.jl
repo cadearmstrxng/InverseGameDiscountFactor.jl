@@ -363,7 +363,8 @@ function graph_trajectories(
     game_structure,
     horizon;
     colors = [[(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:yellow, 1.0)], [(:red, 0.75), (:blue, 0.75), (:green, 0.75), (:yellow, 0.75)]],
-    constraints = nothing
+    constraints = nothing,
+    lane_centers = nothing
     # TODO automatically generate default colors based on number of players?
 )
     CairoMakie.activate!()
@@ -433,7 +434,20 @@ function graph_trajectories(
         #         [trajectories[j][t][Block(length(blocks(trajectories[2])))][(i - 1) * p_state_dim + 2]],
         #         color = colors[j][i], marker=:star5)
     end
-
+    if lane_centers !== nothing
+        for i in eachindex(lane_centers)
+            # min_x = minimum([trajectories[1][t][Block(i)][1] for t in eachindex(trajectories[1])])
+            # max_x = maximum([trajectories[1][t][Block(i)][2] for t in eachindex(trajectories[1])])
+            # xs = collect(min_x:10:max_x)
+            # println(xs)
+            # println([lane_centers[i](x) for x in xs])
+            ys = [lane_centers[i](x) for x in [trajectories[1][t][Block(i+2)][1] for t in eachindex(trajectories[1])]]
+            CairoMakie.lines!(ax,
+                [trajectories[1][t][Block(i+2)][1] for t in eachindex(trajectories[1])],
+                ys,
+                color = :black, linestyle=:dash)
+        end
+    end
         # CairoMakie.scatter!(ax, 
         #     [trajectories[2][Block(t)][(i - 1) * p_state_dim + 1] for t in eachindex(blocks(trajectories[2]))],
         #     [trajectories[2][Block(t)][(i - 1) * p_state_dim + 2] for t in eachindex(blocks(trajectories[2]))], 

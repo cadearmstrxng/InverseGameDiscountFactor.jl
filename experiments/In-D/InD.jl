@@ -11,6 +11,7 @@ using ImageTransformations
 using Rotations
 using OffsetArrays:Origin
 using TrajectoryGamesExamples: BicycleDynamics, PolygonEnvironment
+using Statistics: mean
 
 include("../GameUtils.jl")
 include("../graphing/ExperimentGraphingUtils.jl")
@@ -39,25 +40,30 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
     trk_201_lane_center(x) = 0.0  # Placeholder if no coefficients provided
     trk_205_lane_center(x) = 0.0  # Placeholder if no coefficients provided
 
-    # 6th degree polynomial for track 207
-    trk_207_lane_center(x) = -6.535465682649165e-04*x^6 + 
-                            -0.069559792458210*x^5 + 
-                            -3.033950160533982*x^4 + 
-                            -69.369975733866840*x^3 + 
-                            -8.760325006936075e+02*x^2 + 
-                            -5.782944928944775e+03*x + 
-                            -1.547509969706588e+04
+    trk_207_lane_center(x) = -0.00017689424941367952*x^5 + 
+                            -0.01392776676762521*x^4 + 
+                            -0.38618068109105161*x^3 + 
+                            -3.938661796855388*x^2 + 
+                            1.9163167828141503*x + 
+                            252.1918028422481
 
     # Linear function for track 208
     trk_208_lane_center(x) = 8.304049624037807*x + 1.866183521575921e+02
 
     # Update the lane centers array to match the tracks array
     lane_centers = [trk_201_lane_center, trk_205_lane_center, trk_207_lane_center, trk_208_lane_center]
-    dynamics = BicycleDynamics(;
+    car_dynamics = BicycleDynamics(;
         dt = 0.04*downsample_rate, # needs to become framerate
         l = 1.0,
         state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
-        control_bounds = (; lb = [-5, -pi/4], ub = [5, pi/4]),
+        control_bounds = (; lb = [-5, -pi/4], ub = [3, pi/4]),
+        integration_scheme = :forward_euler
+    )
+    ped_dynamics = BicycleDynamics(;
+        dt = 0.04*downsample_rate, # needs to become framerate
+        l = 1.0,
+        state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
+        control_bounds = (; lb = [-2, -pi], ub = [2, pi]),
         integration_scheme = :forward_euler
     )
 
@@ -74,17 +80,29 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
         dt = 0.04*downsample_rate,
         myopic=true,
         verbose = verbose,
-        dynamics = dynamics,
+        ped_dynamics = ped_dynamics,
+        car_dynamics = car_dynamics,
         lane_centers = lane_centers
     )
+
+
+    InD_observations = (full_state) ? InD_observations : [BlockVector(GameUtils.observe_trajectory(InD_observations[t], init;blocked_by_time = false),
+        [init.observation_dim for _ in 1:length(tracks)]) for t in 1:init.horizon]
+
+    # ExperimentGraphingUtils.graph_trajectories(
+    #     "lane centers",
+    #     [InD_observations],
+    #     init.game_structure,
+    #     init.horizon;
+    #     lane_centers = lane_centers[3:4]
+    # )
+
+    # return
     !verbose || println("initial state: ", init.initial_state)
     !verbose || println("initial game parameters: ", init.game_parameters)
     !verbose || println("initial horizon: ", init.horizon)
     !verbose || println("observation model: ", init.observation_model)
     !verbose || println("observation dim: ", init.observation_dim)
-    
-    InD_observations = (full_state) ? InD_observations : [BlockVector(GameUtils.observe_trajectory(InD_observations[t], init;blocked_by_time = false),
-        [init.observation_dim for _ in 1:length(tracks)]) for t in 1:init.horizon]
     
     !verbose || println("game initialized\ninitializing mcp coupled optimization solver")
     mcp_solver = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
@@ -95,27 +113,27 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
     !verbose || println("mcp coupled optimization solver initialized")
 
 
-    !verbose || println("solving forward game")
-    raw_sol = InverseGameDiscountFactor.solve_mcp_game(
-        mcp_solver.mcp_game,
-        init.initial_state,
-        init.game_parameters;
-        verbose = false,
-        total_horizon = total_horizon
-        )
-    !verbose || println("forward game solved: ", raw_sol.status)
-    forward_solution = InverseGameDiscountFactor.reconstruct_solution(
-        raw_sol,
-        init.game_structure.game,
-        init.horizon
-    )
-    ExperimentGraphingUtils.graph_trajectories(
-        "Forward Game",
-        [InD_observations, forward_solution],
-        init.game_structure,
-        init.horizon
-    )
-    return
+    # !verbose || println("solving forward game")
+    # raw_sol = InverseGameDiscountFactor.solve_mcp_game(
+    #     mcp_solver.mcp_game,
+    #     init.initial_state,
+    #     init.game_parameters;
+    #     verbose = false,
+    #     total_horizon = total_horizon
+    #     )
+    # !verbose || println("forward game solved: ", raw_sol.status)
+    # forward_solution = InverseGameDiscountFactor.reconstruct_solution(
+    #     raw_sol,
+    #     init.game_structure.game,
+    #     init.horizon
+    # )
+    # ExperimentGraphingUtils.graph_trajectories(
+    #     "Forward Game",
+    #     [InD_observations, forward_solution],
+    #     init.game_structure,
+    #     init.horizon;
+    # )
+    # return
 
     !verbose || println("solving inverse game")
     method_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
@@ -129,7 +147,7 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
         max_grad_steps = 200,
         retries_on_divergence = 3,
         verbose = verbose,
-        dynamics = dynamics,
+        dynamics = init.game_structure.game.dynamics,
         total_horizon = total_horizon,
         lr = 1e-8
     )

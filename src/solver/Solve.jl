@@ -40,7 +40,7 @@ function solve_mcp_game(
         end
         z
     end
-    for i in 1:total_horizon - horizon + 1
+    for i in 1:total_horizon
         θ = [x0; context_state]
         variables, status, info = ParametricMCPs.solve(
             parametric_mcp,
@@ -52,42 +52,44 @@ function solve_mcp_game(
             use_basics = true,
             use_start = true,
             lr = lr
-        ) # change this to David's package -> MixedComplementarityProblem.PrimalDualMCP (mcp.jl)
+        ) 
         if status != PATHSolver.MCP_Solved
-            
+            variables_, status_, info_ = ParametricMCPs.solve(
+            parametric_mcp,
+            θ;
+            verbose
+            )
+            if status_ == PATHSolver.MCP_Solved
+                variables = variables_
+                status = status_
+                info = info_
+            end
         end
         ChainRulesCore.ignore_derivatives() do
             @info "Iteration: $i, $status"
         end
-            primals = map(1:num_players(game)) do ii
-                variables[index_sets.τ_idx_set[ii]]
-            end
+        primals = map(1:num_players(game)) do ii
+            variables[index_sets.τ_idx_set[ii]]
+        end
         final_primals_xs = map(1:num_players(game)) do ii
             push!(final_primals_xs[ii], primals[ii][1:state_dimensions[ii]])
         end
-        final_primals_us = map(1:num_players(game)) do ii
-            push!(final_primals_us[ii], primals[ii][controls_offset[ii]:controls_offset[ii] + control_block_dimensions[ii] - 1])
-        end
-
-        if i == total_horizon - horizon + 1
-            final_primals_xs = map(1:num_players(game)) do ii
-                push!(final_primals_xs[ii], primals[ii][state_dimensions[ii]+1:state_dimensions[ii]*horizon])
-            end
+        if i != total_horizon
             final_primals_us = map(1:num_players(game)) do ii
-                push!(final_primals_us[ii], primals[ii][controls_offset[ii]+control_block_dimensions[ii]:end])
+                push!(final_primals_us[ii], primals[ii][controls_offset[ii]:controls_offset[ii] + control_block_dimensions[ii] - 1])
             end
-        else
-            # previous_action = (x, t) -> (length(primals[1]) > controls_offset[1] + (t-1)*control_block_dimensions[1]) ? BlockVector(vcat([primals[ii][controls_offset[ii] + (t-1)*control_block_dimensions[ii]:controls_offset[ii] - 1 + t*control_block_dimensions[ii]] for ii in 1:num_players(game)]...),
-            #         control_block_dimensions) : BlockVector(zeros(sum(control_block_dimensions)), control_block_dimensions)
-            placeholder_strategy = (x, t) -> (t == 1) ?
-                BlockVector(vcat([primals[ii][controls_offset[ii]:controls_offset[ii]-1+ control_block_dimensions[ii]] for ii in 1:num_players(game)]...), control_block_dimensions) : dummy_strategy(x, t)
-            xs = rollout(dynamics, placeholder_strategy, x0, horizon + 1).xs[2:end]
-            x0 = xs[1]
-            z = ChainRulesCore.ignore_derivatives() do
-                z[1:(sum(state_dimensions) * horizon)] = ForwardDiff.value.(reduce(vcat, xs))
-                # TODO take duals from previous solution
-                z
-            end
+        end
+        # previous_action = (x, t) -> (length(primals[1]) > controls_offset[1] + (t-1)*control_block_dimensions[1]) ? BlockVector(vcat([primals[ii][controls_offset[ii] + (t-1)*control_block_dimensions[ii]:controls_offset[ii] - 1 + t*control_block_dimensions[ii]] for ii in 1:num_players(game)]...),
+        #         control_block_dimensions) : BlockVector(zeros(sum(control_block_dimensions)), control_block_dimensions)
+        placeholder_strategy = (x, t) -> (t < horizon) ?
+            BlockVector(vcat([primals[ii][controls_offset[ii] + (t-1)*control_block_dimensions[ii]:controls_offset[ii]-1+ t*control_block_dimensions[ii]] for ii in 1:num_players(game)]...), control_block_dimensions) : dummy_strategy(x, t)
+        xs = rollout(dynamics, placeholder_strategy, x0, horizon + 1).xs[2:end]
+        x0 = xs[1]
+        z = ChainRulesCore.ignore_derivatives() do
+            # z[1:(sum(state_dimensions) * horizon)] = ForwardDiff.value.(reduce(vcat, xs))
+            # # TODO take duals from previous solution
+            # z
+            z = copy(ForwardDiff.value.(variables))
         end
     end
     primals = map(1:num_players(game)) do ii
