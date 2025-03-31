@@ -132,6 +132,11 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
     #     [InD_observations, forward_solution],
     #     init.game_structure,
     #     init.horizon;
+    #     colors = [
+    #         [(:red, 0.5), (:blue, 0.5), (:green, 0.5), (:brown, 0.5)],
+    #         [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:brown, 1.0)]
+    #     ],
+    #     constraints = get_constraints(init.environment)
     # )
     # return
 
