@@ -16,6 +16,7 @@ function solve_myopic_inverse_game(
 )
     !verbose || println("solving ... ")
     initial_state = (isnothing(initial_state)) ? BlockVector(deepcopy(observed_trajectory[1]), collect(blocksizes(observed_trajectory[1], 1))) : initial_state
+    state_size = Int64(length(initial_state) / 4)
     !verbose || println("initial state: ", initial_state)
     hidden_state_0 = isnothing(hidden_state_guess) ?
         BlockVector(randn(rng, sum(hidden_state_dim)), collect(hidden_state_dim)) :
@@ -59,29 +60,31 @@ function solve_myopic_inverse_game(
             animate_optimization_progress(all_trajectories, mcp_game)
             # verbose||println("solved, status: ", last_solution.status)
             # if solving_info[end].status == PATHSolver.MCP_Solved
-                sol = solve_mcp_game(mcp_game, initial_state, context_state_estimation; verbose = false)
-                if length(sol.primals[1]) == 0
-                    @info "No solution found"
-                    return (;
-                    sol_error = Inf,
-                    recovered_params = context_state_estimation,
-                    recovered_trajectory = [],
-                    warm_start_trajectory = [],
-                    solving_info = solving_info,
-                    time_exec = time_exec,
-                    context_states = context_states,
-                    )
-                end
-                inv_sol = reconstruct_solution(sol, mcp_game.game, mcp_game.horizon)
-                inv_sol = vcat([observation_model(x) for x in inv_sol.blocks]...)
-                sol_error = norm_sqr(inv_sol - vcat(observed_trajectory...))
+            @infiltrate
+                sol = solve_mcp_game(mcp_game, initial_state, context_state_estimation; verbose = false, total_horizon = total_horizon)
+                # if length(sol.primals[1]) == 0
+                #     @info "No solution found"
+                #     return (;
+                #     sol_error = Inf,
+                #     recovered_params = context_state_estimation,
+                #     recovered_trajectory = [],
+                #     warm_start_trajectory = [],
+                #     solving_info = solving_info,
+                #     time_exec = time_exec,
+                #     context_states = context_states,
+                #     )
+                # end
+                # inv_sol = map(1:total_horizon) do t
+                #         vcat([ForwardDiff.value.(last_solution.primals[i][(t-1)*state_size + 1: t*state_size]) for i in 1:num_players(mcp_game.game)]...)
+                # end
+                inv_sol = reconstruct_solution(sol, mcp_game.game, total_horizon)
+                sol_error = norm_sqr(vcat(inv_sol...) - vcat(observed_trajectory...))
 
 
                 return (;
                 sol_error = sol_error,
                 recovered_params = context_state_estimation,
                 recovered_trajectory = inv_sol,
-                warm_start_trajectory = reconstruct_solution(warm_start_sol, mcp_game.game, mcp_game.horizon),
                 solving_info = solving_info,
                 time_exec = time_exec,
                 context_states = context_states,

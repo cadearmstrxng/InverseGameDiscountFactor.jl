@@ -154,24 +154,12 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
         verbose = verbose,
         dynamics = init.game_structure.game.dynamics,
         total_horizon = total_horizon,
-        lr = 1e-8
+        lr = 1e-4
     )
     !verbose || println("finished inverse game")
     !verbose || println("recovered pararms: ", method_sol.recovered_params)
 
     if graph
-        ExperimentGraphingUtils.graph_trajectories(
-            "Observed v. Recovered v. Warm Start",
-            [InD_observations, method_sol.recovered_trajectory, method_sol.warm_start_trajectory],
-            init.game_structure,
-            init.horizon;
-            colors = [
-                [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)],
-                [(:red, 0.5), (:blue, 0.5), (:green, 0.5), (:purple, 0.5)],
-                [(:red, 0.2 ), (:blue, 0.2), (:green, 0.2), (:purple, 0.2)]
-            ],
-            constraints = get_constraints(init.environment)
-        )
         ExperimentGraphingUtils.graph_trajectories(
             "Observed v. Recovered",
             [InD_observations, method_sol.recovered_trajectory],
@@ -184,37 +172,10 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
             ],
             constraints = get_constraints(init.environment)
         )
-        ExperimentGraphingUtils.graph_trajectories(
-            "Observed v. Warm Start",
-            [InD_observations, method_sol.warm_start_trajectory],
-            init.game_structure,
-            init.horizon;
-            colors = [
-                [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)],
-                [(:red, 0.5), (:blue, 0.5), (:green, 0.5), (:purple, 0.5)],
-                [(:red, 0.2 ), (:blue, 0.2), (:green, 0.2), (:purple, 0.2)]
-            ],
-            constraints = get_constraints(init.environment)
-        )
-        ExperimentGraphingUtils.graph_trajectories(
-            "Recovered v. Warm Start",
-            [InD_observations, method_sol.recovered_trajectory, method_sol.warm_start_trajectory],
-            init.game_structure,
-            init.horizon;
-            colors = [
-                [(:red, 0.0), (:blue, 0.0), (:green, 0.0), (:purple, 0.0)],
-                [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)], 
-                [(:red, 0.5), (:blue, 0.5), (:green, 0.5), (:purple, 0.5)]
-            ],
-            constraints = get_constraints(init.environment)
-        )
     end
 
-    sol_error = norm_sqr(method_sol.recovered_trajectory - vcat(InD_observations...))
-    !verbose || println("inverse sol error: ", sol_error)
-    warm_sol_error = norm_sqr(method_sol.warm_start_trajectory - vcat(InD_observations...))
-    !verbose || println("warm start sol error: ", warm_sol_error)
-    !verbose || println("% improvement on warm start: ", (warm_sol_error - sol_error) / warm_sol_error * 100)
+    sol_error = norm_sqr(vcat(method_sol.recovered_trajectory...) - vcat(InD_observations...))
+    !verbose || println("inverse sol error: ", sol_error / length(InD_observations))
 end
 
 function compare_to_baseline(;full_state=false, graph=true, verbose = true)

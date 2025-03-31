@@ -27,8 +27,8 @@ function solve_inverse_mcp_game(
         #         context_state_estimation; initial_guess = nothing, total_horizon = total_horizon)
         # end
         push!(solving_info, solution.info)
-        last_solution = solution.status == PATHSolver.MCP_Solved ? (; primals = ForwardDiff.value.(solution.primals),
-        variables = ForwardDiff.value.(solution.variables), status = solution.status) : nothing
+        last_solution = (; primals = ForwardDiff.value.(solution.primals),
+        variables = ForwardDiff.value.(solution.variables), status = solution.status)
         τs_solution = reconstruct_solution(solution, mcp_game.game, total_horizon)
         ChainRulesCore.ignore_derivatives() do
             push!(all_trajectories, ForwardDiff.value.(deepcopy(τs_solution)))
@@ -76,8 +76,8 @@ function solve_inverse_mcp_game(
         clamp!(objective_grad, -50, 50)
         clamp!(x0_grad, -10, 10)
         objective_update = lr * objective_grad
-        x0_update = 1e-3 * x0_grad
-        if norm(objective_update) < 1e-2 && norm(x0_update) < 1e-4
+        x0_update = lr * x0_grad
+        if norm(objective_update)/norm(context_state_estimation) < 1e-3 && norm(x0_update)/norm(initial_state) < 1e-3
             @info "Inner iteration terminates at iteration: "*string(i)
             break
         elseif infeasible_counter >= 4
@@ -94,6 +94,7 @@ function solve_inverse_mcp_game(
             println("\t", round.(context_state[player_cs:player_cs+7], digits=4))
         end
     end
+    context_state_estimation = ForwardDiff.value.(context_state_estimation)
     (; context_state_estimation, last_solution, i_, solving_info, time_exec, all_trajectories, context_states)
 end
 
