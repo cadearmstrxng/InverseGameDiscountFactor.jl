@@ -28,7 +28,7 @@ function solve_inverse_mcp_game(
         # end
         push!(solving_info, solution.info)
         last_solution = solution.status == PATHSolver.MCP_Solved ? (; primals = ForwardDiff.value.(solution.primals),
-        variables = solution.variables, status = solution.status) : nothing
+        variables = ForwardDiff.value.(solution.variables), status = solution.status) : nothing
         τs_solution = reconstruct_solution(solution, mcp_game.game, total_horizon)
         ChainRulesCore.ignore_derivatives() do
             push!(all_trajectories, ForwardDiff.value.(deepcopy(τs_solution)))

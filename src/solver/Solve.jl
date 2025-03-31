@@ -66,7 +66,7 @@ function solve_mcp_game(
             end
         end
         ChainRulesCore.ignore_derivatives() do
-            @info "Iteration: $i, $status"
+            @info "time step: $i, $status"
         end
         primals = map(1:num_players(game)) do ii
             variables[index_sets.τ_idx_set[ii]]
@@ -79,18 +79,19 @@ function solve_mcp_game(
                 push!(final_primals_us[ii], primals[ii][controls_offset[ii]:controls_offset[ii] + control_block_dimensions[ii] - 1])
             end
         end
-        # previous_action = (x, t) -> (length(primals[1]) > controls_offset[1] + (t-1)*control_block_dimensions[1]) ? BlockVector(vcat([primals[ii][controls_offset[ii] + (t-1)*control_block_dimensions[ii]:controls_offset[ii] - 1 + t*control_block_dimensions[ii]] for ii in 1:num_players(game)]...),
-        #         control_block_dimensions) : BlockVector(zeros(sum(control_block_dimensions)), control_block_dimensions)
-        placeholder_strategy = (x, t) -> (t < horizon) ?
-            BlockVector(vcat([primals[ii][controls_offset[ii] + (t-1)*control_block_dimensions[ii]:controls_offset[ii]-1+ t*control_block_dimensions[ii]] for ii in 1:num_players(game)]...), control_block_dimensions) : dummy_strategy(x, t)
-        xs = rollout(dynamics, placeholder_strategy, x0, horizon + 1).xs[2:end]
-        x0 = xs[1]
         z = ChainRulesCore.ignore_derivatives() do
-            # z[1:(sum(state_dimensions) * horizon)] = ForwardDiff.value.(reduce(vcat, xs))
-            # # TODO take duals from previous solution
-            # z
+            inital_guess_strategy = (x, t) -> (t < horizon) ?
+                BlockVector(
+                    vcat([ForwardDiff.value.(primals[ii][controls_offset[ii] + (t-1)*control_block_dimensions[ii]:controls_offset[ii]-1+ t*control_block_dimensions[ii]]) for ii in 1:num_players(game)]...),
+                    control_block_dimensions) : dummy_strategy(x, t)
+            xs = rollout(dynamics, inital_guess_strategy, ForwardDiff.value.(x0), horizon + 1).xs[2:end]
+            xs = reduce(vcat, xs)
+            z[1:(sum(state_dimensions) * horizon)] = xs
             z = copy(ForwardDiff.value.(variables))
         end
+        placeholder_strategy = (x, t) -> (t < horizon) ?
+            BlockVector(vcat([primals[ii][controls_offset[ii] + (t-1)*control_block_dimensions[ii]:controls_offset[ii]-1+ t*control_block_dimensions[ii]] for ii in 1:num_players(game)]...), control_block_dimensions) : dummy_strategy(x, t)
+        x0 = rollout(dynamics, placeholder_strategy, x0, 3).xs[2]
     end
     primals = map(1:num_players(game)) do ii
         vcat(vcat(final_primals_xs[ii]...), vcat(final_primals_us[ii]...))
