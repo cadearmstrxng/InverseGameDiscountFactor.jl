@@ -352,6 +352,19 @@ function compare_to_baseline(;full_state=false, graph=true, verbose = true)
             constraints = init.environment === nothing ? nothing : get_constraints(init.environment),
             p_state_dim = 2
         )
+        ExperimentGraphingUtils.graph_trajectories(
+            "Recovered v. Observed",
+            [InD_observations, method_trajectory, baseline_trajectory],
+            init.game_structure,
+            init.horizon;
+            colors = [
+                [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)],
+                [(:red, 0.5), (:blue, 0.5), (:green, 0.5), (:purple, 0.5)],
+                [(:red, 0.0), (:blue, 0.0), (:green, 0.0), (:purple, 0.0)]
+            ],
+            constraints = init.environment === nothing ? nothing : get_constraints(init.environment),
+            p_state_dim = 2
+        )
     end
 end
 

@@ -372,32 +372,32 @@ function graph_trajectories(
     fig = CairoMakie.Figure()
     ax = CairoMakie.Axis(fig[1,1], aspect = DataAspect())
 
-    # image_data = CairoMakie.load("experiments/data/07_background.png")
-    # image_data = image_data[end:-1:1, :]
-    # image_data = image_data'
-    # # ax1 = Axis(fig[1,1], aspect = DataAspect())
-    # trfm = ImageTransformations.recenter(Rotations.RotMatrix(-2.303611),center(image_data))
-    # x_crop_min = 430
-    # x_crop_max = 875
-    # y_crop_min = 225
-    # y_crop_max = 1025
+    image_data = CairoMakie.load("experiments/data/07_background.png")
+    image_data = image_data[end:-1:1, :]
+    image_data = image_data'
+    # ax1 = Axis(fig[1,1], aspect = DataAspect())
+    trfm = ImageTransformations.recenter(Rotations.RotMatrix(-2.303611),center(image_data))
+    x_crop_min = 430
+    x_crop_max = 875
+    y_crop_min = 225
+    y_crop_max = 1025
     
-    # scale = 1/10.25
+    scale = 1/10.25
 
-    # x = (x_crop_max - x_crop_min) * scale
-    # y = (y_crop_max - y_crop_min) * scale
+    x = (x_crop_max - x_crop_min) * scale
+    y = (y_crop_max - y_crop_min) * scale
 
-    # image_data = ImageTransformations.warp(image_data, trfm)
-    # image_data = Origin(0)(image_data)
-    # image_data = image_data[x_crop_min:x_crop_max, y_crop_min:y_crop_max]
+    image_data = ImageTransformations.warp(image_data, trfm)
+    image_data = Origin(0)(image_data)
+    image_data = image_data[x_crop_min:x_crop_max, y_crop_min:y_crop_max]
     
-    # x_offset = -34.75
-    # y_offset = 22
+    x_offset = -34.75
+    y_offset = 22
 
-    # CairoMakie.image!(ax,
-    #     x_offset..(x+x_offset),
-    #     y_offset..(y+y_offset),
-    #     image_data)
+    CairoMakie.image!(ax,
+        x_offset..(x+x_offset),
+        y_offset..(y+y_offset),
+        image_data)
 
     #TODO horizon can probably be calculated from trajectory
     #TODO same with num_players/player state_dim (in reconstruct_solution)
