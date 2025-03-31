@@ -39,13 +39,12 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
     trk_205_lane_center(x) = 0.0  # Placeholder if no coefficients provided
 
     # 6th degree polynomial for track 207
-    trk_207_lane_center(x) = -6.535465682649165e-04*x^6 + 
-                            -0.069559792458210*x^5 + 
-                            -3.033950160533982*x^4 + 
-                            -69.369975733866840*x^3 + 
-                            -8.760325006936075e+02*x^2 + 
-                            -5.782944928944775e+03*x + 
-                            -1.547509969706588e+04
+    trk_207_lane_center(x) = -0.00017689424941367952*x^5 + 
+    -0.01392776676762521*x^4 + 
+    -0.38618068109105161*x^3 + 
+    -3.938661796855388*x^2 + 
+    1.9163167828141503*x + 
+    252.1918028422481
 
     # Linear function for track 208
     trk_208_lane_center(x) = 8.304049624037807*x + 1.866183521575921e+02
@@ -198,13 +197,12 @@ function compare_to_baseline(;full_state=false, graph=true, verbose = true)
     trk_205_lane_center(x) = 0.0  # Placeholder if no coefficients provided
 
     # 6th degree polynomial for track 207
-    trk_207_lane_center(x) = -6.535465682649165e-04*x^6 + 
-                            -0.069559792458210*x^5 + 
-                            -3.033950160533982*x^4 + 
-                            -69.369975733866840*x^3 + 
-                            -8.760325006936075e+02*x^2 + 
-                            -5.782944928944775e+03*x + 
-                            -1.547509969706588e+04
+    trk_207_lane_center(x) = -0.00017689424941367952*x^5 + 
+    -0.01392776676762521*x^4 + 
+    -0.38618068109105161*x^3 + 
+    -3.938661796855388*x^2 + 
+    1.9163167828141503*x + 
+    252.1918028422481
 
     # Linear function for track 208
     trk_208_lane_center(x) = 8.304049624037807*x + 1.866183521575921e+02
@@ -307,34 +305,54 @@ function compare_to_baseline(;full_state=false, graph=true, verbose = true)
     println("method recovered params: ", method_sol.recovered_params)
     println("baseline recovered params: ", baseline_sol.recovered_params)
 
-
-    ExperimentGraphingUtils.graph_trajectories(
-        "Observed v. Recovered v. Baseline",
-        [InD_observations, method_sol.recovered_trajectory, baseline_sol.recovered_trajectory],
-        init.game_structure,
-        init.horizon;
-        colors = [
-            [(:red, 0.2), (:blue, 0.2), (:green, 0.2), (:purple, 0.2)],
-            [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)],
-            [(:red, 0.5 ), (:blue, 0.5), (:green, 0.5), (:purple, 0.5)]
-        ],
-        constraints = init.environment === nothing ? nothing : get_constraints(init.environment)
-    )
-
-    ExperimentGraphingUtils.graph_trajectories(
-        "Recovered v. Baseline",
-        [InD_observations, method_sol.recovered_trajectory, baseline_sol.recovered_trajectory],
-        init.game_structure,
-        init.horizon;
-        colors = [
-            [(:red, 0.0), (:blue, 0.0), (:green, 0.0), (:purple, 0.0)],
-            [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)],
-            [(:red, 0.5 ), (:blue, 0.5), (:green, 0.5), (:purple, 0.5)]
-        ],
-        constraints = init.environment === nothing ? nothing : get_constraints(init.environment)
-    )
+    if graph
+        # Convert trajectories to consistent format for plotting
+        @infiltrate
+        # method_trajectory = BlockVector(
+        #     [method_sol.recovered_trajectory[Block(i)][1:2] for i in 1:length(method_sol.recovered_trajectory.blocks)],
+        #     [2 for _ in 1:length(tracks)]
+        # )
         
-        
+        # baseline_trajectory = BlockVector(
+        #     [baseline_sol.recovered_trajectory[Block(i)][1:2] for i in 1:length(baseline_sol.recovered_trajectory.blocks)],
+        #     [2 for _ in 1:length(tracks)]
+        # )
+        method_trajectory = BlockVector(
+            method_sol.recovered_trajectory,
+            [init.observation_dim*length(tracks) for _ in 1:init.horizon]
+        )
+        baseline_trajectory = BlockVector(
+            baseline_sol.recovered_trajectory,
+            [init.observation_dim*length(tracks) for _ in 1:init.horizon]
+        )
+        ExperimentGraphingUtils.graph_trajectories(
+            "Observed v. Recovered v. Baseline",
+            [InD_observations, method_trajectory, baseline_trajectory],
+            init.game_structure,
+            init.horizon;
+            colors = [
+                [(:red, 0.3), (:blue, 0.3), (:green, 0.3), (:purple, 0.3)],
+                [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)],
+                [(:red, 0.7), (:blue, 0.7), (:green, 0.7), (:purple, 0.7)]
+            ],
+            constraints = init.environment === nothing ? nothing : get_constraints(init.environment),
+            p_state_dim = 2
+        )
+
+        ExperimentGraphingUtils.graph_trajectories(
+            "Recovered v. Baseline",
+            [InD_observations, method_trajectory, baseline_trajectory],
+            init.game_structure,
+            init.horizon;
+            colors = [
+                [(:red, 0.0), (:blue, 0.0), (:green, 0.0), (:purple, 0.0)],
+                [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)],
+                [(:red, 0.5), (:blue, 0.5), (:green, 0.5), (:purple, 0.5)]
+            ],
+            constraints = init.environment === nothing ? nothing : get_constraints(init.environment),
+            p_state_dim = 2
+        )
+    end
 end
 
 function compare_noise_levels(;full_state=true, noise_levels=[0.0, 0.01, 0.05, 0.1], verbose=true)

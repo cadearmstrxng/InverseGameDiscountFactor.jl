@@ -315,7 +315,7 @@ function init_bicycle_test_game(
     observation_model = observation_model,
     observation_dim = observation_dim,
     horizon = horizon,
-    state_dim = state_dim,
+    state_dim = [state_dim[1] for _ in 1:n],
     action_dim = action_dim,
     σ = σ_,
     game_structure = game_structure,

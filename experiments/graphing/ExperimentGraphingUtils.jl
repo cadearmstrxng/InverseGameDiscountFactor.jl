@@ -364,7 +364,8 @@ function graph_trajectories(
     game_structure,
     horizon;
     colors = [[(:red, 1.0), (:blue, 1.0), (:green, 1.0)], [(:red, 0.75), (:blue, 0.75), (:green, 0.75)]],
-    constraints = nothing
+    constraints = nothing,
+    p_state_dim = nothing
     # TODO automatically generate default colors based on number of players?
 )
     CairoMakie.activate!()
@@ -405,7 +406,7 @@ function graph_trajectories(
     
 
     n = num_players(game_structure.game.dynamics)
-    p_state_dim = Int64(state_dim(game_structure.game.dynamics) // n)
+    p_state_dim = (p_state_dim === nothing) ? Int64(state_dim(game_structure.game.dynamics) // n) : p_state_dim
 
     for i in 1:n
         for j in eachindex(trajectories)
