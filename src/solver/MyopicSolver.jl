@@ -60,7 +60,6 @@ function solve_myopic_inverse_game(
             animate_optimization_progress(all_trajectories, mcp_game)
             # verbose||println("solved, status: ", last_solution.status)
             # if solving_info[end].status == PATHSolver.MCP_Solved
-            @infiltrate
                 sol = solve_mcp_game(mcp_game, initial_state, context_state_estimation; verbose = false, total_horizon = total_horizon)
                 # if length(sol.primals[1]) == 0
                 #     @info "No solution found"

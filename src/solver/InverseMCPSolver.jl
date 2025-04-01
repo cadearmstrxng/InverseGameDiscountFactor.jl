@@ -77,7 +77,7 @@ function solve_inverse_mcp_game(
         clamp!(x0_grad, -10, 10)
         objective_update = lr * objective_grad
         x0_update = lr * x0_grad
-        if norm(objective_update)/norm(context_state_estimation) < 1e-3 && norm(x0_update)/norm(initial_state) < 1e-3
+        if norm(objective_update)/norm(lr.*context_state_estimation) < 1e-3 && norm(x0_update)/norm(lr.*initial_state) < 1e-3
             @info "Inner iteration terminates at iteration: "*string(i)
             break
         elseif infeasible_counter >= 4
@@ -86,7 +86,6 @@ function solve_inverse_mcp_game(
         end
         context_state_estimation -= objective_update
         initial_state -= x0_update
-        push!(context_states, context_state_estimation)
     end
     for context_state in context_states
         println("context_state_estimation: ")

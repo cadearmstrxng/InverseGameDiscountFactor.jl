@@ -48,16 +48,14 @@ function solve_mcp_game(
             initial_guess = z,
             verbose,
             cumulative_iteration_limit = 100_000,
-            proximal_perturbation = 1e-2,
-            use_basics = true,
-            use_start = true,
-            lr = lr
+            convergence_tolerance = 1e-3
         ) 
         if status != PATHSolver.MCP_Solved
             variables_, status_, info_ = ParametricMCPs.solve(
             parametric_mcp,
             θ;
-            verbose
+            verbose,
+            convergence_tolerance = 1e-3
             )
             if status_ == PATHSolver.MCP_Solved
                 variables = variables_

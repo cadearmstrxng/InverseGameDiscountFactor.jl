@@ -37,8 +37,10 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
             write(f, string(round.(InD_observations[i]; digits = 4)), "\n")
         end
     end
-    trk_201_lane_center(x) = 0.0  # Placeholder if no coefficients provided
-    trk_205_lane_center(x) = 0.0  # Placeholder if no coefficients provided
+    trk_201_lane_center(x) = 5.230483199466720*x^2 +
+                    1.617412494933504e+02
+    trk_205_lane_center(x) = 3.127167536999156*x^2 +
+                    1.251972178433281e+02
 
     trk_207_lane_center(x) = -0.00017689424941367952*x^5 + 
                             -0.01392776676762521*x^4 + 
@@ -56,14 +58,14 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
         dt = 0.04*downsample_rate, # needs to become framerate
         l = 1.0,
         state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
-        control_bounds = (; lb = [-5, -pi/4], ub = [3, pi/4]),
+        control_bounds = (; lb = [-3, -pi/4], ub = [2, pi/4]),
         integration_scheme = :forward_euler
     )
     ped_dynamics = BicycleDynamics(;
         dt = 0.04*downsample_rate, # needs to become framerate
         l = 1.0,
-        state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
-        control_bounds = (; lb = [-2, -pi], ub = [2, pi]),
+        state_bounds = (; lb = [-Inf, -Inf, -5, -Inf], ub = [Inf, Inf, 5, Inf]),
+        control_bounds = (; lb = [-5, -pi], ub = [5, pi]),
         integration_scheme = :forward_euler
     )
 
@@ -75,6 +77,12 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
         initial_state = InD_observations[1],
         game_params = mortar([
             [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0, 10.0] for i in 1:length(tracks)]...]),
+        # game_params = mortar([
+        #     [-16.3672, 74.4905, 1.01, 1.0, 0.9916, 1.0084, 1.0, 10.0],
+        #     [-16.087, 74.7452, 1.01, 1.0, 1.0013, 0.9987, 1.0, 10.0],
+        #     [-25.9715, 63.8053, 1.01, 1.0, 0.99, 1.01, 1.0, 10.0005],
+        #     [-14.198, 67.8343, 1.01, 1.0, 0.99, 1.01, 1.0, 10.0]
+        # ]),
         horizon = horizon_window,
         n = length(tracks),
         dt = 0.04*downsample_rate,
@@ -125,7 +133,7 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
     # forward_solution = InverseGameDiscountFactor.reconstruct_solution(
     #     raw_sol,
     #     init.game_structure.game,
-    #     init.horizon
+    #     total_horizon
     # )
     # ExperimentGraphingUtils.graph_trajectories(
     #     "Forward Game",
@@ -136,8 +144,10 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
     #         [(:red, 0.5), (:blue, 0.5), (:green, 0.5), (:brown, 0.5)],
     #         [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:brown, 1.0)]
     #     ],
-    #     constraints = get_constraints(init.environment)
+    #     constraints = get_constraints(init.environment),
+    #     lane_centers = lane_centers[3:4]
     # )
+    # println("forward game solved w/ error: ", norm_sqr(vcat(InD_observations...) - vcat(forward_solution...)) / length(InD_observations))
     # return
 
     !verbose || println("solving inverse game")

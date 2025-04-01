@@ -130,15 +130,17 @@ function InD_collision_avoidance(
         end
         function collision_cost(x, i, context_state, t)
             if (i == 1 || i == 2)
-                cost = [max(0.0, context_state[4] + 0.02 * context_state[4] - norm(x[Block(i)][1:2] - x[Block(paired_player)][1:2]))^2 for paired_player in 3:4]
+                # cost = [max(0.0, context_state[4] + 0.02 * context_state[4] - norm(x[Block(i)][1:2] - x[Block(paired_player)][1:2]))^2 for paired_player in 3:4]
+                cost = [(1/(1+exp(10 * (norm(x[Block(i)][1:2] - x[Block(paired_player)][1:2]) - context_state[4])))) for paired_player in 3:4]
             else
-                cost = [max(0.0, context_state[4] + 0.02 * context_state[4] - norm(x[Block(i)][1:2] - x[Block(paired_player)][1:2]))^2 for paired_player in [1:(i - 1); (i + 1):num_players]]
+                # cost = [max(0.0, context_state[4] + 0.02 * context_state[4] - norm(x[Block(i)][1:2] - x[Block(paired_player)][1:2]))^2 for paired_player in [1:(i - 1); (i + 1):num_players]]
+                cost = [(1/(1+exp(10 * (norm(x[Block(i)][1:2] - x[Block(paired_player)][1:2]) - context_state[4])))) for paired_player in [1:(i - 1); (i + 1):num_players]]
             end
             sum(cost)
         end
         function conversation_cost(x, i, context_state, t)
             dist = norm_sqr(x[1:2] - context_state[1:2])
-            (myopic ? context_state[3] ^ t : 1) * (exp(-dist) + exp(dist - 5))
+            (myopic ? context_state[3] ^ t : 1) * ((dist + 2)^2)
         end
         function cost_for_player(i, xs, us, context_state, T)
             mean_target = mean([target_cost(xs[t + 1][Block(i)], context_state[Block(i)], t) for t in 1:T])
