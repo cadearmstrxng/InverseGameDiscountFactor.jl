@@ -149,7 +149,7 @@ function InD_collision_avoidance(
 
             context_state[Block(i)][myopic ? 5 : 4] * mean_target + 
             context_state[Block(i)][myopic ? 6 : 5] * control +
-            # context_state[Block(i)][myopic ? 7 : 6] * safe_distance_violation +
+            context_state[Block(i)][myopic ? 7 : 6] * safe_distance_violation +
 
             # costs unique to cars
             (i > 2 ? context_state[Block(i)][myopic ? 8 : 7] * lane_center : 0.0)
