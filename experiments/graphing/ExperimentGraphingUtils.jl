@@ -24,10 +24,21 @@ function graph_metrics(
     pre_prefix = "./experiments/In-D/",
     partial_state_included=true,
     std_dev_threshold=2.5,
-    show_outliers=false
+    show_outliers=false,
+    y_axis_limit=150
 )
     prefix = pre_prefix
     CairoMakie.activate!()
+
+    # Create PDF directory if it doesn't exist
+    pdf_dir = joinpath(prefix, "pdf_plots")
+    isdir(pdf_dir) || mkpath(pdf_dir)
+
+    colors = ["coral", "tan2", "olivedrab", "steelblue"]
+    fo_b = 1
+    fo_n = 2
+    po_b = 3
+    po_n = 4
 
     data_point_opacity = 0.2
     outlier_point_opacity = data_point_opacity / 3
@@ -111,19 +122,20 @@ function graph_metrics(
     end
     
     # Create figure for all methods together (original plot)
-    fig_all = Figure()
+    fig_all = Figure(size = (800, 600), margins = (10, 10, 10, 10))
     ax_all = Axis(fig_all[1, 1],
         xlabel = "Noise Level (σ)",
         ylabel = "Trajectory Error",
-        title = "Trajectory Error vs Noise Level (All Methods)"
+        title = "Trajectory Error vs Noise Level (All Methods)",
+        limits = (nothing, (0, y_axis_limit))
     )
 
     # Plot baseline with non-negative lower bound (full state)
-    lines!(ax_all, σs, baseline_full_means, color=:red, label="Baseline (Full State)")
+    lines!(ax_all, σs, baseline_full_means, color=colors[fo_b], label="Baseline (Full State)")
     band!(ax_all, σs, 
         max.(baseline_full_means - baseline_full_stds, 0), 
         baseline_full_means + baseline_full_stds, 
-        color=(:red, band_opacity))
+        color=(colors[fo_b], band_opacity))
 
     # Scatter plot for individual baseline full state data points
     for col in eachindex(baseline_full_individual_points[1, :])
@@ -134,16 +146,16 @@ function graph_metrics(
             point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
             
             scatter!(ax_all, [σs[row]], [baseline_full_individual_points[row, col]], 
-                    color=(:red, point_opacity), markersize=4)
+                    color=(colors[fo_b], point_opacity), markersize=4)
         end
     end
 
     # Plot our method with non-negative lower bound (full state)
-    lines!(ax_all, σs, our_method_full_means, color=:blue, label="Our Method (Full State)")
+    lines!(ax_all, σs, our_method_full_means, color=colors[fo_n], label="Our Method (Full State)")
     band!(ax_all, σs, 
         max.(our_method_full_means - our_method_full_stds, 0), 
         our_method_full_means + our_method_full_stds, 
-        color=(:blue, band_opacity))
+        color=(colors[fo_n], band_opacity+0.1))
         
     # Scatter plot for individual our method full state data points
     for col in eachindex(our_method_full_individual_points[1, :])
@@ -154,16 +166,16 @@ function graph_metrics(
             point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
             
             scatter!(ax_all, [σs[row]], [our_method_full_individual_points[row, col]], 
-                    color=(:blue, point_opacity), markersize=4)
+                    color=(colors[fo_n], point_opacity), markersize=4)
         end
     end
 
     # Plot baseline with non-negative lower bound (partial state)
-    partial_state_included && lines!(ax_all, σs, baseline_partial_means, color=:green, linestyle=:dash, label="Baseline (Partial State)")
+    partial_state_included && lines!(ax_all, σs, baseline_partial_means, color=colors[po_b], linestyle=:dash, label="Baseline (Partial State)")
     partial_state_included && band!(ax_all, σs, 
         max.(baseline_partial_means - baseline_partial_stds, 0), 
         baseline_partial_means + baseline_partial_stds, 
-        color=(:green, band_opacity))
+        color=(colors[po_b], band_opacity))
         
     # Scatter plot for individual baseline partial state data points
     if partial_state_included
@@ -175,17 +187,17 @@ function graph_metrics(
                 point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
                 
                 scatter!(ax_all, [σs[row]], [baseline_partial_individual_points[row, col]], 
-                        color=(:green, point_opacity), markersize=4)
+                        color=(colors[po_b], point_opacity), markersize=4)
             end
         end
     end
     
     # Plot our method with non-negative lower bound (partial state)
-    partial_state_included && lines!(ax_all, σs, our_method_partial_means, color=:brown, linestyle=:dash, label="Our Method (Partial State)")
+    partial_state_included && lines!(ax_all, σs, our_method_partial_means, color=colors[po_n], linestyle=:dash, label="Our Method (Partial State)")
     partial_state_included && band!(ax_all, σs, 
         max.(our_method_partial_means - our_method_partial_stds, 0), 
         our_method_partial_means + our_method_partial_stds, 
-        color=(:brown, band_opacity))
+        color=(colors[po_n], band_opacity))
         
     # Scatter plot for individual our method partial state data points
     if partial_state_included
@@ -197,7 +209,7 @@ function graph_metrics(
                 point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
                 
                 scatter!(ax_all, [σs[row]], [our_method_partial_individual_points[row, col]], 
-                        color=(:brown, point_opacity), markersize=4)
+                        color=(colors[po_n], point_opacity), markersize=4)
             end
         end
     end
@@ -206,22 +218,24 @@ function graph_metrics(
     axislegend(ax_all, position=:lt)
 
     # Save the all methods figure
-    save(prefix*"/"*observation_mode*"_AllMethods_TrajectoryErrorGraph.png", fig_all)
+    save(prefix*"/"*"po_fo_all_ind.png", fig_all)
+    save(pdf_dir*"/"*"po_fo_all_ind.pdf", fig_all, pt_per_unit=1, pt_per_inch=72)
     
     # Create figure for baseline comparison
-    fig_baseline = Figure()
+    fig_baseline = Figure(size = (800, 600), margins = (10, 10, 10, 10))
     ax_baseline = Axis(fig_baseline[1, 1],
         xlabel = "Noise Level (σ)",
         ylabel = "Trajectory Error",
-        title = "Baseline: Full State vs Partial State"
+        title = "Baseline: Full State vs Partial State",
+        limits = (nothing, (0, y_axis_limit))
     )
     
     # Plot baseline full state
-    lines!(ax_baseline, σs, baseline_full_means, color=:red, label="Full State")
+    lines!(ax_baseline, σs, baseline_full_means, color=colors[fo_b], label="Full State")
     band!(ax_baseline, σs, 
         max.(baseline_full_means - baseline_full_stds, 0), 
         baseline_full_means + baseline_full_stds, 
-        color=(:red, band_opacity))
+        color=(colors[fo_b], band_opacity))
         
     # Scatter plot for individual baseline full state data points
     for col in eachindex(baseline_full_individual_points[1, :])
@@ -231,16 +245,16 @@ function graph_metrics(
             is_outlier && !show_outliers && continue
             point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
             scatter!(ax_baseline, [σs[row]], [baseline_full_individual_points[row, col]], 
-                    color=(:red, point_opacity), markersize=4)
+                    color=(colors[fo_b], point_opacity), markersize=4)
         end
     end
     
     # Plot baseline partial state
-    partial_state_included && lines!(ax_baseline, σs, baseline_partial_means, color=:green, linestyle=:dash, label="Partial State")
+    partial_state_included && lines!(ax_baseline, σs, baseline_partial_means, color=colors[po_b], linestyle=:dash, label="Partial State")
     partial_state_included && band!(ax_baseline, σs, 
         max.(baseline_partial_means - baseline_partial_stds, 0), 
         baseline_partial_means + baseline_partial_stds, 
-        color=(:green, band_opacity))
+        color=(colors[po_b], band_opacity))
         
     # Scatter plot for individual baseline partial state data points
     if partial_state_included
@@ -252,7 +266,7 @@ function graph_metrics(
                 point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
                 
                 scatter!(ax_baseline, [σs[row]], [baseline_partial_individual_points[row, col]], 
-                        color=(:green, point_opacity), markersize=4)
+                        color=(colors[po_b], point_opacity), markersize=4)
             end
         end
     end
@@ -260,22 +274,24 @@ function graph_metrics(
     axislegend(ax_baseline, position=:lt)
     
     # Save the baseline comparison figure
-    save(prefix*"/"*observation_mode*"_Baseline_Comparison.png", fig_baseline)
+    save(prefix*"/"*"po_fo_baseline_ind.png", fig_baseline)
+    save(pdf_dir*"/"*"po_fo_baseline_ind.pdf", fig_baseline, pt_per_unit=1, pt_per_inch=72)
     
     # Create figure for our method comparison
-    fig_our = Figure()
+    fig_our = Figure(size = (800, 600), margins = (10, 10, 10, 10))
     ax_our = Axis(fig_our[1, 1],
         xlabel = "Noise Level (σ)",
         ylabel = "Trajectory Error",
-        title = "Our Method: Full State vs Partial State"
+        title = "Our Method: Full State vs Partial State",
+        limits = (nothing, (0, y_axis_limit))
     )
     
     # Plot our method full state
-    lines!(ax_our, σs, our_method_full_means, color=:blue, label="Full State")
+    lines!(ax_our, σs, our_method_full_means, color=colors[fo_n], label="Full State")
     band!(ax_our, σs, 
         max.(our_method_full_means - our_method_full_stds, 0), 
         our_method_full_means + our_method_full_stds, 
-        color=(:blue, band_opacity))
+        color=(colors[fo_n], band_opacity))
         
     # Scatter plot for individual our method full state data points
     for col in eachindex(our_method_full_individual_points[1, :])
@@ -286,16 +302,16 @@ function graph_metrics(
             point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
             
             scatter!(ax_our, [σs[row]], [our_method_full_individual_points[row, col]], 
-                    color=(:blue, point_opacity), markersize=4)
+                    color=(colors[fo_n], point_opacity), markersize=4)
         end
     end
     
     # Plot our method partial state
-    partial_state_included && lines!(ax_our, σs, our_method_partial_means, color=:brown, linestyle=:dash, label="Partial State")
+    partial_state_included && lines!(ax_our, σs, our_method_partial_means, color=colors[po_n], linestyle=:dash, label="Partial State")
     partial_state_included && band!(ax_our, σs, 
         max.(our_method_partial_means - our_method_partial_stds, 0), 
         our_method_partial_means + our_method_partial_stds, 
-        color=(:brown, band_opacity))
+        color=(colors[po_n], band_opacity))
         
     # Scatter plot for individual our method partial state data points
     if partial_state_included
@@ -307,7 +323,7 @@ function graph_metrics(
                 point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
                 
                 scatter!(ax_our, [σs[row]], [our_method_partial_individual_points[row, col]], 
-                        color=(:brown, point_opacity), markersize=4)
+                        color=(colors[po_n], point_opacity), markersize=4)
             end
         end
     end
@@ -315,7 +331,120 @@ function graph_metrics(
     axislegend(ax_our, position=:lt)
     
     # Save the our method comparison figure
-    save(prefix*"/"*observation_mode*"_OurMethod_Comparison.png", fig_our)
+    save(prefix*"/"*"po_fo_our_ind.png", fig_our)
+    save(pdf_dir*"/"*"po_fo_our_ind.pdf", fig_our, pt_per_unit=1, pt_per_inch=72)
+    
+    # Create figure for full state methods comparison
+    fig_full = Figure(size = (800, 600), margins = (10, 10, 10, 10))
+    ax_full = Axis(fig_full[1, 1],
+        xlabel = "Noise Level (σ)",
+        ylabel = "Trajectory Error",
+        title = "Full State: Baseline vs Our Method",
+        limits = (nothing, (0, y_axis_limit))
+    )
+    
+    # Plot baseline with full state
+    lines!(ax_full, σs, baseline_full_means, color=colors[fo_b], label="Baseline")
+    band!(ax_full, σs, 
+        max.(baseline_full_means - baseline_full_stds, 0), 
+        baseline_full_means + baseline_full_stds, 
+        color=(colors[fo_b], band_opacity))
+    
+    # Scatter plot for individual baseline full state data points
+    for col in eachindex(baseline_full_individual_points[1, :])
+        for row in eachindex(σs)
+            # Determine if this point is an outlier
+            is_outlier = baseline_full_outlier_masks[row][col]
+            is_outlier && !show_outliers && continue
+            point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+            
+            scatter!(ax_full, [σs[row]], [baseline_full_individual_points[row, col]], 
+                    color=(colors[fo_b], point_opacity), markersize=4)
+        end
+    end
+    
+    # Plot our method with full state
+    lines!(ax_full, σs, our_method_full_means, color=colors[fo_n], label="Our Method")
+    band!(ax_full, σs, 
+        max.(our_method_full_means - our_method_full_stds, 0), 
+        our_method_full_means + our_method_full_stds, 
+        color=(colors[fo_n], band_opacity+0.1))
+    
+    # Scatter plot for individual our method full state data points
+    for col in eachindex(our_method_full_individual_points[1, :])
+        for row in eachindex(σs)
+            # Determine if this point is an outlier
+            is_outlier = our_method_full_outlier_masks[row][col]
+            is_outlier && !show_outliers && continue
+            point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+            
+            scatter!(ax_full, [σs[row]], [our_method_full_individual_points[row, col]], 
+                    color=(colors[fo_n], point_opacity), markersize=4)
+        end
+    end
+    
+    axislegend(ax_full, position=:lt)
+    
+    # Save the full state comparison figure
+    save(prefix*"/"*"fo_both_ind.png", fig_full)
+    save(pdf_dir*"/"*"fo_both_ind.pdf", fig_full, pt_per_unit=1, pt_per_inch=72)
+    
+    # Create figure for partial state methods comparison (only if partial state data included)
+    if partial_state_included
+        fig_partial = Figure(size = (800, 600), margins = (10, 10, 10, 10))
+        ax_partial = Axis(fig_partial[1, 1],
+            xlabel = "Noise Level (σ)",
+            ylabel = "Trajectory Error",
+            title = "Partial State: Baseline vs Our Method",
+            limits = (nothing, (0, y_axis_limit))
+        )
+        
+        # Plot baseline with partial state
+        lines!(ax_partial, σs, baseline_partial_means, color=colors[po_b], label="Baseline")
+        band!(ax_partial, σs, 
+            max.(baseline_partial_means - baseline_partial_stds, 0), 
+            baseline_partial_means + baseline_partial_stds, 
+            color=(colors[po_b], band_opacity))
+        
+        # Scatter plot for individual baseline partial state data points
+        for col in eachindex(baseline_partial_individual_points[1, :])
+            for row in eachindex(σs)
+                # Determine if this point is an outlier
+                is_outlier = baseline_partial_outlier_masks[row][col]
+                is_outlier && !show_outliers && continue
+                point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+                
+                scatter!(ax_partial, [σs[row]], [baseline_partial_individual_points[row, col]], 
+                        color=(colors[po_b], point_opacity), markersize=4)
+            end
+        end
+        
+        # Plot our method with partial state
+        lines!(ax_partial, σs, our_method_partial_means, color=colors[po_n], label="Our Method")
+        band!(ax_partial, σs, 
+            max.(our_method_partial_means - our_method_partial_stds, 0), 
+            our_method_partial_means + our_method_partial_stds, 
+            color=(colors[po_n], band_opacity))
+        
+        # Scatter plot for individual our method partial state data points
+        for col in eachindex(our_method_partial_individual_points[1, :])
+            for row in eachindex(σs)
+                # Determine if this point is an outlier
+                is_outlier = our_method_partial_outlier_masks[row][col]
+                is_outlier && !show_outliers && continue
+                point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+                
+                scatter!(ax_partial, [σs[row]], [our_method_partial_individual_points[row, col]], 
+                        color=(colors[po_n], point_opacity), markersize=4)
+            end
+        end
+        
+        axislegend(ax_partial, position=:lt)
+        
+        # Save the partial state comparison figure
+        save(prefix*"/"*"po_both_ind.png", fig_partial)
+        save(pdf_dir*"/"*"po_both_ind.pdf", fig_partial, pt_per_unit=1, pt_per_inch=72)
+    end
     
     # return σs, baseline_full_means, our_method_full_means, baseline_partial_means, our_method_partial_means
 end
