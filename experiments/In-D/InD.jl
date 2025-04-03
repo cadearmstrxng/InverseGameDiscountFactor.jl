@@ -220,22 +220,28 @@ function compare_to_baseline(;full_state=false, graph=true, verbose = true)
     trk_205_lane_center(x) = 0.0  # Placeholder if no coefficients provided
 
     # 6th degree polynomial for track 207
-    trk_207_lane_center(x) = -6.535465682649165e-04*x^6 + 
-                            -0.069559792458210*x^5 + 
-                            -3.033950160533982*x^4 + 
-                            -69.369975733866840*x^3 + 
-                            -8.760325006936075e+02*x^2 + 
-                            -5.782944928944775e+03*x + 
-                            -1.547509969706588e+04
+    trk_207_lane_center(x) =-0.00017689424941367952*x^5 + 
+                            -0.01392776676762521*x^4 + 
+                            -0.38618068109105161*x^3 + 
+                            -3.938661796855388*x^2 + 
+                            1.9163167828141503*x + 
+                            252.1918028422481
 
     # Linear function for track 208
     trk_208_lane_center(x) = 8.304049624037807*x + 1.866183521575921e+02
     lane_centers = [trk_201_lane_center, trk_205_lane_center, trk_207_lane_center, trk_208_lane_center]
-    dynamics = BicycleDynamics(;
-        dt = 0.04*downsample_rate,
+    car_dynamics = BicycleDynamics(;
+        dt = 0.04*downsample_rate, # needs to become framerate
         l = 1.0,
         state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
-        control_bounds = (; lb = [-5, -pi/4], ub = [5, pi/4]),
+        control_bounds = (; lb = [-3, -pi/4], ub = [2, pi/4]),
+        integration_scheme = :forward_euler
+    )
+    ped_dynamics = BicycleDynamics(;
+        dt = 0.04*downsample_rate, # needs to become framerate
+        l = 1.0,
+        state_bounds = (; lb = [-Inf, -Inf, -5, -Inf], ub = [Inf, Inf, 5, Inf]),
+        control_bounds = (; lb = [-5, -pi], ub = [5, pi]),
         integration_scheme = :forward_euler
     )
 
@@ -252,7 +258,8 @@ function compare_to_baseline(;full_state=false, graph=true, verbose = true)
         dt = 0.04*downsample_rate,
         myopic=true,
         verbose = false,
-        dynamics = dynamics,
+        car_dynamics = car_dynamics,
+        ped_dynamics = ped_dynamics,
         lane_centers = lane_centers
     )
 
@@ -266,7 +273,8 @@ function compare_to_baseline(;full_state=false, graph=true, verbose = true)
         dt = 0.04*downsample_rate,
         myopic=false,
         verbose = false,
-        dynamics = dynamics,
+        car_dynamics = car_dynamics,
+        ped_dynamics = ped_dynamics,
         lane_centers = lane_centers
     )
     # Create MCP game solvers
@@ -297,8 +305,9 @@ function compare_to_baseline(;full_state=false, graph=true, verbose = true)
         hidden_state_guess = init.game_parameters,
         max_grad_steps = 200,
         verbose = false,
-        dynamics = dynamics,
-        total_horizon = total_horizon
+        dynamics = init.game_structure.game.dynamics,
+        total_horizon = total_horizon,
+        lr = 1e-4
     )
     println("done")
     print("solving inverse game baseline method...")
@@ -312,8 +321,9 @@ function compare_to_baseline(;full_state=false, graph=true, verbose = true)
         hidden_state_guess = init_baseline.game_parameters,
         max_grad_steps = 200,
         verbose = false,
-        dynamics = dynamics,
-        total_horizon = total_horizon
+        dynamics = init_baseline.game_structure.game.dynamics,
+        total_horizon = total_horizon,
+        lr = 1e-4
     )
     println("done")
     for i in 1:length(tracks)
