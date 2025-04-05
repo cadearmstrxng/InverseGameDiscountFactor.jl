@@ -59,7 +59,8 @@ function n_player_collision_avoidance(
         state_bounds = (; lb = [-Inf, -Inf, -0.8, -0.8], ub = [Inf, Inf, 0.8, 0.8]),
         control_bounds = (; lb = [-10, -10], ub = [10, 10]),
     ),
-    myopic = true
+    myopic = true,
+    coeffs = [1.0, 0.1, 1.0]
 )
     cost = let
         function target_cost(x, context_state, t)
@@ -73,19 +74,19 @@ function n_player_collision_avoidance(
             sum(cost) 
         end
         function cost_for_player(i, xs, us, context_state, T)
-            early_target = target_cost(xs[1][Block(i)], context_state[Block(i)], 1)
+            # early_target = target_cost(xs[1][Block(i)], context_state[Block(i)], 1)
             mean_target = mean([target_cost(xs[t + 1][Block(i)], context_state[Block(i)], t) for t in 1:T])
-            minimum_target = minimum([target_cost(xs[t][Block(i)], context_state[Block(i)],t) for t in 1:T])
+            # minimum_target = minimum([target_cost(xs[t][Block(i)], context_state[Block(i)],t) for t in 1:T])
             control = mean([control_cost(us[t][Block(i)], context_state[Block(i)], t) for t in 1:T])
             safe_distance_violation = mean([collision_cost(xs[t], i, context_state[Block(i)], t) for t in 1:T])
 
             #contex states 6-10
 
             # 0.2 * early_target + 
-            1.0 * mean_target + 
+            coeffs[1] * mean_target + 
             # 0.2 * minimum_target + 
-            0.1 * control + 
-            20 * safe_distance_violation
+            coeffs[2] * control + 
+            coeffs[3] * safe_distance_violation
         end
         function cost_function(xs, us, context_state)
             num_players = blocksize(xs[1], 1)
@@ -99,7 +100,8 @@ function n_player_collision_avoidance(
         dynamics,
         cost,
         environment,
-        shared_collision_avoidance_coupling_constraints(num_players, min_distance),
+        # shared_collision_avoidance_coupling_constraints(num_players, min_distance),
+        nothing
     )
     CollisionAvoidanceGame(game)
 end
@@ -200,7 +202,8 @@ function init_crosswalk_game(
     dynamics = planar_double_integrator(;
         state_bounds = (; lb = [-Inf, -Inf, -0.8, -0.8], ub = [Inf, Inf, 0.8, 0.8]),
         control_bounds = (; lb = [-10, -10], ub = [10, 10]),
-    )
+    ),
+    coeffs = [1.0, 0.1, 1.0]
 )
     game_structure = n_player_collision_avoidance(
         num_players;
@@ -208,7 +211,8 @@ function init_crosswalk_game(
         min_distance = 0.5,
         collision_avoidance_coefficient = 5.0,
         myopic = myopic, # TODO don't love
-        dynamics = dynamics
+        dynamics = dynamics,
+        coeffs = coeffs
     )
     if full_state
         observation_dim = 4

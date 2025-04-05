@@ -463,7 +463,8 @@ function graph_crosswalk_trajectories(
     game_structure,
     horizon;
     colors = [[(:red, 1.0), (:blue, 1.0), (:green, 1.0)], [(:red, 0.25), (:blue, 0.25), (:green, 0.25)]],
-    constraints = nothing
+    constraints = nothing,
+    observations = nothing
 )
     CairoMakie.activate!()
     fig = CairoMakie.Figure()
@@ -472,22 +473,24 @@ function graph_crosswalk_trajectories(
     p_state_dim = Int64(state_dim(game_structure.game.dynamics) // n)
 
     for i in 1:n
-        CairoMakie.lines!(ax, 
-            [trajectories[1][Block(t)][(i - 1) * p_state_dim + 1] for t in eachindex(blocks(trajectories[1]))],
-            [trajectories[1][Block(t)][(i - 1) * p_state_dim + 2] for t in eachindex(blocks(trajectories[1]))], 
-            color = colors[1][i])
-        CairoMakie.lines!(ax, 
-            [trajectories[2][Block(t)][(i - 1) * p_state_dim + 1] for t in eachindex(blocks(trajectories[2]))],
-            [trajectories[2][Block(t)][(i - 1) * p_state_dim + 2] for t in eachindex(blocks(trajectories[2]))], 
-            color = colors[2][i])
-        CairoMakie.scatter!(ax,
-            [trajectories[1][Block(length(blocks(trajectories[1])))][(i - 1) * p_state_dim + 1]],
-            [trajectories[1][Block(length(blocks(trajectories[1])))][(i - 1) * p_state_dim + 2]],
-            color = colors[1][i], marker=:star5)
-        CairoMakie.scatter!(ax,
-            [trajectories[2][Block(length(blocks(trajectories[2])))][(i - 1) * p_state_dim + 1]],
-            [trajectories[2][Block(length(blocks(trajectories[2])))][(i - 1) * p_state_dim + 2]],
-            color = colors[2][i], marker=:star5)
+        for j in eachindex(trajectories)
+            CairoMakie.lines!(ax, 
+                [trajectories[j][Block(t)][(i - 1) * p_state_dim + 1] for t in eachindex(blocks(trajectories[j]))],
+                [trajectories[j][Block(t)][(i - 1) * p_state_dim + 2] for t in eachindex(blocks(trajectories[j]))], 
+                color = colors[j][i])
+            CairoMakie.scatter!(ax,
+                [trajectories[j][Block(length(blocks(trajectories[j])))][(i - 1) * p_state_dim + 1]],
+                [trajectories[j][Block(length(blocks(trajectories[j])))][(i - 1) * p_state_dim + 2]],
+                color = colors[j][i], marker=:star5)
+        end
+    end
+    if !isnothing(observations)
+        for i in 1:n
+            CairoMakie.scatter!(ax, 
+                [observations[t][Block(i)][1] for t in eachindex(blocks(observations))],
+                [observations[t][Block(i)][2] for t in eachindex(blocks(observations))], 
+                color = (colors[2][i], 0.5))
+        end
     end
     CairoMakie.save(plot_name*"_tmp.png", fig)
 end
