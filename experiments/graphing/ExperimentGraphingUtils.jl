@@ -492,5 +492,341 @@ function graph_crosswalk_trajectories(
     CairoMakie.save(plot_name*"_tmp.png", fig)
 end
 
+function parse_crosswalk_results(file_path::String)
+    # Read the entire file
+    content = read(file_path, String)
+    
+    # Extract baseline and our method data
+    baseline_match = match(r"baseline errors:\s*\[(.*?)\]"s, content)
+    our_method_match = match(r"our method's errors:\s*\[(.*?)\]"s, content)
+    
+    if isnothing(baseline_match) || isnothing(our_method_match)
+        error("Could not find baseline or our method data in the file")
+    end
+    
+    # Parse the baseline data
+    baseline_str = baseline_match.captures[1]
+    baseline_rows = split(baseline_str, ';')
+    baseline_data = []
+    
+    for row in baseline_rows
+        # Skip empty rows
+        isempty(strip(row)) && continue
+        
+        # Parse row values
+        values = [parse(Float64, val) for val in split(row, ' ') if !isempty(strip(val))]
+        push!(baseline_data, values)
+    end
+    
+    # Parse the our method data
+    our_method_str = our_method_match.captures[1]
+    our_method_rows = split(our_method_str, ';')
+    our_method_data = []
+    
+    for row in our_method_rows
+        # Skip empty rows
+        isempty(strip(row)) && continue
+        
+        # Parse row values
+        values = [parse(Float64, val) for val in split(row, ' ') if !isempty(strip(val))]
+        push!(our_method_data, values)
+    end
+    
+    # Convert to matrix format
+    baseline_matrix = Matrix{Float64}(undef, length(baseline_data), length(baseline_data[1]))
+    for i in 1:length(baseline_data)
+        baseline_matrix[i, :] = baseline_data[i]
+    end
+    
+    our_method_matrix = Matrix{Float64}(undef, length(our_method_data), length(our_method_data[1]))
+    for i in 1:length(our_method_data)
+        our_method_matrix[i, :] = our_method_data[i]
+    end
+    
+    # Generate noise levels - starting from 0 and incrementing by 0.002
+    noise_levels = [(i-1) * 0.002 for i in 1:size(baseline_matrix, 1)]
+    
+    return baseline_matrix, our_method_matrix, noise_levels
+end
+
+function process_and_graph_crosswalk_results(
+    fo_file_path::String,
+    po_file_path::String = nothing;
+    output_prefix = "./experiments/crosswalk/",
+    std_dev_threshold = 2.5,
+    show_outliers = false,
+    y_axis_limit = [nothing, nothing]
+)
+    # Create output directories
+    pdf_dir = joinpath(output_prefix, "pdf_plots")
+    isdir(pdf_dir) || mkpath(pdf_dir)
+    
+    # Parse the full observation data
+    fo_baseline_matrix, fo_our_method_matrix, fo_noise_levels = parse_crosswalk_results(fo_file_path)
+    
+    # Parse the partial observation data if provided
+    if !isnothing(po_file_path)
+        po_baseline_matrix, po_our_method_matrix, po_noise_levels = parse_crosswalk_results(po_file_path)
+        
+        # Verify that noise levels match
+        if fo_noise_levels != po_noise_levels
+            @warn "Noise levels in full and partial observation files don't match"
+        end
+    end
+    
+    # Calculate statistics for full observation data
+    fo_baseline_means, fo_baseline_stds, fo_baseline_outlier_masks = 
+        filter_outliers_and_compute_stats(fo_baseline_matrix; std_dev_threshold=std_dev_threshold)
+    
+    fo_our_method_means, fo_our_method_stds, fo_our_method_outlier_masks = 
+        filter_outliers_and_compute_stats(fo_our_method_matrix; std_dev_threshold=std_dev_threshold)
+    
+    # Calculate statistics for partial observation data if provided
+    if !isnothing(po_file_path)
+        po_baseline_means, po_baseline_stds, po_baseline_outlier_masks = 
+            filter_outliers_and_compute_stats(po_baseline_matrix; std_dev_threshold=std_dev_threshold)
+        
+        po_our_method_means, po_our_method_stds, po_our_method_outlier_masks = 
+            filter_outliers_and_compute_stats(po_our_method_matrix; std_dev_threshold=std_dev_threshold)
+    end
+    
+    # Create plot
+    fig = Figure(size = (800, 600), margins = (10, 10, 10, 10))
+    ax = Axis(fig[1, 1],
+        xlabel = "Noise Level (σ)",
+        ylabel = "Trajectory Error",
+        title = !isnothing(po_file_path) ? "Crosswalk: Full vs Partial Observation" : "Crosswalk: Trajectory Error",
+        limits = (nothing, (y_axis_limit[1], y_axis_limit[2]))
+    )
+    
+    colors = ["coral", "tan2", "olivedrab", "steelblue"]
+    fo_b = 1  # Full observation baseline
+    fo_m = 2  # Full observation our method
+    po_b = 3  # Partial observation baseline
+    po_m = 4  # Partial observation our method
+    
+    data_point_opacity = 0.2
+    outlier_point_opacity = data_point_opacity / 3
+    band_opacity = 0.3
+    
+    # Plot full observation baseline
+    lines!(ax, fo_noise_levels, fo_baseline_means, color=colors[fo_b], label="Full Obs. Baseline")
+    band!(ax, fo_noise_levels, 
+        max.(fo_baseline_means - fo_baseline_stds, 0), 
+        fo_baseline_means + fo_baseline_stds, 
+        color=(colors[fo_b], band_opacity))
+    
+    # Scatter plot for individual baseline data points
+    if show_outliers
+        for col in 1:size(fo_baseline_matrix, 2)
+            for row in 1:size(fo_baseline_matrix, 1)
+                # Determine if this point is an outlier
+                is_outlier = fo_baseline_outlier_masks[row][col]
+                point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+                
+                scatter!(ax, [fo_noise_levels[row]], [fo_baseline_matrix[row, col]], 
+                        color=(colors[fo_b], point_opacity), markersize=4)
+            end
+        end
+    end
+    
+    # Plot full observation our method
+    lines!(ax, fo_noise_levels, fo_our_method_means, color=colors[fo_m], label="Full Obs. Our Method")
+    band!(ax, fo_noise_levels, 
+        max.(fo_our_method_means - fo_our_method_stds, 0), 
+        fo_our_method_means + fo_our_method_stds, 
+        color=(colors[fo_m], band_opacity))
+    
+    # Scatter plot for individual our method data points
+    if show_outliers
+        for col in 1:size(fo_our_method_matrix, 2)
+            for row in 1:size(fo_our_method_matrix, 1)
+                # Determine if this point is an outlier
+                is_outlier = fo_our_method_outlier_masks[row][col]
+                point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+                
+                scatter!(ax, [fo_noise_levels[row]], [fo_our_method_matrix[row, col]], 
+                        color=(colors[fo_m], point_opacity), markersize=4)
+            end
+        end
+    end
+    
+    # Plot partial observation data if provided
+    if !isnothing(po_file_path)
+        # Plot partial observation baseline
+        lines!(ax, po_noise_levels, po_baseline_means, color=colors[po_b], linestyle=:dash, label="Partial Obs. Baseline")
+        band!(ax, po_noise_levels, 
+            max.(po_baseline_means - po_baseline_stds, 0), 
+            po_baseline_means + po_baseline_stds, 
+            color=(colors[po_b], band_opacity))
+        
+        # Scatter plot for individual partial observation baseline data points
+        if show_outliers
+            for col in 1:size(po_baseline_matrix, 2)
+                for row in 1:size(po_baseline_matrix, 1)
+                    # Determine if this point is an outlier
+                    is_outlier = po_baseline_outlier_masks[row][col]
+                    point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+                    
+                    scatter!(ax, [po_noise_levels[row]], [po_baseline_matrix[row, col]], 
+                            color=(colors[po_b], point_opacity), markersize=4)
+                end
+            end
+        end
+        
+        # Plot partial observation our method
+        lines!(ax, po_noise_levels, po_our_method_means, color=colors[po_m], linestyle=:dash, label="Partial Obs. Our Method")
+        band!(ax, po_noise_levels, 
+            max.(po_our_method_means - po_our_method_stds, 0), 
+            po_our_method_means + po_our_method_stds, 
+            color=(colors[po_m], band_opacity))
+        
+        # Scatter plot for individual partial observation our method data points
+        if show_outliers
+            for col in 1:size(po_our_method_matrix, 2)
+                for row in 1:size(po_our_method_matrix, 1)
+                    # Determine if this point is an outlier
+                    is_outlier = po_our_method_outlier_masks[row][col]
+                    point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+                    
+                    scatter!(ax, [po_noise_levels[row]], [po_our_method_matrix[row, col]], 
+                            color=(colors[po_m], point_opacity), markersize=4)
+                end
+            end
+        end
+    end
+    
+    # Add legend
+    axislegend(ax, position=:lt)
+    
+    # Save plot
+    save(joinpath(output_prefix, "fo_po_both_crosswalk.png"), fig)
+    save(joinpath(pdf_dir, "fo_po_both_crosswalk.pdf"), fig, pt_per_unit=1, pt_per_inch=72)
+    
+    # Create comparison plots
+    if !isnothing(po_file_path)
+        # Full observation baseline vs our method
+        fig_fo = Figure(size = (800, 600), margins = (10, 10, 10, 10))
+        ax_fo = Axis(fig_fo[1, 1],
+            xlabel = "Noise Level (σ)",
+            ylabel = "Trajectory Error",
+            title = "Crosswalk Full Observation: Baseline vs Our Method",
+            limits = (nothing, (y_axis_limit[1], y_axis_limit[2]))
+        )
+        
+        lines!(ax_fo, fo_noise_levels, fo_baseline_means, color=colors[fo_b], label="Baseline")
+        band!(ax_fo, fo_noise_levels, 
+            max.(fo_baseline_means - fo_baseline_stds, 0), 
+            fo_baseline_means + fo_baseline_stds, 
+            color=(colors[fo_b], band_opacity))
+        
+        lines!(ax_fo, fo_noise_levels, fo_our_method_means, color=colors[fo_m], label="Our Method")
+        band!(ax_fo, fo_noise_levels, 
+            max.(fo_our_method_means - fo_our_method_stds, 0), 
+            fo_our_method_means + fo_our_method_stds, 
+            color=(colors[fo_m], band_opacity))
+        
+        axislegend(ax_fo, position=:lt)
+        
+        save(joinpath(output_prefix, "fo_both_crosswalk.png"), fig_fo)
+        save(joinpath(pdf_dir, "fo_both_crosswalk.pdf"), fig_fo, pt_per_unit=1, pt_per_inch=72)
+        
+        # Partial observation baseline vs our method
+        fig_po = Figure(size = (800, 600), margins = (10, 10, 10, 10))
+        ax_po = Axis(fig_po[1, 1],
+            xlabel = "Noise Level (σ)",
+            ylabel = "Trajectory Error",
+            title = "Crosswalk Partial Observation: Baseline vs Our Method",
+            limits = (nothing, (y_axis_limit[1], y_axis_limit[2]))
+        )
+        
+        lines!(ax_po, po_noise_levels, po_baseline_means, color=colors[po_b], label="Baseline")
+        band!(ax_po, po_noise_levels, 
+            max.(po_baseline_means - po_baseline_stds, 0), 
+            po_baseline_means + po_baseline_stds, 
+            color=(colors[po_b], band_opacity))
+        
+        lines!(ax_po, po_noise_levels, po_our_method_means, color=colors[po_m], label="Our Method")
+        band!(ax_po, po_noise_levels, 
+            max.(po_our_method_means - po_our_method_stds, 0), 
+            po_our_method_means + po_our_method_stds, 
+            color=(colors[po_m], band_opacity))
+        
+        axislegend(ax_po, position=:lt)
+        
+        save(joinpath(output_prefix, "po_both_crosswalk.png"), fig_po)
+        save(joinpath(pdf_dir, "po_both_crosswalk.pdf"), fig_po, pt_per_unit=1, pt_per_inch=72)
+        
+        # Baseline full vs partial observation
+        fig_b = Figure(size = (800, 600), margins = (10, 10, 10, 10))
+        ax_b = Axis(fig_b[1, 1],
+            xlabel = "Noise Level (σ)",
+            ylabel = "Trajectory Error",
+            title = "Crosswalk Baseline: Full vs Partial Observation",
+            limits = (nothing, (y_axis_limit[1], y_axis_limit[2]))
+        )
+        
+        lines!(ax_b, fo_noise_levels, fo_baseline_means, color=colors[fo_b], label="Full Observation")
+        band!(ax_b, fo_noise_levels, 
+            max.(fo_baseline_means - fo_baseline_stds, 0), 
+            fo_baseline_means + fo_baseline_stds, 
+            color=(colors[fo_b], band_opacity))
+        
+        lines!(ax_b, po_noise_levels, po_baseline_means, color=colors[po_b], linestyle=:dash, label="Partial Observation")
+        band!(ax_b, po_noise_levels, 
+            max.(po_baseline_means - po_baseline_stds, 0), 
+            po_baseline_means + po_baseline_stds, 
+            color=(colors[po_b], band_opacity))
+        
+        axislegend(ax_b, position=:lt)
+        
+        save(joinpath(output_prefix, "fo_po_baseline_crosswalk.png"), fig_b)
+        save(joinpath(pdf_dir, "fo_po_baseline_crosswalk.pdf"), fig_b, pt_per_unit=1, pt_per_inch=72)
+        
+        # Our method full vs partial observation
+        fig_m = Figure(size = (800, 600), margins = (10, 10, 10, 10))
+        ax_m = Axis(fig_m[1, 1],
+            xlabel = "Noise Level (σ)",
+            ylabel = "Trajectory Error",
+            title = "Crosswalk Our Method: Full vs Partial Observation",
+            limits = (nothing, (y_axis_limit[1], y_axis_limit[2]))
+        )
+        
+        lines!(ax_m, fo_noise_levels, fo_our_method_means, color=colors[fo_m], label="Full Observation")
+        band!(ax_m, fo_noise_levels, 
+            max.(fo_our_method_means - fo_our_method_stds, 0), 
+            fo_our_method_means + fo_our_method_stds, 
+            color=(colors[fo_m], band_opacity))
+        
+        lines!(ax_m, po_noise_levels, po_our_method_means, color=colors[po_m], linestyle=:dash, label="Partial Observation")
+        band!(ax_m, po_noise_levels, 
+            max.(po_our_method_means - po_our_method_stds, 0), 
+            po_our_method_means + po_our_method_stds, 
+            color=(colors[po_m], band_opacity))
+        
+        axislegend(ax_m, position=:lt)
+        
+        save(joinpath(output_prefix, "fo_po_our_method_crosswalk.png"), fig_m)
+        save(joinpath(pdf_dir, "fo_po_our_method_crosswalk.pdf"), fig_m, pt_per_unit=1, pt_per_inch=72)
+    end
+    
+    # Return the statistics
+    result = Dict(
+        "noise_levels" => fo_noise_levels,
+        "full_observation" => Dict(
+            "baseline" => (means=fo_baseline_means, stds=fo_baseline_stds),
+            "our_method" => (means=fo_our_method_means, stds=fo_our_method_stds)
+        )
+    )
+    
+    if !isnothing(po_file_path)
+        result["partial_observation"] = Dict(
+            "baseline" => (means=po_baseline_means, stds=po_baseline_stds),
+            "our_method" => (means=po_our_method_means, stds=po_our_method_stds)
+        )
+    end
+    
+    return result
+end
 
 end
