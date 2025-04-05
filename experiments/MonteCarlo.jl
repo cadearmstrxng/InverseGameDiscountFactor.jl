@@ -7,7 +7,7 @@ using TrajectoryGamesBase: num_players, state_dim
 using TrajectoryGamesExamples: BicycleDynamics
 using Statistics: mean, std
 using HypothesisTests: OneSampleTTest, pvalue
-
+using Infiltrator
 include("../src/InverseGameDiscountFactor.jl")
 include("GameUtils.jl")
 include("graphing/ExperimentGraphingUtils.jl")
@@ -164,6 +164,204 @@ function run_monte_carlo(;
     
     # Generate summary statistics
     generate_monte_carlo_summary(σs, num_trials, new_filename, baseline_filename, "mc_study_summary_0.02.txt")
+end
+
+function run_monte_carlo_crosswalk(;
+    rng = Random.MersenneTwister(1),
+    num_trials = 40,
+    noise_level_cap = 0.1,
+    noise_resolution = 20,
+    verbose = true,
+    store_all = false
+)
+    σs = [(noise_level_cap / noise_resolution)*i for i in 0:noise_resolution]
+    Random.seed!(rng)
+
+    coeffs = [1.0, 0.1, 5.0]
+    horizon = 25
+    initial_state = mortar([
+        [2.0, 2.0, 0, 0],
+        [0, 2.0, 0, 0]
+    ])
+    game_params = mortar([
+        [0, 0],
+        [2, 0]
+    ])
+    gamma_param = [1.0, 1.0]
+
+    fo_init = GameUtils.init_crosswalk_game(
+        true;
+        myopic = true,
+        initial_state = initial_state,
+        game_params = BlockVector(
+                    vcat([vcat(param..., [gamma_param[i]]) for (i, param) in enumerate(game_params.blocks)]...),
+                    [3 for _ in 1:length(game_params.blocks)]),
+        coeffs = coeffs,
+        horizon = horizon
+    )
+
+    fo_init_baseline = GameUtils.init_crosswalk_game(
+        true;
+        myopic = false,
+        initial_state = fo_init.initial_state,
+        game_params = game_params,
+        coeffs = coeffs,
+        horizon = horizon
+    )
+
+    po_init = GameUtils.init_crosswalk_game(
+        false;
+        myopic = true,
+        initial_state = initial_state,
+        game_params = BlockVector(
+                    vcat([vcat(param..., [gamma_param[i]]) for (i, param) in enumerate(game_params.blocks)]...),
+                    [3 for _ in 1:length(game_params.blocks)]),
+        coeffs = coeffs,
+        horizon = horizon
+    )
+
+    po_init_baseline = GameUtils.init_crosswalk_game(
+        false;
+        myopic = false,
+        initial_state = po_init.initial_state,
+        game_params = game_params,
+        coeffs = coeffs,
+        horizon = horizon
+    )
+
+    fo_mcp_game = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
+        fo_init.game_structure.game,
+        fo_init.horizon,
+        blocksizes(fo_init.game_parameters, 1)
+    ).mcp_game
+
+    fo_baseline_solver = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
+        fo_init_baseline.game_structure.game,
+        fo_init_baseline.horizon,
+        blocksizes(fo_init_baseline.game_parameters, 1)
+    ).mcp_game
+
+    po_mcp_game = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
+        po_init.game_structure.game,
+        po_init.horizon,
+        blocksizes(po_init.game_parameters, 1)
+    ).mcp_game
+
+    po_baseline_solver = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
+        po_init_baseline.game_structure.game,
+        po_init_baseline.horizon,
+        blocksizes(po_init_baseline.game_parameters, 1)
+    ).mcp_game
+
+    forward_solution = InverseGameDiscountFactor.reconstruct_solution(
+        InverseGameDiscountFactor.solve_mcp_game(
+            fo_mcp_game,
+            fo_init.initial_state,
+            mortar([
+                [0.1, -0.05, 0.6],
+                [2.12, 0.1, 0.7]
+            ]);
+            verbose = false
+        ),
+        fo_init.game_structure.game,
+        fo_init.horizon
+    )
+
+    fo_errors = Array{Float64}(undef, num_trials)
+    fo_baseline_errors = Array{Float64}(undef, num_trials)
+    po_errors = Array{Float64}(undef, num_trials)
+    po_baseline_errors = Array{Float64}(undef, num_trials)
+
+    for σ_idx in eachindex(σs)
+        σ = σs[σ_idx]
+        fo_errors .= -1.0
+        fo_baseline_errors .= -1.0
+        po_errors .= -1.0
+        po_baseline_errors .= -1.0
+        
+        for trial_idx in 1:num_trials
+            verbose && println("std: ", σ, " trial: ", trial_idx)
+
+            noisy_observations = map(forward_solution.blocks) do block
+                block .+ σ * randn(size(block))
+            end
+
+            po_noisy_observations = map(forward_solution.blocks) do block
+                vcat((block .+ σ * randn(size(block)))[1:2], (block .+ σ * randn(size(block)))[5:6])
+            end
+
+            fo_method_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
+                fo_mcp_game,
+                noisy_observations,
+                fo_init.observation_model,
+                blocksizes(fo_init.game_parameters, 1);
+                initial_state = fo_init.initial_state,
+                hidden_state_guess = fo_init.game_parameters,
+                max_grad_steps = 200,
+                retries_on_divergence = 3,
+                verbose = false,
+                warm_start = false,
+                lr = 1e-3
+            )
+
+            fo_baseline_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
+                fo_baseline_solver,
+                noisy_observations,
+                fo_init_baseline.observation_model,
+                blocksizes(fo_init_baseline.game_parameters, 1);
+                initial_state = fo_init_baseline.initial_state,
+                hidden_state_guess = fo_init_baseline.game_parameters,
+                max_grad_steps = 200,
+                verbose = false,
+                warm_start = false,
+                lr = 1e-3
+            )
+
+            po_method_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
+                po_mcp_game,
+                po_noisy_observations,
+                po_init.observation_model,
+                blocksizes(po_init.game_parameters, 1);
+                initial_state = po_init.initial_state,
+                hidden_state_guess = po_init.game_parameters,
+                max_grad_steps = 200,
+                verbose = false,
+                warm_start = false,
+                lr = 1e-3
+            )
+
+            po_baseline_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
+                po_baseline_solver,
+                po_noisy_observations,
+                po_init_baseline.observation_model,
+                blocksizes(po_init_baseline.game_parameters, 1);
+                initial_state = po_init_baseline.initial_state,
+                hidden_state_guess = po_init_baseline.game_parameters,
+                max_grad_steps = 200,
+                verbose = false,
+                warm_start = false,
+                lr = 1e-3
+            )
+
+            fo_errors[trial_idx] = norm_sqr(forward_solution - fo_method_sol.recovered_trajectory) / length(forward_solution.blocks)
+            fo_baseline_errors[trial_idx] = norm_sqr(forward_solution - fo_baseline_sol.recovered_trajectory) / length(forward_solution.blocks)
+            po_errors[trial_idx] = norm_sqr(forward_solution - po_method_sol.recovered_trajectory) / length(forward_solution.blocks)
+            po_baseline_errors[trial_idx] = norm_sqr(forward_solution - po_baseline_sol.recovered_trajectory) / length(forward_solution.blocks)
+        end
+        open("experiments/crosswalk/fo_ours.txt", "a") do f
+            write(f, "m"*string(σ)*" "*join(string.(round.(fo_errors, digits=4)), " ")*"\n")
+        end
+        open("experiments/crosswalk/fo_baseline.txt", "a") do f
+            write(f, "b"*string(σ)*" "*join(string.(round.(fo_baseline_errors, digits=4)), " ")*"\n")
+        end
+        open("experiments/crosswalk/po_ours.txt", "a") do f
+            write(f, "m"*string(σ)*" "*join(string.(round.(po_errors, digits=4)), " ")*"\n")
+        end
+        open("experiments/crosswalk/po_baseline.txt", "a") do f
+            write(f, "b"*string(σ)*" "*join(string.(round.(po_baseline_errors, digits=4)), " ")*"\n")
+        end
+    end
+    ExperimentGraphingUtils.process_and_graph_crosswalk_results()
 end
 
 """

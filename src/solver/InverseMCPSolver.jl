@@ -10,6 +10,7 @@ function solve_inverse_mcp_game(
     function observe_trajectory(x)
         vcat([observation_model(state_t) for state_t in x.blocks]...)
     end
+    solving_status = []
     """
     solve inverse game
 
@@ -24,6 +25,7 @@ function solve_inverse_mcp_game(
                 context_state_estimation; initial_guess = nothing)
         end
         push!(solving_info, solution.info)
+        push!(solving_status, solution.status)
         last_solution = solution.status == PATHSolver.MCP_Solved ? (; primals = ForwardDiff.value.(solution.primals),
         variables = ForwardDiff.value.(solution.variables), status = solution.status) : nothing
         τs_solution = reconstruct_solution(solution, mcp_game.game, horizon)
@@ -60,7 +62,7 @@ function solve_inverse_mcp_game(
         clamp!(x0_grad, -10, 10)
         objective_update = lr * objective_grad
         x0_update = 1e-3 * x0_grad
-        if norm(objective_update)/norm(context_state_estimation) < 1e-2 && norm(x0_update)/norm(initial_state) < 1e-4
+        if norm(objective_update)/norm(context_state_estimation) < 1e-4 && norm(x0_update)/norm(initial_state) < 1e-4
             @info "Inner iteration terminates at iteration: "*string(i)
             break
         elseif infeasible_counter >= 4
@@ -70,6 +72,6 @@ function solve_inverse_mcp_game(
         context_state_estimation -= objective_update
         initial_state -= x0_update
     end
-    (; context_state_estimation, last_solution, i_, solving_info, time_exec)
+    (; context_state_estimation, last_solution, i_, solving_info, time_exec, solving_status)
 end
 
