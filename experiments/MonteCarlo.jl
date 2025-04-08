@@ -172,7 +172,8 @@ function run_monte_carlo_crosswalk(;
     noise_level_cap = 0.1,
     noise_resolution = 20,
     verbose = true,
-    store_all = false
+    store_all = false,
+    reset = false
 )
     σs = [(noise_level_cap / noise_resolution)*i for i in 0:noise_resolution]
     Random.seed!(rng)
@@ -187,14 +188,13 @@ function run_monte_carlo_crosswalk(;
         [0, 0],
         [2, 0]
     ])
-    gamma_param = [1.0, 1.0]
 
     fo_init = GameUtils.init_crosswalk_game(
         true;
         myopic = true,
         initial_state = initial_state,
         game_params = BlockVector(
-                    vcat([vcat(param..., [gamma_param[i]]) for (i, param) in enumerate(game_params.blocks)]...),
+                    vcat([vcat(param..., [0.6]) for (i, param) in enumerate(game_params.blocks)]...),
                     [3 for _ in 1:length(game_params.blocks)]),
         coeffs = coeffs,
         horizon = horizon
@@ -214,7 +214,7 @@ function run_monte_carlo_crosswalk(;
         myopic = true,
         initial_state = initial_state,
         game_params = BlockVector(
-                    vcat([vcat(param..., [gamma_param[i]]) for (i, param) in enumerate(game_params.blocks)]...),
+                    vcat([vcat(param..., [0.6]) for (i, param) in enumerate(game_params.blocks)]...),
                     [3 for _ in 1:length(game_params.blocks)]),
         coeffs = coeffs,
         horizon = horizon
@@ -258,19 +258,42 @@ function run_monte_carlo_crosswalk(;
             fo_mcp_game,
             fo_init.initial_state,
             mortar([
-                [0.1, -0.05, 0.6],
-                [2.12, 0.1, 0.7]
+                [0.0, 0.0, 0.6],
+                [2.0, 0.0, 0.6]
             ]);
             verbose = false
         ),
         fo_init.game_structure.game,
         fo_init.horizon
     )
+    ExperimentGraphingUtils.graph_crosswalk_trajectories(
+        "forward_solution",
+        [forward_solution],
+        fo_init.game_structure,
+        fo_init.horizon;
+        colors = [[(:red, 1.0), (:blue, 1.0), (:green, 1.0)], [(:red, 0.25), (:blue, 0.25), (:green, 0.25)]],
+    )
 
     fo_errors = Array{Float64}(undef, num_trials)
     fo_baseline_errors = Array{Float64}(undef, num_trials)
     po_errors = Array{Float64}(undef, num_trials)
     po_baseline_errors = Array{Float64}(undef, num_trials)
+
+    if reset 
+        open("experiments/crosswalk/fo_ours.txt", "w") do f
+            write(f, "")
+        end
+        open("experiments/crosswalk/fo_baseline.txt", "w") do f
+            write(f, "")
+        end
+        open("experiments/crosswalk/po_ours.txt", "w") do f
+            write(f, "")
+        end
+        open("experiments/crosswalk/po_baseline.txt", "w") do f
+            write(f, "")
+        end
+    end
+    f = open("experiments/crosswalk/exp_statistics.txt", "a")
 
     for σ_idx in eachindex(σs)
         σ = σs[σ_idx]
@@ -289,7 +312,7 @@ function run_monte_carlo_crosswalk(;
             po_noisy_observations = map(forward_solution.blocks) do block
                 vcat((block .+ σ * randn(size(block)))[1:2], (block .+ σ * randn(size(block)))[5:6])
             end
-
+            println("σ: ", σ, " fo_new:")
             fo_method_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
                 fo_mcp_game,
                 noisy_observations,
@@ -301,9 +324,11 @@ function run_monte_carlo_crosswalk(;
                 retries_on_divergence = 3,
                 verbose = false,
                 warm_start = false,
-                lr = 1e-3
+                lr = 1e-3,
+                regularization = 1.0
             )
-
+            write(f, "fo_new: "*string(σ)*" "*string(count(x -> x == InverseGameDiscountFactor.PATHSolver.MCP_Solved, fo_method_sol.solving_status)/length(fo_method_sol.solving_status))*"\n")
+            println("σ: ", σ, " fo_baseline:")
             fo_baseline_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
                 fo_baseline_solver,
                 noisy_observations,
@@ -314,9 +339,11 @@ function run_monte_carlo_crosswalk(;
                 max_grad_steps = 200,
                 verbose = false,
                 warm_start = false,
-                lr = 1e-3
+                lr = 1e-3,
+                regularization = 1.0
             )
-
+            write(f, "fo_baseline: "*string(σ)*" "*string(count(x -> x == InverseGameDiscountFactor.PATHSolver.MCP_Solved, fo_baseline_sol.solving_status)/length(fo_baseline_sol.solving_status))*"\n")
+            println("σ: ", σ, " po_new:")
             po_method_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
                 po_mcp_game,
                 po_noisy_observations,
@@ -327,9 +354,11 @@ function run_monte_carlo_crosswalk(;
                 max_grad_steps = 200,
                 verbose = false,
                 warm_start = false,
-                lr = 1e-3
+                lr = 1e-3,
+                regularization = 1.0
             )
-
+            write(f, "po_new: "*string(σ)*" "*string(count(x -> x == InverseGameDiscountFactor.PATHSolver.MCP_Solved, po_method_sol.solving_status)/length(po_method_sol.solving_status))*"\n")
+            println("σ: ", σ, " po_baseline:")
             po_baseline_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
                 po_baseline_solver,
                 po_noisy_observations,
@@ -340,8 +369,10 @@ function run_monte_carlo_crosswalk(;
                 max_grad_steps = 200,
                 verbose = false,
                 warm_start = false,
-                lr = 1e-3
+                lr = 1e-3,
+                regularization = 1.0
             )
+            write(f, "po_baseline: "*string(σ)*" "*string(count(x -> x == InverseGameDiscountFactor.PATHSolver.MCP_Solved, po_baseline_sol.solving_status)/length(po_baseline_sol.solving_status))*"\n")
 
             fo_errors[trial_idx] = norm_sqr(forward_solution - fo_method_sol.recovered_trajectory) / length(forward_solution.blocks)
             fo_baseline_errors[trial_idx] = norm_sqr(forward_solution - fo_baseline_sol.recovered_trajectory) / length(forward_solution.blocks)
@@ -361,6 +392,7 @@ function run_monte_carlo_crosswalk(;
             write(f, "b"*string(σ)*" "*join(string.(round.(po_baseline_errors, digits=4)), " ")*"\n")
         end
     end
+    close(f)
     ExperimentGraphingUtils.process_and_graph_crosswalk_results()
 end
 

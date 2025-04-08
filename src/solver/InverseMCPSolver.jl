@@ -5,8 +5,9 @@ function solve_inverse_mcp_game(
     initial_estimation,
     horizon;
     observation_model = identity,
-    max_grad_steps = 150, lr = 1e-5, last_solution = nothing, discount_threshold = 1e-4 # lr usually 1e-3
-)
+    max_grad_steps = 150, lr = 1e-5, last_solution = nothing, discount_threshold = 1e-4, # lr usually 1e-3
+    regularization = 0.0
+    )
     function observe_trajectory(x)
         vcat([observation_model(state_t) for state_t in x.blocks]...)
     end
@@ -62,7 +63,8 @@ function solve_inverse_mcp_game(
         clamp!(x0_grad, -10, 10)
         objective_update = lr * objective_grad
         x0_update = 1e-3 * x0_grad
-        if norm(objective_update)/norm(context_state_estimation) < 1e-4 && norm(x0_update)/norm(initial_state) < 1e-4
+        # if norm(objective_update)/norm(context_state_estimation) < 1e-4 && norm(x0_update)/norm(initial_state) < 1e-4
+        if norm(objective_update) < 1e-2 && norm(x0_update) < 1e-3
             @info "Inner iteration terminates at iteration: "*string(i)
             break
         elseif infeasible_counter >= 4
