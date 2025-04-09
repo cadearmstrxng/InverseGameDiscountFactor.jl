@@ -12,7 +12,7 @@ function solve_myopic_inverse_game(
     rng = Random.MersenneTwister(1),
     dynamics = nothing,
     lr = 1e-3,
-    warm_start=true,
+    use_warm_start=true,
     regularization = 0.0
 )
     !verbose || println("solving ... ")
@@ -23,7 +23,7 @@ function solve_myopic_inverse_game(
         BlockVector(hidden_state_guess, collect(hidden_state_dim))
     !verbose || println("hidden state: ", hidden_state_0)
     
-    if warm_start
+    if use_warm_start
     warm_start_sol = 
         expand_warm_start(
             warm_start(
@@ -39,7 +39,7 @@ function solve_myopic_inverse_game(
         warm_start_sol = nothing
     end
     
-    if verbose && warm_start
+    if verbose && use_warm_start
         open("warm_start_sol.txt", "w") do io
             write(io, string(warm_start_sol))
         end
@@ -72,7 +72,7 @@ function solve_myopic_inverse_game(
                 sol_error = sol_error,
                 recovered_params = context_state_estimation,
                 recovered_trajectory = inv_sol1,
-                warm_start_trajectory = warm_start ? reconstruct_solution(warm_start_sol, mcp_game.game, mcp_game.horizon) : nothing,
+                warm_start_trajectory = use_warm_start ? reconstruct_solution(warm_start_sol, mcp_game.game, mcp_game.horizon) : nothing,
                 solving_info = solving_info,
                 time_exec = time_exec,
                 solving_status = solving_status
