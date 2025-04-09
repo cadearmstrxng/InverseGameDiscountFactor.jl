@@ -12,6 +12,7 @@ using Rotations
 using OffsetArrays:Origin
 using CSV
 using DataFrames
+using LinearAlgebra: norm
 
 using Infiltrator
 
@@ -789,6 +790,416 @@ function process_and_graph_crosswalk_results(;
     end
     
     return result
+end
+
+
+function parse_rh_file(filename)
+    times = Int[]
+    inverse_costs = Float64[]
+    baseline_costs = Float64[]
+    params_history = Vector{Float64}[]
+    baseline_params_history = Vector{Float64}[]
+    
+    current_time = nothing
+    current_inverse_cost = nothing
+    current_baseline_cost = nothing
+    current_params = nothing
+    current_baseline_params = nothing
+    
+    for line in eachline(filename)
+        if startswith(line, "t:")
+            if !isnothing(current_time)
+                push!(times, current_time)
+                push!(inverse_costs, current_inverse_cost)
+                push!(baseline_costs, current_baseline_cost)
+                push!(params_history, current_params)
+                push!(baseline_params_history, current_baseline_params)
+            end
+            parts = split(line, ":")
+            current_time = parse(Int, strip(parts[2]))
+        elseif startswith(line, "inverse_costs_future:")
+            parts = split(line, ":")
+            current_inverse_cost = parse(Float64, strip(parts[2]))
+        elseif startswith(line, "baseline_inverse_costs_future:")
+            parts = split(line, ":")
+            current_baseline_cost = parse(Float64, strip(parts[2]))
+        elseif startswith(line, "params_future:")
+            parts = split(line, ":", limit=2)
+            param_str = strip(parts[2])
+            
+            # Process the parameter string to handle brackets
+            # First, remove overall brackets if present
+            if startswith(param_str, "[") && endswith(param_str, "]")
+                param_str = param_str[2:end-1]
+            end
+            
+            # Split the parameter string by commas
+            param_parts = split(param_str, ",")
+            
+            # Process each part to clean any remaining brackets
+            for i in 1:length(param_parts)
+                param_parts[i] = strip(param_parts[i])
+                # Remove any left bracket at the beginning
+                if startswith(param_parts[i], "[")
+                    param_parts[i] = param_parts[i][2:end]
+                end
+                # Remove any right bracket at the end
+                if endswith(param_parts[i], "]")
+                    param_parts[i] = param_parts[i][1:end-1]
+                end
+            end
+            
+            # Parse the cleaned parameter parts
+            current_params = parse.(Float64, param_parts)
+        elseif startswith(line, "baseline_params_future:")
+            parts = split(line, ":", limit=2)
+            param_str = strip(parts[2])
+            
+            # Process the parameter string to handle brackets
+            # First, remove overall brackets if present
+            if startswith(param_str, "[") && endswith(param_str, "]")
+                param_str = param_str[2:end-1]
+            end
+            
+            # Split the parameter string by commas
+            param_parts = split(param_str, ",")
+            
+            # Process each part to clean any remaining brackets
+            for i in 1:length(param_parts)
+                param_parts[i] = strip(param_parts[i])
+                # Remove any left bracket at the beginning
+                if startswith(param_parts[i], "[")
+                    param_parts[i] = param_parts[i][2:end]
+                end
+                # Remove any right bracket at the end
+                if endswith(param_parts[i], "]")
+                    param_parts[i] = param_parts[i][1:end-1]
+                end
+            end
+            
+            # Parse the cleaned parameter parts
+            current_baseline_params = parse.(Float64, param_parts)
+        end
+    end
+    
+    # Push the last entry
+    if !isnothing(current_time)
+        push!(times, current_time)
+        push!(inverse_costs, current_inverse_cost)
+        push!(baseline_costs, current_baseline_cost)
+        push!(params_history, current_params)
+        push!(baseline_params_history, current_baseline_params)
+    end
+    
+    return times, inverse_costs, baseline_costs, params_history, baseline_params_history
+end
+
+
+function plot_rh_costs(filename; title="Inverse Costs Over Time")
+    times, inverse_costs, baseline_costs, _, _ = parse_rh_file(filename)
+    
+    CairoMakie.activate!()
+    fig = Figure(resolution=(800, 600))
+    ax = Axis(fig[1, 1], title=title, xlabel="Time Step", ylabel="Cost")
+    
+    lines!(ax, times, inverse_costs, label="Inverse Costs", color=:blue)
+    lines!(ax, times, baseline_costs, label="Baseline Costs", color=:red)
+    
+    axislegend(ax, position=:rt)
+    save("costs over time.pdf", fig, pt_per_unit=1, pt_per_inch=72)
+    return fig
+end
+
+"""
+    plot_rh_parameter_differences(filename, true_params; title="Parameter Differences Over Time")
+
+Plot the L2 norm of parameter differences from true parameters over time using data from an rh.txt file.
+
+# Arguments
+- `filename`: Path to the rh.txt file
+- `true_params`: The true parameter vector to compare against
+- `title`: Optional title for the plot
+
+# Returns
+- A Makie figure showing the parameter difference trajectory
+"""
+function plot_rh_parameter_differences(filename, true_params; title="Parameter Differences Over Time")
+    times, _, _, params_history, baseline_params_history = parse_rh_file(filename)
+    
+    CairoMakie.activate!()
+    fig = Figure(resolution=(800, 600))
+    ax = Axis(fig[1, 1], title=title, xlabel="Time Step", ylabel="L2 Norm of Parameter Difference")
+    
+    # Extract goal positions for both methods
+    # Note: Regular params have 8 parameters per player, baseline has 7 per player
+    goal_indices_regular = [1,2, 9,10, 17,18, 25,26]
+    goal_indices_baseline = [1,2, 8,9, 15,16, 22,23]
+    
+    # Calculate L2 norm of differences for goal positions
+    differences = [norm(params[goal_indices_regular] - true_params[goal_indices_regular]) for params in params_history]
+    baseline_differences = [norm(baseline_params[goal_indices_baseline] - true_params[goal_indices_regular]) for baseline_params in baseline_params_history]
+    
+    lines!(ax, times, differences, label="Our Method", color=:blue)
+    lines!(ax, times, baseline_differences, label="Baseline", color=:blue, linestyle=:dash)
+    
+    axislegend(ax, position=:rt)
+    save("parameter differences over time.pdf", fig, pt_per_unit=1, pt_per_inch=72)
+    
+    # Create per-player parameter differences plot
+    plot_rh_parameter_differences_per_player(filename, true_params)
+    
+    return fig
+end
+
+function plot_rh_parameter_differences_per_player(filename, true_params; title="Parameter Differences Per Player Over Time")
+    times, _, _, params_history, baseline_params_history = parse_rh_file(filename)
+    
+    CairoMakie.activate!()
+    fig = Figure(resolution=(800, 600))
+    ax = Axis(fig[1, 1], title=title, xlabel="Time Step", ylabel="L2 Norm of Parameter Difference")
+    
+    # Regular parameters have 8 params per player
+    player1_indices_regular = collect(1:8)      # First player parameters
+    player2_indices_regular = collect(9:16)     # Second player parameters
+    player3_indices_regular = collect(17:24)    # Third player parameters
+    player4_indices_regular = collect(25:32)    # Fourth player parameters
+    
+    # Baseline parameters have 7 params per player
+    player1_indices_baseline = collect(1:7)     # First player parameters
+    player2_indices_baseline = collect(8:14)    # Second player parameters
+    player3_indices_baseline = collect(15:21)   # Third player parameters
+    player4_indices_baseline = collect(22:28)   # Fourth player parameters
+    
+    # True parameters structure matches regular params (8 per player)
+    player1_indices_true = collect(1:8)
+    player2_indices_true = collect(9:16)
+    player3_indices_true = collect(17:24)
+    player4_indices_true = collect(25:32)
+    
+    # Calculate differences for each player - regular parameters
+    player1_differences = [norm(params[player1_indices_regular] - true_params[player1_indices_true]) for params in params_history]
+    player2_differences = [norm(params[player2_indices_regular] - true_params[player2_indices_true]) for params in params_history]
+    player3_differences = [norm(params[player3_indices_regular] - true_params[player3_indices_true]) for params in params_history]
+    player4_differences = [norm(params[player4_indices_regular] - true_params[player4_indices_true]) for params in params_history]
+    
+    # For baseline, we just compare the available parameters
+    # Since baseline has 7 params and true has 8, we'll compare just the first 7
+    player1_baseline_differences = [norm(params[player1_indices_baseline][1:7] - true_params[player1_indices_true][1:7]) for params in baseline_params_history]
+    player2_baseline_differences = [norm(params[player2_indices_baseline][1:7] - true_params[player2_indices_true][1:7]) for params in baseline_params_history]
+    player3_baseline_differences = [norm(params[player3_indices_baseline][1:7] - true_params[player3_indices_true][1:7]) for params in baseline_params_history]
+    player4_baseline_differences = [norm(params[player4_indices_baseline][1:7] - true_params[player4_indices_true][1:7]) for params in baseline_params_history]
+    
+    # Define colors for each player
+    player_colors = [:blue, :green, :purple, :orange]
+    
+    # Player 1 - Our Method and Baseline (same color, different line styles)
+    lines!(ax, times, player1_differences, label="Player 1 Our Method", color=player_colors[1])
+    lines!(ax, times, player1_baseline_differences, label="Player 1 Baseline", color=player_colors[1], linestyle=:dash)
+    
+    # Player 2 - Our Method and Baseline
+    lines!(ax, times, player2_differences, label="Player 2 Our Method", color=player_colors[2])
+    lines!(ax, times, player2_baseline_differences, label="Player 2 Baseline", color=player_colors[2], linestyle=:dash)
+    
+    # Player 3 - Our Method and Baseline
+    lines!(ax, times, player3_differences, label="Player 3 Our Method", color=player_colors[3])
+    lines!(ax, times, player3_baseline_differences, label="Player 3 Baseline", color=player_colors[3], linestyle=:dash)
+    
+    # Player 4 - Our Method and Baseline
+    lines!(ax, times, player4_differences, label="Player 4 Our Method", color=player_colors[4])
+    lines!(ax, times, player4_baseline_differences, label="Player 4 Baseline", color=player_colors[4], linestyle=:dash)
+    
+    axislegend(ax, position=:rt)
+    save("parameter differences per player over time.pdf", fig, pt_per_unit=1, pt_per_inch=72)
+    
+    # Create a separate plot for goal differences per player
+    plot_rh_goal_differences_per_player(filename, true_params)
+    
+    return fig
+end
+
+function plot_rh_goal_differences_per_player(filename, true_params; title="Goal Position Differences Per Player Over Time")
+    times, _, _, params_history, baseline_params_history = parse_rh_file(filename)
+    
+    CairoMakie.activate!()
+    fig = Figure(resolution=(800, 600))
+    ax = Axis(fig[1, 1], title=title, xlabel="Time Step", ylabel="L2 Norm of Goal Position Difference")
+    
+    # Goal position indices for each player - regular params
+    player1_goal_indices_regular = [1, 2]     # First player goal position
+    player2_goal_indices_regular = [9, 10]    # Second player goal position
+    player3_goal_indices_regular = [17, 18]   # Third player goal position
+    player4_goal_indices_regular = [25, 26]   # Fourth player goal position
+    
+    # Goal position indices for each player - baseline params
+    player1_goal_indices_baseline = [1, 2]    # First player goal position
+    player2_goal_indices_baseline = [8, 9]    # Second player goal position
+    player3_goal_indices_baseline = [15, 16]  # Third player goal position
+    player4_goal_indices_baseline = [22, 23]  # Fourth player goal position
+    
+    # Calculate goal position differences for each player
+    player1_goal_differences = [norm(params[player1_goal_indices_regular] - true_params[player1_goal_indices_regular]) for params in params_history]
+    player2_goal_differences = [norm(params[player2_goal_indices_regular] - true_params[player2_goal_indices_regular]) for params in params_history]
+    player3_goal_differences = [norm(params[player3_goal_indices_regular] - true_params[player3_goal_indices_regular]) for params in params_history]
+    player4_goal_differences = [norm(params[player4_goal_indices_regular] - true_params[player4_goal_indices_regular]) for params in params_history]
+    
+    player1_baseline_goal_differences = [norm(params[player1_goal_indices_baseline] - true_params[player1_goal_indices_regular]) for params in baseline_params_history]
+    player2_baseline_goal_differences = [norm(params[player2_goal_indices_baseline] - true_params[player2_goal_indices_regular]) for params in baseline_params_history]
+    player3_baseline_goal_differences = [norm(params[player3_goal_indices_baseline] - true_params[player3_goal_indices_regular]) for params in baseline_params_history]
+    player4_baseline_goal_differences = [norm(params[player4_goal_indices_baseline] - true_params[player4_goal_indices_regular]) for params in baseline_params_history]
+    
+    # Define colors for each player
+    player_colors = [:blue, :green, :purple, :orange]
+    
+    # Player 1 - Our Method and Baseline (same color, different line styles)
+    lines!(ax, times, player1_goal_differences, label="Player 1 Our Method", color=player_colors[1])
+    lines!(ax, times, player1_baseline_goal_differences, label="Player 1 Baseline", color=player_colors[1], linestyle=:dash)
+    
+    # Player 2 - Our Method and Baseline
+    lines!(ax, times, player2_goal_differences, label="Player 2 Our Method", color=player_colors[2])
+    lines!(ax, times, player2_baseline_goal_differences, label="Player 2 Baseline", color=player_colors[2], linestyle=:dash)
+    
+    # Player 3 - Our Method and Baseline
+    lines!(ax, times, player3_goal_differences, label="Player 3 Our Method", color=player_colors[3])
+    lines!(ax, times, player3_baseline_goal_differences, label="Player 3 Baseline", color=player_colors[3], linestyle=:dash)
+    
+    # Player 4 - Our Method and Baseline
+    lines!(ax, times, player4_goal_differences, label="Player 4 Our Method", color=player_colors[4])
+    lines!(ax, times, player4_baseline_goal_differences, label="Player 4 Baseline", color=player_colors[4], linestyle=:dash)
+    
+    axislegend(ax, position=:rt)
+    save("goal differences per player over time.pdf", fig, pt_per_unit=1, pt_per_inch=72)
+    
+    return fig
+end
+
+function graph_rh_snapshot(
+    plot_name,
+    observations,
+    inverse_trajectory,
+    baseline_inverse_trajectory,
+    predicted_trajectory,
+    baseline_predicted_trajectory,
+    game_structure,
+    horizon;
+    colors = [
+        [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)],  # Observations
+        [(:red, 0.8), (:blue, 0.8), (:green, 0.8), (:purple, 0.8)],  # Inverse trajectory
+        [(:red, 0.6), (:blue, 0.6), (:green, 0.6), (:purple, 0.6)],  # Baseline inverse
+        [(:red, 0.4), (:blue, 0.4), (:green, 0.4), (:purple, 0.4)],  # Predicted
+        [(:red, 0.2), (:blue, 0.2), (:green, 0.2), (:purple, 0.2)]   # Baseline predicted
+    ],
+    constraints = nothing,
+    p_state_dim = nothing
+)
+    CairoMakie.activate!()
+    fig = CairoMakie.Figure(resolution=(1000, 800))
+    ax = CairoMakie.Axis(fig[1,1], aspect = DataAspect())
+
+    # Load and process background image
+    image_data = CairoMakie.load("experiments/data/07_background.png")
+    image_data = image_data[end:-1:1, :]
+    image_data = image_data'
+    trfm = ImageTransformations.recenter(Rotations.RotMatrix(-2.303611),center(image_data))
+    x_crop_min = 430
+    x_crop_max = 875
+    y_crop_min = 225
+    y_crop_max = 1025
+    
+    scale = 1/10.25
+    x = (x_crop_max - x_crop_min) * scale
+    y = (y_crop_max - y_crop_min) * scale
+
+    image_data = ImageTransformations.warp(image_data, trfm)
+    image_data = Origin(0)(image_data)
+    image_data = image_data[x_crop_min:x_crop_max, y_crop_min:y_crop_max]
+    
+    x_offset = -34.75
+    y_offset = 22
+
+    CairoMakie.image!(ax,
+        x_offset..(x+x_offset),
+        y_offset..(y+y_offset),
+        image_data)
+
+    n = num_players(game_structure.game.dynamics)
+    p_state_dim = (p_state_dim === nothing) ? Int64(state_dim(game_structure.game.dynamics) // n) : p_state_dim
+
+    # Create legend elements
+    legend_elements = []
+    legend_labels = []
+
+    # Plot observations
+    for i in 1:n
+        scatter_plot = CairoMakie.scatter!(ax,
+            [observations[t][Block(i)][1] for t in eachindex(observations)],
+            [observations[t][Block(i)][2] for t in eachindex(observations)],
+            color = colors[1][i], markersize = 5)
+        push!(legend_elements, scatter_plot)
+        push!(legend_labels, "Player $i Obs")
+    end
+
+    # Plot inverse trajectories
+    for i in 1:n
+        line_plot = CairoMakie.lines!(ax,
+            [inverse_trajectory[Block(t)][(i-1)*p_state_dim + 1] for t in eachindex(blocks(inverse_trajectory))],
+            [inverse_trajectory[Block(t)][(i-1)*p_state_dim + 2] for t in eachindex(blocks(inverse_trajectory))],
+            color = colors[2][i])
+        push!(legend_elements, line_plot)
+        push!(legend_labels, "Player $i Inv")
+    end
+
+    # Plot baseline inverse trajectories
+    for i in 1:n
+        line_plot = CairoMakie.lines!(ax,
+            [baseline_inverse_trajectory[Block(t)][(i-1)*p_state_dim + 1] for t in eachindex(blocks(baseline_inverse_trajectory))],
+            [baseline_inverse_trajectory[Block(t)][(i-1)*p_state_dim + 2] for t in eachindex(blocks(baseline_inverse_trajectory))],
+            color = colors[3][i], linestyle=:dash)
+        push!(legend_elements, line_plot)
+        push!(legend_labels, "Player $i Base Inv")
+    end
+
+    # Plot predicted trajectories
+    for i in 1:n
+        line_plot = CairoMakie.lines!(ax,
+            [predicted_trajectory[Block(t)][(i-1)*p_state_dim + 1] for t in eachindex(blocks(predicted_trajectory))],
+            [predicted_trajectory[Block(t)][(i-1)*p_state_dim + 2] for t in eachindex(blocks(predicted_trajectory))],
+            color = colors[4][i])
+        push!(legend_elements, line_plot)
+        push!(legend_labels, "Player $i Pred")
+    end
+
+    # Plot baseline predicted trajectories
+    for i in 1:n
+        line_plot = CairoMakie.lines!(ax,
+            [baseline_predicted_trajectory[Block(t)][(i-1)*p_state_dim + 1] for t in eachindex(blocks(baseline_predicted_trajectory))],
+            [baseline_predicted_trajectory[Block(t)][(i-1)*p_state_dim + 2] for t in eachindex(blocks(baseline_predicted_trajectory))],
+            color = colors[5][i], linestyle=:dash)
+        push!(legend_elements, line_plot)
+        push!(legend_labels, "Player $i Base Pred")
+    end
+
+    # Add constraints if provided
+    if constraints !== nothing
+        x = LinRange(-40, 15, 100)
+        y = LinRange(10, 105, 100)
+        for i in x
+            for j in y
+                if any(constraints([i, j]) .< 0)
+                    scatter!(ax, [i], [j], color = :black, markersize = 2)
+                end
+            end
+        end
+    end
+
+    # Create legend in a separate column
+    Legend(fig[1,2], legend_elements, legend_labels, 
+        "Trajectory Types", 
+        framevisible = true,
+        padding = (10, 10, 10, 10),
+        rowgap = 5)
+
+    # Save the figure
+    CairoMakie.save(plot_name*".png", fig)
 end
 
 end

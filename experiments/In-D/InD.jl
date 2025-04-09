@@ -186,7 +186,7 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
     !verbose || println("% improvement on warm start: ", (warm_sol_error - sol_error) / warm_sol_error * 100)
 end
 
-function compare_to_baseline(;full_state=false, graph=true, verbose = true)
+function compare_to_baseline(;full_state=true, graph=true, verbose = true)
     # InD_observations = GameUtils.observe_trajectory(forward_solution, init)
     frames = [26158, 26320] # 162
     # 201 25549, 26381
@@ -328,7 +328,6 @@ function compare_to_baseline(;full_state=false, graph=true, verbose = true)
 
     if graph
         # Convert trajectories to consistent format for plotting
-        @infiltrate
         # method_trajectory = BlockVector(
         #     [method_sol.recovered_trajectory[Block(i)][1:2] for i in 1:length(method_sol.recovered_trajectory.blocks)],
         #     [2 for _ in 1:length(tracks)]
@@ -386,6 +385,24 @@ function compare_to_baseline(;full_state=false, graph=true, verbose = true)
             constraints = init.environment === nothing ? nothing : get_constraints(init.environment),
             p_state_dim = 2
         )
+        open("solved_method_trajectory_$(σ).txt", "w") do f
+            for state in method_trajectory.blocks
+                write(f, "-------------------------\n")
+                for i in 1:length(tracks)
+                    write(f, string(round.(state[(i-1)*4 + 1:i*4]; digits = 4)), "\n")
+                end
+            end
+            write(f, "-------------------------\n")
+        end
+        open("baseline_method_trajectory_$(σ).txt", "w") do f
+            for state in baseline_trajectory.blocks
+                write(f, "-------------------------\n")
+                for i in 1:length(tracks)
+                    write(f, string(round.(state[(i-1)*4 + 1:i*4]; digits = 4)), "\n")
+                end
+            end
+            write(f, "-------------------------\n")
+        end
     end
 end
 
@@ -512,6 +529,229 @@ function compare_noise_levels(;full_state=true, noise_levels=[0.0, 0.01, 0.05, 0
             println("Solved trajectory for noise level σ = ", σ, " written to solved_trajectory_$(σ).txt")
         end
     end
+end
+
+function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true)
+    frames = [26158, 26320] # 162
+    tracks = [201, 205, 207, 208]
+    downsample_rate = 6
+    rng = MersenneTwister(1234)
+    Random.seed!(rng)
+
+    # Get real trajectory data
+    InD_observations = GameUtils.pull_trajectory("07";
+        track = tracks, 
+        downsample_rate = downsample_rate, 
+        all = false, 
+        frames = frames
+    )
+    total_horizon = length(frames[1]:downsample_rate:frames[2])
+    
+    # Lane center functions
+    trk_201_lane_center(x) = 0.0
+    trk_205_lane_center(x) = 0.0
+    trk_207_lane_center(x) = -6.535465682649165e-04*x^6 + 
+                            -0.069559792458210*x^5 + 
+                            -3.033950160533982*x^4 + 
+                            -69.369975733866840*x^3 + 
+                            -8.760325006936075e+02*x^2 + 
+                            -5.782944928944775e+03*x + 
+                            -1.547509969706588e+04
+    trk_208_lane_center(x) = 8.304049624037807*x + 1.866183521575921e+02
+    
+    lane_centers = [trk_201_lane_center, trk_205_lane_center, trk_207_lane_center, trk_208_lane_center]
+    
+    # Setup dynamics
+    dynamics = BicycleDynamics(;
+        dt = 0.04*downsample_rate,
+        l = 1.0,
+        state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
+        control_bounds = (; lb = [-5, -pi/4], ub = [5, pi/4]),
+        integration_scheme = :forward_euler
+    )
+
+    init_rh = GameUtils.init_bicycle_test_game(
+        full_state;
+        initial_state = InD_observations[1],
+        game_params = mortar([
+            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0, 10.0] for i in 1:length(tracks)]...]),
+        horizon = 10,
+        n = length(tracks),
+        dt = 0.04*downsample_rate,
+        myopic=true,
+        verbose = false,
+        dynamics = dynamics,
+        lane_centers = lane_centers
+    )
+
+    baseline_init_rh = GameUtils.init_bicycle_test_game(
+        full_state;
+        initial_state = InD_observations[1],
+        game_params = mortar([
+            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 10.0] for i in 1:length(tracks)]...]),
+        horizon = 10,
+        n = length(tracks),
+        dt = 0.04*downsample_rate,
+        myopic=false,
+        verbose = false,
+        dynamics = dynamics,
+        lane_centers = lane_centers
+    )
+
+    solver_rh = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
+        init_rh.game_structure.game,
+        init_rh.horizon,
+        blocksizes(init_rh.game_parameters, 1)
+    )
+
+    baseline_solver_rh = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
+        baseline_init_rh.game_structure.game,
+        baseline_init_rh.horizon,
+        blocksizes(baseline_init_rh.game_parameters, 1)
+    )
+
+    # rh_plans = []
+    # baseline_rh_plans = []
+    inverse_costs_future = []
+    baseline_inverse_costs_future = []
+    params_future = []
+    baseline_params_future = []
+
+    for t in 10:total_horizon-10
+        rh_observations = InD_observations[t-10+1:t]
+        # @infiltrate
+
+        inverse_rh = InverseGameDiscountFactor.solve_myopic_inverse_game(
+            solver_rh.mcp_game,
+            rh_observations,
+            init_rh.observation_model,
+            blocksizes(init_rh.game_parameters, 1);
+            initial_state = init_rh.initial_state,
+            hidden_state_guess = init_rh.game_parameters,
+            max_grad_steps = 200,
+            verbose = verbose,
+            dynamics = dynamics,
+            use_warm_start = false
+        )
+
+        baseline_inverse_rh = InverseGameDiscountFactor.solve_myopic_inverse_game(
+            baseline_solver_rh.mcp_game,
+            rh_observations,
+            baseline_init_rh.observation_model,
+            blocksizes(baseline_init_rh.game_parameters, 1);
+            initial_state = baseline_init_rh.initial_state,
+            hidden_state_guess = baseline_init_rh.game_parameters,
+            max_grad_steps = 200,
+            verbose = verbose,
+            dynamics = dynamics,
+            use_warm_start = false
+        )     
+
+        rh_plan = InverseGameDiscountFactor.reconstruct_solution(
+            InverseGameDiscountFactor.solve_mcp_game(solver_rh.mcp_game, rh_observations[end], inverse_rh.recovered_params), 
+            init_rh.game_structure.game, 
+            init_rh.horizon
+        )
+        
+        baseline_rh_plan = InverseGameDiscountFactor.reconstruct_solution(
+            InverseGameDiscountFactor.solve_mcp_game(baseline_solver_rh.mcp_game, rh_observations[end], baseline_inverse_rh.recovered_params), 
+            baseline_init_rh.game_structure.game, 
+            baseline_init_rh.horizon
+        )
+
+        if graph
+            ExperimentGraphingUtils.graph_rh_snapshot(
+                "rh_snapshot_t$(t)",
+                rh_observations,
+                inverse_rh.recovered_trajectory,
+                baseline_inverse_rh.recovered_trajectory,
+                rh_plan,
+                baseline_rh_plan,
+                init_rh.game_structure,
+                init_rh.horizon
+            )
+        end
+
+        push!(inverse_costs_future, norm(vcat(InD_observations[t+1:t+10]...) - rh_plan))
+        push!(baseline_inverse_costs_future, norm(vcat(InD_observations[t+1:t+10]...) - baseline_rh_plan))
+        push!(params_future, inverse_rh.recovered_params)
+        push!(baseline_params_future, baseline_inverse_rh.recovered_params)
+        open("rh.txt", "a") do f
+            write(f, "t: ", string(t), "\n")
+            write(f, "inverse_costs_future: ", string(round.(inverse_costs_future[end]; digits = 4)), "\n")
+            write(f, "baseline_inverse_costs_future: ", string(round.(baseline_inverse_costs_future[end]; digits = 4)), "\n")
+            write(f, "params_future: ", string(round.(params_future[end]; digits = 4)), "\n")
+            write(f, "baseline_params_future: ", string(round.(baseline_params_future[end]; digits = 4)), "\n")
+            open("baseline_rh_plan_$(t).txt", "w") do f
+                for state in baseline_rh_plan.blocks
+                    for i in 1:length(tracks)
+                        write(f, string(round.(state[(i-1)*4 + 1:i*4]; digits = 4)), "\n")
+                    end
+                    write(f, "--------------------------------\n")
+                end
+            end
+            open("rh_plan_$(t).txt", "w") do f
+                for state in rh_plan.blocks
+                    for i in 1:length(tracks)
+                        write(f, string(round.(state[(i-1)*4 + 1:i*4]; digits = 4)), "\n")
+                    end
+                    write(f, "--------------------------------\n")
+                end
+            end
+        end
+    end
+
+    
+    # open("rh.txt", "w") do f
+    #     for time in 10:total_horizon-10
+    #         t = time - 9
+    #         write(f, "t: ", string(t), "\n")
+    #         write(f, "inverse_costs_future: ", string(round.(inverse_costs_future[t]; digits = 4)), "\n")
+    #         write(f, "baseline_inverse_costs_future: ", string(round.(baseline_inverse_costs_future[t]; digits = 4)), "\n")
+    #         write(f, "params_future: ", string(round.(params_future[t]; digits = 4)), "\n")
+    #         write(f, "baseline_params_future: ", string(round.(baseline_params_future[t]; digits = 4)), "\n")
+    #     end
+    # end
+end
+
+function plot_rh()
+    fig1 = ExperimentGraphingUtils.plot_rh_costs("rh.txt")
+    frames = [26158, 26320] # 162
+    tracks = [201, 205, 207, 208]
+    downsample_rate = 6
+
+    # Get real trajectory data
+    InD_observations = GameUtils.pull_trajectory("07";
+        track = tracks, 
+        downsample_rate = downsample_rate, 
+        all = false, 
+        frames = frames
+    )
+    final_obs = InD_observations[end]
+    
+    true_params = zeros(32)  # 8 parameters per player, 4 players
+    
+    # Set goal positions for each player (first two parameters per player)
+    for i in 1:4
+        true_params[(i-1)*8+1] = final_obs[Block(i)][1]  # x position
+        true_params[(i-1)*8+2] = final_obs[Block(i)][2]  # y position
+        # Set default values for other parameters
+        true_params[(i-1)*8+3] = 1.0  # discount factor
+        true_params[(i-1)*8+4] = 1.0  # other parameters
+        true_params[(i-1)*8+5] = 1.0
+        true_params[(i-1)*8+6] = 1.0
+        true_params[(i-1)*8+7] = 1.0
+        true_params[(i-1)*8+8] = 10.0
+    end
+    
+    # Generate the parameter difference plots
+    fig2 = ExperimentGraphingUtils.plot_rh_parameter_differences("rh.txt", true_params)
+    
+    println("Plotting complete. Files saved:")
+    println("  - costs over time.pdf")
+    println("  - parameter differences over time.pdf")
+    println("  - parameter differences per player over time.pdf")
+    println("  - goal differences per player over time.pdf")
 end
 
 function generate_visualization()
