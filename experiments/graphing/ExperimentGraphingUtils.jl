@@ -906,10 +906,9 @@ function plot_rh_costs(filename; title="Inverse Costs Over Time")
     lines!(ax, times, baseline_costs, label="Baseline Costs", color=:red)
     
     axislegend(ax, position=:rt)
-    save("costs over time.pdf", fig, pt_per_unit=1, pt_per_inch=72)
+    save("./experiments/In-D/rh_snapshot/costs over time.pdf", fig, pt_per_unit=1, pt_per_inch=72)
     return fig
 end
-
 """
     plot_rh_parameter_differences(filename, true_params; title="Parameter Differences Over Time")
 
@@ -943,7 +942,7 @@ function plot_rh_parameter_differences(filename, true_params; title="Parameter D
     lines!(ax, times, baseline_differences, label="Baseline", color=:blue, linestyle=:dash)
     
     axislegend(ax, position=:rt)
-    save("parameter differences over time.pdf", fig, pt_per_unit=1, pt_per_inch=72)
+    save("./experiments/In-D/rh_snapshot/parameter differences over time.pdf", fig, pt_per_unit=1, pt_per_inch=72)
     
     # Create per-player parameter differences plot
     plot_rh_parameter_differences_per_player(filename, true_params)
@@ -955,8 +954,19 @@ function plot_rh_parameter_differences_per_player(filename, true_params; title="
     times, _, _, params_history, baseline_params_history = parse_rh_file(filename)
     
     CairoMakie.activate!()
-    fig = Figure(resolution=(800, 600))
-    ax = Axis(fig[1, 1], title=title, xlabel="Time Step", ylabel="L2 Norm of Parameter Difference")
+    fig = Figure(resolution=(1000, 600))  # Shorter height
+    ax = Axis(fig[1, 1], 
+        title=title,
+        xlabel="Time Step",
+        ylabel="L2 Norm of Parameter Difference",
+        titlesize = 24,  # Larger title
+        xlabelsize = 20,  # Larger x-axis label
+        ylabelsize = 20,  # Larger y-axis label
+        xticklabelsize = 16,  # Larger x-axis tick labels
+        yticklabelsize = 16,  # Larger y-axis tick labels
+        xticklabelpad = 10,  # More padding for x-axis labels
+        yticklabelpad = 10   # More padding for y-axis labels
+    )
     
     # Regular parameters have 8 params per player
     player1_indices_regular = collect(1:8)      # First player parameters
@@ -990,26 +1000,36 @@ function plot_rh_parameter_differences_per_player(filename, true_params; title="
     player4_baseline_differences = [norm(params[player4_indices_baseline][1:7] - true_params[player4_indices_true][1:7]) for params in baseline_params_history]
     
     # Define colors for each player
-    player_colors = [:blue, :green, :purple, :orange]
+    player_colors = [:blue, :red, :green, :purple]
     
     # Player 1 - Our Method and Baseline (same color, different line styles)
-    lines!(ax, times, player1_differences, label="Player 1 Our Method", color=player_colors[1])
-    lines!(ax, times, player1_baseline_differences, label="Player 1 Baseline", color=player_colors[1], linestyle=:dash)
+    lines!(ax, times, player1_differences, label="Player 1 Our Method", color=player_colors[1], linewidth=2)
+    lines!(ax, times, player1_baseline_differences, label="Player 1 Baseline", color=player_colors[1], linestyle=:dash, linewidth=2)
     
     # Player 2 - Our Method and Baseline
-    lines!(ax, times, player2_differences, label="Player 2 Our Method", color=player_colors[2])
-    lines!(ax, times, player2_baseline_differences, label="Player 2 Baseline", color=player_colors[2], linestyle=:dash)
+    lines!(ax, times, player2_differences, label="Player 2 Our Method", color=player_colors[2], linewidth=2)
+    lines!(ax, times, player2_baseline_differences, label="Player 2 Baseline", color=player_colors[2], linestyle=:dash, linewidth=2)
     
     # Player 3 - Our Method and Baseline
-    lines!(ax, times, player3_differences, label="Player 3 Our Method", color=player_colors[3])
-    lines!(ax, times, player3_baseline_differences, label="Player 3 Baseline", color=player_colors[3], linestyle=:dash)
+    lines!(ax, times, player3_differences, label="Player 3 Our Method", color=player_colors[3], linewidth=2)
+    lines!(ax, times, player3_baseline_differences, label="Player 3 Baseline", color=player_colors[3], linestyle=:dash, linewidth=2)
     
     # Player 4 - Our Method and Baseline
-    lines!(ax, times, player4_differences, label="Player 4 Our Method", color=player_colors[4])
-    lines!(ax, times, player4_baseline_differences, label="Player 4 Baseline", color=player_colors[4], linestyle=:dash)
+    lines!(ax, times, player4_differences, label="Player 4 Our Method", color=player_colors[4], linewidth=2)
+    lines!(ax, times, player4_baseline_differences, label="Player 4 Baseline", color=player_colors[4], linestyle=:dash, linewidth=2)
     
-    axislegend(ax, position=:rt)
-    save("parameter differences per player over time.pdf", fig, pt_per_unit=1, pt_per_inch=72)
+    # Create legend in a separate column with larger text
+    Legend(fig[1,2], ax, "Parameter Differences", 
+        framevisible = true,
+        padding = (10, 10, 10, 10),
+        rowgap = 5,
+        labelsize = 16,  # Larger legend text
+        titlesize = 20,  # Larger legend title
+        patchsize = (30, 30),  # Larger legend markers
+        patchlabelgap = 10  # More space between markers and text
+    )
+    
+    save("./experiments/In-D/rh_snapshot/parameter differences per player over time.pdf", fig, pt_per_unit=1, pt_per_inch=72)
     
     # Create a separate plot for goal differences per player
     plot_rh_goal_differences_per_player(filename, true_params)
@@ -1021,8 +1041,20 @@ function plot_rh_goal_differences_per_player(filename, true_params; title="Goal 
     times, _, _, params_history, baseline_params_history = parse_rh_file(filename)
     
     CairoMakie.activate!()
-    fig = Figure(resolution=(800, 600))
-    ax = Axis(fig[1, 1], title=title, xlabel="Time Step", ylabel="L2 Norm of Goal Position Difference")
+    fig = Figure(resolution=(1000, 600))  # Shorter height
+    ax = Axis(fig[1, 1], 
+        title=title,
+        xlabel="Time Step",
+        ylabel="L2 Norm of Goal Position Difference",
+        titlesize = 30,  # Larger title
+        xlabelsize = 25,  # Larger x-axis label
+        ylabelsize = 25,  # Larger y-axis label
+        xticklabelsize = 20,  # Larger x-axis tick labels
+        yticklabelsize = 20,  # Larger y-axis tick labels
+        xticklabelpad = 10,  # More padding for x-axis labels
+        yticklabelpad = 10,   # More padding for y-axis labels
+        limits = (nothing, (0, 0.8))
+    )
     
     # Goal position indices for each player - regular params
     player1_goal_indices_regular = [1, 2]     # First player goal position
@@ -1046,28 +1078,38 @@ function plot_rh_goal_differences_per_player(filename, true_params; title="Goal 
     player2_baseline_goal_differences = [norm(params[player2_goal_indices_baseline] - true_params[player2_goal_indices_regular]) for params in baseline_params_history]
     player3_baseline_goal_differences = [norm(params[player3_goal_indices_baseline] - true_params[player3_goal_indices_regular]) for params in baseline_params_history]
     player4_baseline_goal_differences = [norm(params[player4_goal_indices_baseline] - true_params[player4_goal_indices_regular]) for params in baseline_params_history]
-    
+
     # Define colors for each player
-    player_colors = [:blue, :green, :purple, :orange]
+    player_colors = [:blue, :red, :green, :purple]
     
     # Player 1 - Our Method and Baseline (same color, different line styles)
-    lines!(ax, times, player1_goal_differences, label="Player 1 Our Method", color=player_colors[1])
-    lines!(ax, times, player1_baseline_goal_differences, label="Player 1 Baseline", color=player_colors[1], linestyle=:dash)
+    lines!(ax, times, player1_goal_differences, label="Player 1 Our Method", color=player_colors[1], linewidth=2)
+    lines!(ax, times, player1_baseline_goal_differences, label="Player 1 Baseline", color=player_colors[1], linestyle=:dash, linewidth=2)
     
     # Player 2 - Our Method and Baseline
-    lines!(ax, times, player2_goal_differences, label="Player 2 Our Method", color=player_colors[2])
-    lines!(ax, times, player2_baseline_goal_differences, label="Player 2 Baseline", color=player_colors[2], linestyle=:dash)
+    lines!(ax, times, player2_goal_differences, label="Player 2 Our Method", color=player_colors[2], linewidth=2)
+    lines!(ax, times, player2_baseline_goal_differences, label="Player 2 Baseline", color=player_colors[2], linestyle=:dash, linewidth=2)
     
     # Player 3 - Our Method and Baseline
-    lines!(ax, times, player3_goal_differences, label="Player 3 Our Method", color=player_colors[3])
-    lines!(ax, times, player3_baseline_goal_differences, label="Player 3 Baseline", color=player_colors[3], linestyle=:dash)
+    lines!(ax, times, player3_goal_differences, label="Player 3 Our Method", color=player_colors[3], linewidth=2)
+    lines!(ax, times, player3_baseline_goal_differences, label="Player 3 Baseline", color=player_colors[3], linestyle=:dash, linewidth=2)
     
     # Player 4 - Our Method and Baseline
-    lines!(ax, times, player4_goal_differences, label="Player 4 Our Method", color=player_colors[4])
-    lines!(ax, times, player4_baseline_goal_differences, label="Player 4 Baseline", color=player_colors[4], linestyle=:dash)
+    lines!(ax, times, player4_goal_differences, label="Player 4 Our Method", color=player_colors[4], linewidth=2)
+    lines!(ax, times, player4_baseline_goal_differences, label="Player 4 Baseline", color=player_colors[4], linestyle=:dash, linewidth=2)
     
-    axislegend(ax, position=:rt)
-    save("goal differences per player over time.pdf", fig, pt_per_unit=1, pt_per_inch=72)
+    # Create legend in a separate column with larger text
+    Legend(fig[1,2], ax, "Goal Differences", 
+        framevisible = true,
+        padding = (10, 10, 10, 10),
+        rowgap = 5,
+        labelsize = 20,  # Larger legend text
+        titlesize = 25,  # Larger legend title
+        patchsize = (30, 30),  # Larger legend markers
+        patchlabelgap = 0  # More space between markers and text
+    )
+    
+    save("./experiments/In-D/rh_snapshot/rh_goal_error.pdf", fig, pt_per_unit=1, pt_per_inch=72)
     
     return fig
 end
@@ -1200,6 +1242,113 @@ function graph_rh_snapshot(
 
     # Save the figure
     CairoMakie.save(plot_name*".png", fig)
+end
+
+function plot_goal_estimates(
+    plot_name,
+    params_history,
+    baseline_params_history,
+    true_params;
+    title="Goal Position Estimates Over Time (Player 3)"
+)
+    CairoMakie.activate!()
+    fig = Figure(resolution=(1000, 800))
+    ax = Axis(fig[1,1], aspect = DataAspect(), title=title)
+
+    # Load and process background image
+    image_data = CairoMakie.load("experiments/data/07_background.png")
+    image_data = image_data[end:-1:1, :]
+    image_data = image_data'
+    trfm = ImageTransformations.recenter(Rotations.RotMatrix(-2.303611),center(image_data))
+    x_crop_min = 430
+    x_crop_max = 875
+    y_crop_min = 225
+    y_crop_max = 1025
+    
+    scale = 1/10.25
+    x = (x_crop_max - x_crop_min) * scale
+    y = (y_crop_max - y_crop_min) * scale
+
+    image_data = ImageTransformations.warp(image_data, trfm)
+    image_data = Origin(0)(image_data)
+    image_data = image_data[x_crop_min:x_crop_max, y_crop_min:y_crop_max]
+    
+    x_offset = -34.75
+    y_offset = 22
+
+    CairoMakie.image!(ax,
+        x_offset..(x+x_offset),
+        y_offset..(y+y_offset),
+        image_data)
+
+    # Extract goal positions for just the purple player (player 3)
+    goal_indices_regular = [[17,18]]  # Goal positions for player 3
+    goal_indices_baseline = [[15,16]]  # Goal positions for player 3 in baseline
+
+    # Define color for player 4
+    player_color = :purple
+    
+    # Plot true goal position for player 4
+    scatter!(ax, 
+        [true_params[goal_indices_regular[1][1]]], 
+        [true_params[goal_indices_regular[1][2]]], 
+        color=player_color, 
+        marker=:star5,
+        markersize=15,
+        label="True Goal"
+    )
+
+    # Plot our method's goal estimates with increasing opacity
+    x_coords = [params[goal_indices_regular[1][1]] for params in params_history]
+    y_coords = [params[goal_indices_regular[1][2]] for params in params_history]
+    
+    # Plot each point individually with its own opacity
+    for (j, (x, y)) in enumerate(zip(x_coords, y_coords))
+        opacity = 0.2 + 0.8 * (j / length(x_coords))  # Linearly increase opacity
+        scatter!(ax, 
+            [x], 
+            [y], 
+            color=(player_color, opacity),
+            marker=:utriangle,
+            markersize=8,
+            label=(j == 1 ? "Our Method" : nothing)  # Only label first point
+        )
+    end
+
+    # Plot baseline's goal estimates with increasing opacity
+    x_coords = [params[goal_indices_baseline[1][1]] for params in baseline_params_history]
+    y_coords = [params[goal_indices_baseline[1][2]] for params in baseline_params_history]
+    
+    # Plot each point individually with its own opacity
+    for (j, (x, y)) in enumerate(zip(x_coords, y_coords))
+        opacity = 0.2 + 0.8 * (j / length(x_coords))  # Linearly increase opacity
+        scatter!(ax, 
+            [x], 
+            [y], 
+            color=(player_color, opacity),
+            marker=:rect,
+            markersize=8,
+            label=(j == 1 ? "Baseline" : nothing)  # Only label first point
+        )
+    end
+
+    # Set axis limits to zoom in on player 4's goal area
+    # Get the range of coordinates for player 4
+    all_x = vcat(x_coords, [true_params[goal_indices_regular[1][1]]])
+    all_y = vcat(y_coords, [true_params[goal_indices_regular[1][2]]])
+    
+    # Add some padding around the points
+    x_padding = (maximum(all_x) - minimum(all_x)) * 0.2
+    y_padding = (maximum(all_y) - minimum(all_y)) * 0.2
+    
+    xlims!(ax, minimum(all_x) - x_padding, maximum(all_x) + x_padding)
+    ylims!(ax, minimum(all_y) - y_padding, maximum(all_y) + y_padding)
+
+    # Create legend in a separate column
+    Legend(fig[1,2], ax, "Goal Estimates", framevisible = true, padding = (10, 10, 10, 10), rowgap = 5)
+
+    # Save the figure
+    CairoMakie.save(plot_name*"_player3.png", fig)
 end
 
 end

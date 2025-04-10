@@ -715,7 +715,7 @@ function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true
 end
 
 function plot_rh()
-    fig1 = ExperimentGraphingUtils.plot_rh_costs("rh.txt")
+    fig1 = ExperimentGraphingUtils.plot_rh_costs("./experiments/In-D/rh_snapshot/rh.txt")
     frames = [26158, 26320] # 162
     tracks = [201, 205, 207, 208]
     downsample_rate = 6
@@ -745,13 +745,25 @@ function plot_rh()
     end
     
     # Generate the parameter difference plots
-    fig2 = ExperimentGraphingUtils.plot_rh_parameter_differences("rh.txt", true_params)
+    fig2 = ExperimentGraphingUtils.plot_rh_parameter_differences("./experiments/In-D/rh_snapshot/rh.txt", true_params)
+    
+    # Parse the rh.txt file to get parameter histories
+    times, _, _, params_history, baseline_params_history = ExperimentGraphingUtils.parse_rh_file("./experiments/In-D/rh_snapshot/rh.txt")
+    
+    # Generate the goal estimates plot
+    ExperimentGraphingUtils.plot_goal_estimates(
+        "./experiments/In-D/rh_snapshot/goal_estimates",
+        params_history,
+        baseline_params_history,
+        true_params
+    )
     
     println("Plotting complete. Files saved:")
     println("  - costs over time.pdf")
     println("  - parameter differences over time.pdf")
     println("  - parameter differences per player over time.pdf")
     println("  - goal differences per player over time.pdf")
+    println("  - goal_estimates.png")
 end
 
 function generate_visualization()
