@@ -529,6 +529,33 @@ function process_and_graph_crosswalk_results(;
 )
     pdf_dir = joinpath(output_prefix, "pdf_plots")
     isdir(pdf_dir) || mkpath(pdf_dir)
+
+    # For when we have both the fo and po graphs
+    # xlabelsize = 30
+    # ylabelsize = 30
+    # xticklabelsize = 20
+    # yticklabelsize = 20 
+    # legend_framevisible = true
+    # legend_padding = (10, 10, 10, 10)
+    # legend_rowgap = 5
+    # legend_labelsize = 40
+    # legend_titlesize = 0
+    # legend_patchsize = (30, 30)
+    # legend_patchlabelgap = 2  # More space between markers and text
+
+    xlabelsize = 30
+    ylabelsize = 30
+    xticklabelsize = 20
+    yticklabelsize = 20 
+    legend_framevisible = true
+    legend_padding = (10, 10, 10, 10)
+    legend_rowgap = 5
+    legend_labelsize = 20
+    legend_titlesize = 0
+    legend_patchsize = (30, 30)
+    legend_patchlabelgap = 2
+    
+    
     
     fo_baseline_matrix, fo_baseline_noise_levels = parse_crosswalk_results(fo_baseline_file)
     fo_our_method_matrix, fo_our_method_noise_levels = parse_crosswalk_results(fo_our_method_file)
@@ -577,10 +604,10 @@ function process_and_graph_crosswalk_results(;
         xlabel = "Noise Level (σ) [m]",
         ylabel = "Trajectory Error [m]",
         limits = (nothing, (y_axis_limit[1], y_axis_limit[2])),
-        xlabelsize =25,
-        ylabelsize =25,
-        xticklabelsize = 20,
-        yticklabelsize = 20,
+        xlabelsize =xlabelsize,
+        ylabelsize =ylabelsize,
+        xticklabelsize = xticklabelsize,
+        yticklabelsize = yticklabelsize,
         yticklabelpad = 10,
         xticklabelpad = 10
     )
@@ -661,7 +688,7 @@ function process_and_graph_crosswalk_results(;
         end
     end
     
-    axislegend(ax, position=:rt)
+    axislegend(ax, position=:lc, framevisible=legend_framevisible, padding=legend_padding, rowgap=legend_rowgap, labelsize=legend_labelsize, titlesize=legend_titlesize, patchsize=legend_patchsize, patchlabelgap=legend_patchlabelgap)
     
     save(joinpath(output_prefix, "fo_po_both_crosswalk.png"), fig)
     save(joinpath(pdf_dir, "fo_po_both_crosswalk.pdf"), fig, pt_per_unit=1, pt_per_inch=72)
@@ -672,10 +699,10 @@ function process_and_graph_crosswalk_results(;
             xlabel = "Noise Level (σ) [m]",
             ylabel = "Trajectory Error [m]",
             limits = (nothing, (y_axis_limit[1], y_axis_limit[2])),
-            xlabelsize =25,
-            ylabelsize =25,
-            xticklabelsize = 20,
-            yticklabelsize = 20,
+            xlabelsize =xlabelsize,
+            ylabelsize =ylabelsize,
+            xticklabelsize = xticklabelsize,
+            yticklabelsize = yticklabelsize,
             yticklabelpad = 10,
             xticklabelpad = 10
         )
@@ -692,7 +719,7 @@ function process_and_graph_crosswalk_results(;
             fo_our_method_means + fo_our_method_stds, 
             color=(colors[fo_m], band_opacity))
         
-        axislegend(ax_fo, position=:lt)
+        axislegend(ax_fo, position=:lt, framevisible=legend_framevisible, padding=legend_padding, rowgap=legend_rowgap, labelsize=legend_labelsize, titlesize=legend_titlesize, patchsize=legend_patchsize, patchlabelgap=legend_patchlabelgap)
         
         save(joinpath(output_prefix, "fo_both_crosswalk.png"), fig_fo)
         save(joinpath(pdf_dir, "fo_both_crosswalk.pdf"), fig_fo, pt_per_unit=1, pt_per_inch=72)
@@ -702,10 +729,10 @@ function process_and_graph_crosswalk_results(;
             xlabel = "Noise Level (σ) [m]",
             ylabel = "Trajectory Error [m]",
             limits = (nothing, (y_axis_limit[1], y_axis_limit[2])),
-            xlabelsize =25,
-            ylabelsize =25,
-            xticklabelsize = 20,
-            yticklabelsize = 20,
+            xlabelsize =xlabelsize,
+            ylabelsize =ylabelsize,
+            xticklabelsize = xticklabelsize,
+            yticklabelsize = yticklabelsize,
             yticklabelpad = 10,
             xticklabelpad = 10
         )
@@ -722,7 +749,7 @@ function process_and_graph_crosswalk_results(;
             po_our_method_means + po_our_method_stds, 
             color=(colors[po_m], band_opacity))
         
-        axislegend(ax_po, position=:lt)
+        axislegend(ax_po, position=:lc, framevisible=legend_framevisible, padding=legend_padding, rowgap=legend_rowgap, labelsize=legend_labelsize, titlesize=legend_titlesize, patchsize=legend_patchsize, patchlabelgap=legend_patchlabelgap)
         
         save(joinpath(output_prefix, "po_both_crosswalk.png"), fig_po)
         save(joinpath(pdf_dir, "po_both_crosswalk.pdf"), fig_po, pt_per_unit=1, pt_per_inch=72)
@@ -732,10 +759,10 @@ function process_and_graph_crosswalk_results(;
             xlabel = "Noise Level (σ) [m]",
             ylabel = "Trajectory Error [m]",
             limits = (nothing, (y_axis_limit[1], y_axis_limit[2])),
-            xlabelsize =25,
-            ylabelsize =25,
-            xticklabelsize = 20,
-            yticklabelsize = 20,
+            xlabelsize =xlabelsize,
+            ylabelsize =ylabelsize,
+            xticklabelsize = xticklabelsize,
+            yticklabelsize = yticklabelsize,
             yticklabelpad = 10,
             xticklabelpad = 10
         )
@@ -752,7 +779,7 @@ function process_and_graph_crosswalk_results(;
             po_baseline_means + po_baseline_stds, 
             color=(colors[po_b], band_opacity))
         
-        axislegend(ax_b, position=:lt)
+        axislegend(ax_b, position=:lt, framevisible=legend_framevisible, padding=legend_padding, rowgap=legend_rowgap, labelsize=legend_labelsize, titlesize=legend_titlesize, patchsize=legend_patchsize, patchlabelgap=legend_patchlabelgap)
         
         save(joinpath(output_prefix, "fo_po_baseline_crosswalk.png"), fig_b)
         save(joinpath(pdf_dir, "fo_po_baseline_crosswalk.pdf"), fig_b, pt_per_unit=1, pt_per_inch=72)
@@ -762,10 +789,10 @@ function process_and_graph_crosswalk_results(;
             xlabel = "Noise Level (σ) [m]",
             ylabel = "Trajectory Error [m]",
             limits = (nothing, (y_axis_limit[1], y_axis_limit[2])),
-            xlabelsize =25,
-            ylabelsize =25,
-            xticklabelsize = 20,
-            yticklabelsize = 20,
+            xlabelsize =xlabelsize,
+            ylabelsize =ylabelsize,
+            xticklabelsize = xticklabelsize,
+            yticklabelsize = yticklabelsize,
             yticklabelpad = 10,
             xticklabelpad = 10
         )
@@ -782,7 +809,7 @@ function process_and_graph_crosswalk_results(;
             po_our_method_means + po_our_method_stds, 
             color=(colors[po_m], band_opacity))
         
-        axislegend(ax_m, position=:lt)
+        axislegend(ax_m, position=:lt, framevisible=legend_framevisible, padding=legend_padding, rowgap=legend_rowgap, labelsize=legend_labelsize, titlesize=legend_titlesize, patchsize=legend_patchsize, patchlabelgap=legend_patchlabelgap)
         
         save(joinpath(output_prefix, "fo_po_our_method_crosswalk.png"), fig_m)
         save(joinpath(pdf_dir, "fo_po_our_method_crosswalk.pdf"), fig_m, pt_per_unit=1, pt_per_inch=72)
