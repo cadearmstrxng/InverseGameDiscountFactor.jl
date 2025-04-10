@@ -501,23 +501,19 @@ end
 
 function parse_crosswalk_results(file_path::String)
     lines = filter(line -> !isempty(strip(line)), readlines(file_path))
-    noise_levels = Float64[]
-    errors = Float64[]
+    noise_levels :: Vector{Float64} = Float64[]
+    errors = []
     
     for line in lines
         parts = split(strip(line))
-        if length(parts) >= 2
-            noise_level_str = parts[1]
-            noise_level = parse(Float64, noise_level_str[2:end])
-            error_value = parse(Float64, parts[2])
-            
-            push!(noise_levels, noise_level)
-            push!(errors, error_value)
-        end
+        noise_level = parse(Float64, parts[1][2:end])
+        error_values = parse.(Float64, parts[2:end])
+        
+        push!(noise_levels, noise_level)
+        errors = length(errors) == 0 ? error_values' : vcat(errors, error_values')
     end
     
-    error_matrix = reshape(errors, length(errors), 1)
-    return error_matrix, noise_levels
+    return errors, noise_levels
 end
 
 function process_and_graph_crosswalk_results(;
@@ -528,7 +524,8 @@ function process_and_graph_crosswalk_results(;
     output_prefix = "./experiments/crosswalk/",
     std_dev_threshold = 2.5,
     show_outliers = false,
-    y_axis_limit = [nothing, nothing]
+    y_axis_limit = [nothing, nothing],
+    show_points = true,
 )
     pdf_dir = joinpath(output_prefix, "pdf_plots")
     isdir(pdf_dir) || mkpath(pdf_dir)
@@ -577,10 +574,15 @@ function process_and_graph_crosswalk_results(;
     
     fig = Figure(size = (800, 600), margins = (10, 10, 10, 10))
     ax = Axis(fig[1, 1],
-        xlabel = "Noise Level (σ)",
-        ylabel = "Trajectory Error",
-        title = !isnothing(po_baseline_file) ? "Crosswalk: Full vs Partial Observation" : "Crosswalk: Trajectory Error",
-        limits = (nothing, (y_axis_limit[1], y_axis_limit[2]))
+        xlabel = "Noise Level (σ) [m]",
+        ylabel = "Trajectory Error [m]",
+        limits = (nothing, (y_axis_limit[1], y_axis_limit[2])),
+        xlabelsize =25,
+        ylabelsize =25,
+        xticklabelsize = 20,
+        yticklabelsize = 20,
+        yticklabelpad = 10,
+        xticklabelpad = 10
     )
     
     colors = ["coral", "tan2", "olivedrab", "steelblue"]
@@ -599,15 +601,13 @@ function process_and_graph_crosswalk_results(;
         fo_baseline_means + fo_baseline_stds, 
         color=(colors[fo_b], band_opacity))
     
-    if show_outliers
-        for col in 1:size(fo_baseline_matrix, 2)
-            for row in 1:size(fo_baseline_matrix, 1)
-                is_outlier = fo_baseline_outlier_masks[row][col]
-                point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
-                
-                scatter!(ax, [fo_noise_levels[row]], [fo_baseline_matrix[row, col]], 
-                        color=(colors[fo_b], point_opacity), markersize=4)
-            end
+    show_points && for col in 1:size(fo_baseline_matrix, 2)
+        for row in 1:size(fo_baseline_matrix, 1)
+            is_outlier = fo_baseline_outlier_masks[row][col]
+            point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+            
+            scatter!(ax, [fo_noise_levels[row]], [fo_baseline_matrix[row, col]], 
+                    color=(colors[fo_b], point_opacity), markersize=4)
         end
     end
     
@@ -617,15 +617,13 @@ function process_and_graph_crosswalk_results(;
         fo_our_method_means + fo_our_method_stds, 
         color=(colors[fo_m], band_opacity))
     
-    if show_outliers
-        for col in 1:size(fo_our_method_matrix, 2)
-            for row in 1:size(fo_our_method_matrix, 1)
-                is_outlier = fo_our_method_outlier_masks[row][col]
-                point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
-                
-                scatter!(ax, [fo_noise_levels[row]], [fo_our_method_matrix[row, col]], 
-                        color=(colors[fo_m], point_opacity), markersize=4)
-            end
+    show_points && for col in 1:size(fo_our_method_matrix, 2)
+        for row in 1:size(fo_our_method_matrix, 1)
+            is_outlier = fo_our_method_outlier_masks[row][col]
+            point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+            
+            scatter!(ax, [fo_noise_levels[row]], [fo_our_method_matrix[row, col]], 
+                    color=(colors[fo_m], point_opacity), markersize=4)
         end
     end
     
@@ -636,15 +634,13 @@ function process_and_graph_crosswalk_results(;
             po_baseline_means + po_baseline_stds, 
             color=(colors[po_b], band_opacity))
         
-        if show_outliers
-            for col in 1:size(po_baseline_matrix, 2)
-                for row in 1:size(po_baseline_matrix, 1)
-                    is_outlier = po_baseline_outlier_masks[row][col]
+        show_points && for col in 1:size(po_baseline_matrix, 2)
+            for row in 1:size(po_baseline_matrix, 1)
+                is_outlier = po_baseline_outlier_masks[row][col]
                     point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
                     
-                    scatter!(ax, [po_noise_levels[row]], [po_baseline_matrix[row, col]], 
-                            color=(colors[po_b], point_opacity), markersize=4)
-                end
+                scatter!(ax, [po_noise_levels[row]], [po_baseline_matrix[row, col]], 
+                        color=(colors[po_b], point_opacity), markersize=4)
             end
         end
         
@@ -654,20 +650,18 @@ function process_and_graph_crosswalk_results(;
             po_our_method_means + po_our_method_stds, 
             color=(colors[po_m], band_opacity))
         
-        if show_outliers
-            for col in 1:size(po_our_method_matrix, 2)
-                for row in 1:size(po_our_method_matrix, 1)
-                    is_outlier = po_our_method_outlier_masks[row][col]
+        show_points && for col in 1:size(po_our_method_matrix, 2)
+            for row in 1:size(po_our_method_matrix, 1)
+                is_outlier = po_our_method_outlier_masks[row][col]
                     point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
                     
-                    scatter!(ax, [po_noise_levels[row]], [po_our_method_matrix[row, col]], 
+                scatter!(ax, [po_noise_levels[row]], [po_our_method_matrix[row, col]], 
                             color=(colors[po_m], point_opacity), markersize=4)
-                end
             end
         end
     end
     
-    axislegend(ax, position=:lt)
+    axislegend(ax, position=:rt)
     
     save(joinpath(output_prefix, "fo_po_both_crosswalk.png"), fig)
     save(joinpath(pdf_dir, "fo_po_both_crosswalk.pdf"), fig, pt_per_unit=1, pt_per_inch=72)
@@ -675,10 +669,15 @@ function process_and_graph_crosswalk_results(;
     if !isnothing(po_baseline_matrix) && !isnothing(po_our_method_matrix)
         fig_fo = Figure(size = (800, 600), margins = (10, 10, 10, 10))
         ax_fo = Axis(fig_fo[1, 1],
-            xlabel = "Noise Level (σ)",
-            ylabel = "Trajectory Error",
-            title = "Crosswalk Full Observation: Baseline vs Our Method",
-            limits = (nothing, (y_axis_limit[1], y_axis_limit[2]))
+            xlabel = "Noise Level (σ) [m]",
+            ylabel = "Trajectory Error [m]",
+            limits = (nothing, (y_axis_limit[1], y_axis_limit[2])),
+            xlabelsize =25,
+            ylabelsize =25,
+            xticklabelsize = 20,
+            yticklabelsize = 20,
+            yticklabelpad = 10,
+            xticklabelpad = 10
         )
         
         lines!(ax_fo, fo_noise_levels, fo_baseline_means, color=colors[fo_b], label="Baseline")
@@ -700,10 +699,15 @@ function process_and_graph_crosswalk_results(;
         
         fig_po = Figure(size = (800, 600), margins = (10, 10, 10, 10))
         ax_po = Axis(fig_po[1, 1],
-            xlabel = "Noise Level (σ)",
-            ylabel = "Trajectory Error",
-            title = "Crosswalk Partial Observation: Baseline vs Our Method",
-            limits = (nothing, (y_axis_limit[1], y_axis_limit[2]))
+            xlabel = "Noise Level (σ) [m]",
+            ylabel = "Trajectory Error [m]",
+            limits = (nothing, (y_axis_limit[1], y_axis_limit[2])),
+            xlabelsize =25,
+            ylabelsize =25,
+            xticklabelsize = 20,
+            yticklabelsize = 20,
+            yticklabelpad = 10,
+            xticklabelpad = 10
         )
         
         lines!(ax_po, po_noise_levels, po_baseline_means, color=colors[po_b], label="Baseline")
@@ -725,10 +729,15 @@ function process_and_graph_crosswalk_results(;
         
         fig_b = Figure(size = (800, 600), margins = (10, 10, 10, 10))
         ax_b = Axis(fig_b[1, 1],
-            xlabel = "Noise Level (σ)",
-            ylabel = "Trajectory Error",
-            title = "Crosswalk Baseline: Full vs Partial Observation",
-            limits = (nothing, (y_axis_limit[1], y_axis_limit[2]))
+            xlabel = "Noise Level (σ) [m]",
+            ylabel = "Trajectory Error [m]",
+            limits = (nothing, (y_axis_limit[1], y_axis_limit[2])),
+            xlabelsize =25,
+            ylabelsize =25,
+            xticklabelsize = 20,
+            yticklabelsize = 20,
+            yticklabelpad = 10,
+            xticklabelpad = 10
         )
         
         lines!(ax_b, fo_noise_levels, fo_baseline_means, color=colors[fo_b], label="Full Observation")
@@ -750,10 +759,15 @@ function process_and_graph_crosswalk_results(;
         
         fig_m = Figure(size = (800, 600), margins = (10, 10, 10, 10))
         ax_m = Axis(fig_m[1, 1],
-            xlabel = "Noise Level (σ)",
-            ylabel = "Trajectory Error",
-            title = "Crosswalk Our Method: Full vs Partial Observation",
-            limits = (nothing, (y_axis_limit[1], y_axis_limit[2]))
+            xlabel = "Noise Level (σ) [m]",
+            ylabel = "Trajectory Error [m]",
+            limits = (nothing, (y_axis_limit[1], y_axis_limit[2])),
+            xlabelsize =25,
+            ylabelsize =25,
+            xticklabelsize = 20,
+            yticklabelsize = 20,
+            yticklabelpad = 10,
+            xticklabelpad = 10
         )
         
         lines!(ax_m, fo_noise_levels, fo_our_method_means, color=colors[fo_m], label="Full Observation")
