@@ -616,6 +616,8 @@ function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true
     baseline_inverse_costs_future = []
     params_future = []
     baseline_params_future = []
+    actual_traj = []
+    baseline_actual_traj = []
 
     for t in 10:total_horizon-10
         rh_observations = InD_observations[t-10+1:t]
@@ -647,17 +649,33 @@ function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true
             use_warm_start = false
         )     
 
+        rh_initial_state = BlockVector(inverse_rh.recovered_trajectory.blocks[end], [4 for _ in 1:num_players(init_rh.game_structure.game)])
+        baseline_rh_initial_state = BlockVector(baseline_inverse_rh.recovered_trajectory.blocks[end], [4 for _ in 1:num_players(baseline_init_rh.game_structure.game)])
+
         rh_plan = InverseGameDiscountFactor.reconstruct_solution(
-            InverseGameDiscountFactor.solve_mcp_game(solver_rh.mcp_game, rh_observations[end], inverse_rh.recovered_params), 
+            # InverseGameDiscountFactor.solve_mcp_game(solver_rh.mcp_game, rh_observations[end], inverse_rh.recovered_params), 
+            InverseGameDiscountFactor.solve_mcp_game(solver_rh.mcp_game, rh_initial_state, inverse_rh.recovered_params), 
             init_rh.game_structure.game, 
             init_rh.horizon
         )
         
         baseline_rh_plan = InverseGameDiscountFactor.reconstruct_solution(
-            InverseGameDiscountFactor.solve_mcp_game(baseline_solver_rh.mcp_game, rh_observations[end], baseline_inverse_rh.recovered_params), 
+            # InverseGameDiscountFactor.solve_mcp_game(baseline_solver_rh.mcp_game, rh_observations[end], baseline_inverse_rh.recovered_params), 
+            InverseGameDiscountFactor.solve_mcp_game(baseline_solver_rh.mcp_game, baseline_rh_initial_state, baseline_inverse_rh.recovered_params), 
             baseline_init_rh.game_structure.game, 
             baseline_init_rh.horizon
         )
+        if t == 18
+            push!(actual_traj, rh_plan)
+            push!(baseline_actual_traj, baseline_rh_plan)
+        else
+            if t == 10
+                push!(actual_traj, inverse_rh.recovered_trajectory)
+                push!(baseline_actual_traj, baseline_inverse_rh.recovered_trajectory)
+            end
+            push!(actual_traj, rh_plan.blocks[1])
+            push!(baseline_actual_traj, baseline_rh_plan.blocks[1])
+        end
 
         if graph
             ExperimentGraphingUtils.graph_rh_snapshot(
@@ -700,8 +718,44 @@ function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true
             end
         end
     end
+    @infiltrate
+    actual_traj = BlockVector(vcat(actual_traj...), [16 for _ in 1:total_horizon])
+    baseline_actual_traj = BlockVector(vcat(baseline_actual_traj...), [16 for _ in 1:total_horizon])
+
 
     
+
+    open("whole_trajectory.txt", "w") do f
+        for state in actual_traj.blocks
+            for i in 1:length(tracks)
+                write(f, string(round.(state[(i-1)*4 + 1:i*4]; digits = 4)), "\n")
+            end
+            write(f, "--------------------------------\n")
+        end
+    end
+    open("baseline_whole_trajectory.txt", "w") do f
+        for state in baseline_actual_traj.blocks
+            for i in 1:length(tracks)
+                write(f, string(round.(state[(i-1)*4 + 1:i*4]; digits = 4)), "\n")
+            end
+            write(f, "--------------------------------\n")
+        end
+    end
+
+    ExperimentGraphingUtils.graph_trajectories(
+            "Recovered v. Observed",
+            [InD_observations, actual_traj, baseline_actual_traj],
+            init_rh.game_structure,
+            28;
+            colors = [
+                [(:red, 1.0), (:red, 1.0), (:red, 1.0), (:red, 1.0)],
+                [(:blue, 1.0), (:blue, 1.0), (:blue, 1.0), (:blue, 1.0)],
+                [(:green, 1.0), (:green, 1.0), (:green, 1.0), (:green, 1.0)],
+                [(:purple, 1.0), (:purple, 1.0), (:purple, 1.0), (:purple, 1.0)]
+            ],
+            constraints = nothing,
+            p_state_dim = 4
+        )
     # open("rh.txt", "w") do f
     #     for time in 10:total_horizon-10
     #         t = time - 9
