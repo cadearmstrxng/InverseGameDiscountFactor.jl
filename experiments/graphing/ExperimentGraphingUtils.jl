@@ -13,6 +13,8 @@ using OffsetArrays:Origin
 using CSV
 using DataFrames
 using LinearAlgebra: norm
+using Distributions: TDist, cdf
+using Printf: @sprintf
 
 using Infiltrator
 
@@ -119,7 +121,7 @@ function graph_metrics(
     # Create figure for all methods together (original plot)
     fig_all = Figure()
     ax_all = Axis(fig_all[1, 1],
-        xlabel = "Noise Level (σ)",
+        xlabel = "Noise Level σ",
         ylabel = "Trajectory Error",
         title = "Trajectory Error vs Noise Level (All Methods)"
     )
@@ -217,7 +219,7 @@ function graph_metrics(
     # Create figure for baseline comparison
     fig_baseline = Figure()
     ax_baseline = Axis(fig_baseline[1, 1],
-        xlabel = "Noise Level (σ)",
+        xlabel = "Noise Level σ",
         ylabel = "Trajectory Error",
         title = "Baseline: Full State vs Partial State"
     )
@@ -271,7 +273,7 @@ function graph_metrics(
     # Create figure for our method comparison
     fig_our = Figure()
     ax_our = Axis(fig_our[1, 1],
-        xlabel = "Noise Level (σ)",
+        xlabel = "Noise Level σ",
         ylabel = "Trajectory Error",
         title = "Our Method: Full State vs Partial State"
     )
@@ -543,14 +545,14 @@ function process_and_graph_crosswalk_results(;
     # legend_patchsize = (30, 30)
     # legend_patchlabelgap = 2  # More space between markers and text
 
-    xlabelsize = 30
-    ylabelsize = 30
-    xticklabelsize = 20
-    yticklabelsize = 20 
+    xlabelsize = 35
+    ylabelsize = 35
+    xticklabelsize = 30
+    yticklabelsize = 30 
     legend_framevisible = true
     legend_padding = (10, 10, 10, 10)
     legend_rowgap = 5
-    legend_labelsize = 20
+    legend_labelsize = 30
     legend_titlesize = 0
     legend_patchsize = (30, 30)
     legend_patchlabelgap = 2
@@ -601,7 +603,7 @@ function process_and_graph_crosswalk_results(;
     
     fig = Figure(size = (800, 600), margins = (10, 10, 10, 10))
     ax = Axis(fig[1, 1],
-        xlabel = "Noise Level (σ) [m]",
+        xlabel = "Noise Level σ [m]",
         ylabel = "Trajectory Error [m]",
         limits = (nothing, (y_axis_limit[1], y_axis_limit[2])),
         xlabelsize =xlabelsize,
@@ -696,7 +698,7 @@ function process_and_graph_crosswalk_results(;
     if !isnothing(po_baseline_matrix) && !isnothing(po_our_method_matrix)
         fig_fo = Figure(size = (800, 600), margins = (10, 10, 10, 10))
         ax_fo = Axis(fig_fo[1, 1],
-            xlabel = "Noise Level (σ) [m]",
+            xlabel = "Noise Level σ [m]",
             ylabel = "Trajectory Error [m]",
             limits = (nothing, (y_axis_limit[1], y_axis_limit[2])),
             xlabelsize =xlabelsize,
@@ -726,7 +728,7 @@ function process_and_graph_crosswalk_results(;
         
         fig_po = Figure(size = (800, 600), margins = (10, 10, 10, 10))
         ax_po = Axis(fig_po[1, 1],
-            xlabel = "Noise Level (σ) [m]",
+            xlabel = "Noise Level σ [m]",
             ylabel = "Trajectory Error [m]",
             limits = (nothing, (y_axis_limit[1], y_axis_limit[2])),
             xlabelsize =xlabelsize,
@@ -756,7 +758,7 @@ function process_and_graph_crosswalk_results(;
         
         fig_b = Figure(size = (800, 600), margins = (10, 10, 10, 10))
         ax_b = Axis(fig_b[1, 1],
-            xlabel = "Noise Level (σ) [m]",
+            xlabel = "Noise Level σ [m]",
             ylabel = "Trajectory Error [m]",
             limits = (nothing, (y_axis_limit[1], y_axis_limit[2])),
             xlabelsize =xlabelsize,
@@ -786,7 +788,7 @@ function process_and_graph_crosswalk_results(;
         
         fig_m = Figure(size = (800, 600), margins = (10, 10, 10, 10))
         ax_m = Axis(fig_m[1, 1],
-            xlabel = "Noise Level (σ) [m]",
+            xlabel = "Noise Level σ [m]",
             ylabel = "Trajectory Error [m]",
             limits = (nothing, (y_axis_limit[1], y_axis_limit[2])),
             xlabelsize =xlabelsize,
@@ -950,19 +952,7 @@ function plot_rh_costs(filename; title="Inverse Costs Over Time")
     save("./experiments/In-D/rh_snapshot/costs over time.pdf", fig, pt_per_unit=1, pt_per_inch=72)
     return fig
 end
-"""
-    plot_rh_parameter_differences(filename, true_params; title="Parameter Differences Over Time")
 
-Plot the L2 norm of parameter differences from true parameters over time using data from an rh.txt file.
-
-# Arguments
-- `filename`: Path to the rh.txt file
-- `true_params`: The true parameter vector to compare against
-- `title`: Optional title for the plot
-
-# Returns
-- A Makie figure showing the parameter difference trajectory
-"""
 function plot_rh_parameter_differences(filename, true_params; title="Parameter Differences Over Time")
     times, _, _, params_history, baseline_params_history = parse_rh_file(filename)
     
@@ -1390,6 +1380,400 @@ function plot_goal_estimates(
 
     # Save the figure
     CairoMakie.save(plot_name*"_player3.png", fig)
+end
+
+
+function parse_monte_carlo_results(file_path)
+    # Read the file
+    lines = readlines(file_path)
+    
+    # Initialize variables to track where we are in the file
+    section = "none"
+    current_trial = 0
+    num_trials = 0
+    num_time_steps = 0
+    num_players = 0
+    
+    # First pass to determine dimensions
+    for line in lines
+        if startswith(line, "Method Goal Errors:")
+            section = "method_goal"
+        elseif startswith(line, "Baseline Goal Errors:")
+            section = "baseline_goal"
+        elseif startswith(line, "Method Player Errors:")
+            section = "method_player"
+        elseif startswith(line, "Baseline Player Errors:")
+            section = "baseline_player"
+        elseif startswith(line, "Trial") && !contains(line, "Player")
+            trial_match = match(r"Trial (\d+)", line)
+            if trial_match !== nothing
+                trial_num = parse(Int, trial_match.captures[1])
+                num_trials = max(num_trials, trial_num)
+                
+                # Extract array to determine time steps
+                if section in ["method_goal", "baseline_goal"]
+                    array_part = match(r"\[(.*)\]", line)
+                    if array_part !== nothing
+                        values = split(array_part.captures[1], ", ")
+                        num_time_steps = max(num_time_steps, length(values))
+                    end
+                end
+            end
+        elseif contains(line, "Player")
+            player_match = match(r"Player (\d+)", line)
+            if player_match !== nothing
+                player_num = parse(Int, player_match.captures[1])
+                num_players = max(num_players, player_num)
+            end
+        end
+    end
+    
+    # Initialize arrays
+    method_goal_errors = zeros(num_trials, num_time_steps)
+    baseline_goal_errors = zeros(num_trials, num_time_steps)
+    method_player_errors = zeros(num_trials, num_time_steps, num_players)
+    baseline_player_errors = zeros(num_trials, num_time_steps, num_players)
+    
+    # Second pass to populate arrays
+    section = "none"
+    current_trial = 0
+    current_player = 0
+    
+    for line in lines
+        if startswith(line, "Method Goal Errors:")
+            section = "method_goal"
+        elseif startswith(line, "Baseline Goal Errors:")
+            section = "baseline_goal"
+        elseif startswith(line, "Method Player Errors:")
+            section = "method_player"
+        elseif startswith(line, "Baseline Player Errors:")
+            section = "baseline_player"
+        elseif startswith(line, "Trial") && !contains(line, "Player") && section in ["method_goal", "baseline_goal"]
+            trial_match = match(r"Trial (\d+): \[(.*)\]", line)
+            if trial_match !== nothing
+                trial_num = parse(Int, trial_match.captures[1])
+                values_str = trial_match.captures[2]
+                values = [parse(Float64, v) for v in split(values_str, ", ")]
+                
+                if section == "method_goal"
+                    method_goal_errors[trial_num, 1:length(values)] = values
+                elseif section == "baseline_goal"
+                    baseline_goal_errors[trial_num, 1:length(values)] = values
+                end
+            end
+        elseif startswith(line, "Trial") && !contains(line, "Player") && section in ["method_player", "baseline_player"]
+            trial_match = match(r"Trial (\d+):", line)
+            if trial_match !== nothing
+                current_trial = parse(Int, trial_match.captures[1])
+            end
+        elseif contains(line, "Player") && section in ["method_player", "baseline_player"]
+            player_match = match(r"Player (\d+): \[(.*)\]", line)
+            if player_match !== nothing
+                player_num = parse(Int, player_match.captures[1])
+                values_str = player_match.captures[2]
+                values = [parse(Float64, v) for v in split(values_str, ", ")]
+                
+                if section == "method_player"
+                    method_player_errors[current_trial, 1:length(values), player_num] = values
+                elseif section == "baseline_player"
+                    baseline_player_errors[current_trial, 1:length(values), player_num] = values
+                end
+            end
+        end
+    end
+    
+    return method_goal_errors, baseline_goal_errors, method_player_errors, baseline_player_errors
+end
+
+function plot_monte_carlo_goal_errors(method_goal_errors, baseline_goal_errors, method_player_errors, baseline_player_errors; title="Monte Carlo Study: Goal Position Error Over Time")
+    # Calculate mean and standard deviation for each time step
+    method_means = mean(method_goal_errors, dims=1)
+    method_stds = std(method_goal_errors, dims=1)
+    baseline_means = mean(baseline_goal_errors, dims=1)
+    baseline_stds = std(baseline_goal_errors, dims=1)
+    xlabelsize = 35
+    ylabelsize = 35
+    xticklabelsize = 30
+    yticklabelsize = 30 
+    legend_framevisible = true
+    legend_padding = (10, 10, 10, 10)
+    legend_rowgap = 5
+    legend_labelsize = 30
+    legend_titlesize = 0
+    legend_patchsize = (30, 30)
+    legend_patchlabelgap = 2
+    
+    # Calculate per-player means and stds
+    method_player_means = mean(method_player_errors, dims=1)
+    method_player_stds = std(method_player_errors, dims=1)
+    baseline_player_means = mean(baseline_player_errors, dims=1)
+    baseline_player_stds = std(baseline_player_errors, dims=1)
+    
+    band_opacity = 0.1
+    y_axis_limits = (0, .75)
+    
+    # Create figure and axis for total errors
+    CairoMakie.activate!()
+    fig_total = Figure(resolution=(1000, 600))
+    ax_total = Axis(fig_total[1, 1], 
+        xlabel="Time Step",
+        ylabel="Goal Prediction Error [m]",
+        titlesize = 0,
+        xlabelsize = xlabelsize,
+        ylabelsize = ylabelsize,
+        xticklabelsize = xticklabelsize,
+        yticklabelsize = yticklabelsize,
+        xticklabelpad = 10,
+        yticklabelpad = 10,
+        limits = (nothing, (0, nothing))  # Set minimum y value to 0
+    )
+    
+    # Create time steps array
+    time_steps = 1:size(method_goal_errors, 2)
+    
+    # Use distinct colors for our method and baseline
+    our_method_color = :blue
+    baseline_color = :red
+    
+    # Plot total method results with error bands
+    lines!(ax_total, time_steps, method_means[1,:], label="Our Method", color=our_method_color, linewidth=2)
+    band!(ax_total, time_steps, 
+        max.(method_means[1,:] - method_stds[1,:], 0),  # Ensure minimum value is 0 for linear scale
+        method_means[1,:] + method_stds[1,:], 
+        color=(our_method_color, band_opacity))
+    
+    # Plot total baseline results with error bands
+    lines!(ax_total, time_steps, baseline_means[1,:], label="Baseline", color=baseline_color, linewidth=2)
+    band!(ax_total, time_steps, 
+        max.(baseline_means[1,:] - baseline_stds[1,:], 0),  # Ensure minimum value is 0 for linear scale
+        baseline_means[1,:] + baseline_stds[1,:], 
+        color=(baseline_color, band_opacity))
+    
+    # Create legend for total errors
+    # Legend(fig_total[1,2], ax_total, "Methods", 
+    #     framevisible = true,
+    #     padding = (10, 10, 10, 10),
+    #     rowgap = 5,
+    #     labelsize = 20,
+    #     titlesize = 25,
+    #     patchsize = (30, 30),
+    #     patchlabelgap = 0
+    # )
+
+    axislegend(ax_total, position = :ct, labelsize = legend_labelsize)
+    
+
+    
+    # Save the total errors figure
+    save("./experiments/In-D/rh_snapshot/rh_goal_error.pdf", fig_total, pt_per_unit=1, pt_per_inch=72)
+    
+    # Create figure and axis for per-player errors
+    fig_players = Figure(resolution=(1200, 800))
+    ax_players = Axis(fig_players[1, 1], 
+        xlabel="Time Step",
+        ylabel="Goal Prediction Error [m]",
+        titlesize = 0,
+        xlabelsize = xlabelsize,
+        ylabelsize = ylabelsize,
+        xticklabelsize = xticklabelsize,
+        yticklabelsize = yticklabelsize,
+        xticklabelpad = 10,
+        yticklabelpad = 10,
+        limits = (nothing, y_axis_limits) 
+    )
+    
+    # Colors for each player - use distinct color palettes for our method vs baseline
+    our_player_colors = [:dodgerblue, :cornflowerblue, :royalblue, :midnightblue]
+    baseline_player_colors = [:firebrick, :indianred, :lightcoral, :rosybrown]
+    player_labels = ["P1", "P2", "P3", "P4"]
+
+    # Plot per-player errors for our method
+    for i in 1:size(method_player_errors, 3)
+        lines!(ax_players, time_steps, method_player_means[1,:,i], 
+            label="Our Method " * player_labels[i], 
+            color=our_player_colors[i], 
+            linewidth=2,
+            linestyle=:solid)
+        band!(ax_players, time_steps, 
+            max.(method_player_means[1,:,i] - method_player_stds[1,:,i], 0),  # Ensure minimum value is 0 for linear scale
+            method_player_means[1,:,i] + method_player_stds[1,:,i], 
+            color=(our_player_colors[i], band_opacity))
+    end
+    
+    # Plot per-player errors for baseline
+    for i in 1:size(baseline_player_errors, 3)
+        lines!(ax_players, time_steps, baseline_player_means[1,:,i], 
+            label="Baseline " * player_labels[i], 
+            color=baseline_player_colors[i], 
+            linewidth=2,
+            linestyle=:dash)
+        band!(ax_players, time_steps, 
+            max.(baseline_player_means[1,:,i] - baseline_player_stds[1,:,i], 0),  # Ensure minimum value is 0 for linear scale
+            baseline_player_means[1,:,i] + baseline_player_stds[1,:,i], 
+            color=(baseline_player_colors[i], band_opacity))
+    end
+    
+    Legend(fig_players[2, 1], ax_players, "", 
+        framevisible = legend_framevisible,
+        padding = legend_padding,
+        rowgap = legend_rowgap,
+        labelsize = legend_labelsize,
+        titlesize = legend_titlesize,
+        patchsize = legend_patchsize,
+        patchlabelgap = legend_patchlabelgap,
+        orientation = :horizontal,
+        nbanks = 2
+    )
+    # axislegend(ax_players, position = :ct, labelsize = 40, nbanks = 3, orientation = :horizontal)
+    
+    save("./experiments/In-D/rh_snapshot/rh_goal_error_per_player.pdf", fig_players, pt_per_unit=1, pt_per_inch=72)
+    
+    return fig_total, fig_players
+end
+
+function generate_monte_carlo_plots(file_path; title="Monte Carlo Study: Goal Position Error Over Time")
+    # Parse the results file
+    method_goal_errors, baseline_goal_errors, method_player_errors, baseline_player_errors = parse_monte_carlo_results(file_path)
+    
+    # Generate plots using the parsed data
+    fig_total, fig_players = plot_monte_carlo_goal_errors(method_goal_errors, baseline_goal_errors, method_player_errors, baseline_player_errors; title=title)
+    
+    return fig_total, fig_players
+end
+
+function calculate_improvement_significance(method_goal_errors, baseline_goal_errors, method_player_errors, baseline_player_errors; output_file="./experiments/In-D/rh_snapshot/significance_results.txt")
+    # Create the output directory if it doesn't exist
+    mkpath(dirname(output_file))
+    
+    # Number of time steps
+    num_timesteps = size(method_goal_errors, 2)
+    
+    # Number of players
+    num_players = size(method_player_errors, 3)
+    
+    open(output_file, "w") do file
+        # Write header
+        write(file, "Statistical Significance Analysis of Error Improvement\n")
+        write(file, "=================================================\n\n")
+        
+        # Overall goal error significance
+        write(file, "Overall Goal Error Significance (Two-sided p-values)\n")
+        write(file, "----------------------------------------------------\n")
+        write(file, "Time Step | Mean Error (Our Method) | Mean Error (Baseline) | Improvement | p-value | Significant?\n")
+        write(file, "---------------------------------------------------------------------------\n")
+        
+        for t in 1:num_timesteps
+            # Extract errors for this time step
+            our_errors = method_goal_errors[:, t]
+            baseline_errors = baseline_goal_errors[:, t]
+            
+            # Calculate means
+            our_mean = mean(our_errors)
+            baseline_mean = mean(baseline_errors)
+            
+            # Calculate improvement
+            improvement = baseline_mean - our_mean
+            percent_improvement = (improvement / baseline_mean) * 100
+            
+            # Perform t-test (paired samples)
+            t_stat, p_value = perform_paired_ttest(our_errors, baseline_errors)
+            
+            # Check significance
+            significant = p_value < 0.05 ? "Yes" : "No"
+            
+            # Write to file
+            write(file, @sprintf("%9d | %21.4f | %21.4f | %10.4f (%5.1f%%) | %7.5f | %11s\n", 
+                t, our_mean, baseline_mean, improvement, percent_improvement, p_value, significant))
+        end
+        
+        write(file, "\n\n")
+        
+        # Per-player goal error significance
+        write(file, "Per-Player Goal Error Significance (Two-sided p-values)\n")
+        write(file, "-----------------------------------------------------\n")
+        
+        for player in 1:num_players
+            write(file, "Player $player:\n")
+            write(file, "Time Step | Mean Error (Our Method) | Mean Error (Baseline) | Improvement | p-value | Significant?\n")
+            write(file, "---------------------------------------------------------------------------\n")
+            
+            for t in 1:num_timesteps
+                # Extract errors for this player at this time step
+                our_errors = method_player_errors[:, t, player]
+                baseline_errors = baseline_player_errors[:, t, player]
+                
+                # Calculate means
+                our_mean = mean(our_errors)
+                baseline_mean = mean(baseline_errors)
+                
+                # Calculate improvement
+                improvement = baseline_mean - our_mean
+                percent_improvement = (improvement / baseline_mean) * 100
+                
+                # Perform t-test (paired samples)
+                t_stat, p_value = perform_paired_ttest(our_errors, baseline_errors)
+                
+                # Check significance
+                significant = p_value < 0.05 ? "Yes" : "No"
+                
+                # Write to file
+                write(file, @sprintf("%9d | %21.4f | %21.4f | %10.4f (%5.1f%%) | %7.5f | %11s\n", 
+                    t, our_mean, baseline_mean, improvement, percent_improvement, p_value, significant))
+            end
+            
+            write(file, "\n")
+        end
+    end
+    
+    println("Significance analysis saved to: $output_file")
+    return output_file
+end
+
+# Helper function to perform paired t-test
+function perform_paired_ttest(sample1, sample2)
+    # Calculate differences
+    differences = sample1 - sample2
+    
+    # Calculate mean of differences
+    mean_diff = mean(differences)
+    
+    # Calculate standard error of differences
+    n = length(differences)
+    se_diff = std(differences) / sqrt(n)
+    
+    # Calculate t-statistic
+    t_stat = mean_diff / se_diff
+    
+    # Calculate degrees of freedom
+    df = n - 1
+    
+    # Calculate two-sided p-value
+    # Using the t-distribution CDF
+    p_value = 2 * min(cdf(TDist(df), t_stat), 1 - cdf(TDist(df), t_stat))
+    
+    return t_stat, p_value
+end
+
+function generate_monte_carlo_analysis(file_path; title="Monte Carlo Study: Goal Position Error Over Time")
+    # Parse the results file
+    method_goal_errors, baseline_goal_errors, method_player_errors, baseline_player_errors = 
+        parse_monte_carlo_results(file_path)
+    
+    # Generate plots
+    fig_total, fig_players = plot_monte_carlo_goal_errors(
+        method_goal_errors, baseline_goal_errors, method_player_errors, baseline_player_errors; title=title
+    )
+    
+    # Calculate significance of improvements
+    significance_file = calculate_improvement_significance(
+        method_goal_errors, baseline_goal_errors, method_player_errors, baseline_player_errors
+    )
+    
+    println("Monte Carlo analysis complete:")
+    println("- Plots saved to experiments/In-D/rh_snapshot/")
+    println("- Significance analysis saved to $significance_file")
+    
+    return fig_total, fig_players, significance_file
 end
 
 end
