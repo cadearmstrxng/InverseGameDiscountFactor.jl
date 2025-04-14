@@ -534,7 +534,7 @@ end
 function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true)
     frames = [26158, 26320] # 162
     tracks = [201, 205, 207, 208]
-    downsample_rate = 6
+    downsample_rate = 8
     rng = MersenneTwister(1234)
     Random.seed!(rng)
 
@@ -584,19 +584,19 @@ function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true
         lane_centers = lane_centers
     )
 
-    baseline_init_rh = GameUtils.init_bicycle_test_game(
-        full_state;
-        initial_state = InD_observations[1],
-        game_params = mortar([
-            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 10.0] for i in 1:length(tracks)]...]),
-        horizon = 10,
-        n = length(tracks),
-        dt = 0.04*downsample_rate,
-        myopic=false,
-        verbose = false,
-        dynamics = dynamics,
-        lane_centers = lane_centers
-    )
+    # baseline_init_rh = GameUtils.init_bicycle_test_game(
+    #     full_state;
+    #     initial_state = InD_observations[1],
+    #     game_params = mortar([
+    #         [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 10.0] for i in 1:length(tracks)]...]),
+    #     horizon = 10,
+    #     n = length(tracks),
+    #     dt = 0.04*downsample_rate,
+    #     myopic=false,
+    #     verbose = false,
+    #     dynamics = dynamics,
+    #     lane_centers = lane_centers
+    # )
 
     solver_rh = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
         init_rh.game_structure.game,
@@ -604,11 +604,11 @@ function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true
         blocksizes(init_rh.game_parameters, 1)
     )
 
-    baseline_solver_rh = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
-        baseline_init_rh.game_structure.game,
-        baseline_init_rh.horizon,
-        blocksizes(baseline_init_rh.game_parameters, 1)
-    )
+    # baseline_solver_rh = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
+    #     baseline_init_rh.game_structure.game,
+    #     baseline_init_rh.horizon,
+    #     blocksizes(baseline_init_rh.game_parameters, 1)
+    # )
 
     # rh_plans = []
     # baseline_rh_plans = []
@@ -618,7 +618,9 @@ function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true
     baseline_params_future = []
     actual_traj = []
     baseline_actual_traj = []
-
+    initial_state_guess = init_rh.initial_state
+    initial_hidden_state_guess = init_rh.game_parameters
+    @infiltrate
     for t in 10:total_horizon-10
         rh_observations = InD_observations[t-10+1:t]
         # @infiltrate
@@ -628,99 +630,102 @@ function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true
             rh_observations,
             init_rh.observation_model,
             blocksizes(init_rh.game_parameters, 1);
-            initial_state = init_rh.initial_state,
-            hidden_state_guess = init_rh.game_parameters,
+            initial_state = initial_state_guess,
+            hidden_state_guess = nothing,
             max_grad_steps = 200,
             verbose = verbose,
             dynamics = dynamics,
             use_warm_start = false
         )
 
-        baseline_inverse_rh = InverseGameDiscountFactor.solve_myopic_inverse_game(
-            baseline_solver_rh.mcp_game,
-            rh_observations,
-            baseline_init_rh.observation_model,
-            blocksizes(baseline_init_rh.game_parameters, 1);
-            initial_state = baseline_init_rh.initial_state,
-            hidden_state_guess = baseline_init_rh.game_parameters,
-            max_grad_steps = 200,
-            verbose = verbose,
-            dynamics = dynamics,
-            use_warm_start = false
-        )     
+        initial_hidden_state_guess = inverse_rh.recovered_params
+
+        # baseline_inverse_rh = InverseGameDiscountFactor.solve_myopic_inverse_game(
+        #     baseline_solver_rh.mcp_game,
+        #     rh_observations,
+        #     baseline_init_rh.observation_model,
+        #     blocksizes(baseline_init_rh.game_parameters, 1);
+        #     initial_state = baseline_init_rh.initial_state,
+        #     hidden_state_guess = baseline_init_rh.game_parameters,
+        #     max_grad_steps = 200,
+        #     verbose = verbose,
+        #     dynamics = dynamics,
+        #     use_warm_start = false
+        # )     
 
         rh_initial_state = BlockVector(inverse_rh.recovered_trajectory.blocks[end], [4 for _ in 1:num_players(init_rh.game_structure.game)])
-        baseline_rh_initial_state = BlockVector(baseline_inverse_rh.recovered_trajectory.blocks[end], [4 for _ in 1:num_players(baseline_init_rh.game_structure.game)])
-
+        # baseline_rh_initial_state = BlockVector(baseline_inverse_rh.recovered_trajectory.blocks[end], [4 for _ in 1:num_players(baseline_init_rh.game_structure.game)])
+        println("solving forward game $t....")
         rh_plan = InverseGameDiscountFactor.reconstruct_solution(
             # InverseGameDiscountFactor.solve_mcp_game(solver_rh.mcp_game, rh_observations[end], inverse_rh.recovered_params), 
             InverseGameDiscountFactor.solve_mcp_game(solver_rh.mcp_game, rh_initial_state, inverse_rh.recovered_params), 
             init_rh.game_structure.game, 
             init_rh.horizon
         )
+        println("forward game solved")
+        # initial_state_guess = rh_initial_state # maybe change
         
-        baseline_rh_plan = InverseGameDiscountFactor.reconstruct_solution(
-            # InverseGameDiscountFactor.solve_mcp_game(baseline_solver_rh.mcp_game, rh_observations[end], baseline_inverse_rh.recovered_params), 
-            InverseGameDiscountFactor.solve_mcp_game(baseline_solver_rh.mcp_game, baseline_rh_initial_state, baseline_inverse_rh.recovered_params), 
-            baseline_init_rh.game_structure.game, 
-            baseline_init_rh.horizon
-        )
+        # baseline_rh_plan = InverseGameDiscountFactor.reconstruct_solution(
+        #     # InverseGameDiscountFactor.solve_mcp_game(baseline_solver_rh.mcp_game, rh_observations[end], baseline_inverse_rh.recovered_params), 
+        #     InverseGameDiscountFactor.solve_mcp_game(baseline_solver_rh.mcp_game, baseline_rh_initial_state, baseline_inverse_rh.recovered_params), 
+        #     baseline_init_rh.game_structure.game, 
+        #     baseline_init_rh.horizon
+        # )
         if t == 18
             push!(actual_traj, rh_plan)
-            push!(baseline_actual_traj, baseline_rh_plan)
+            # push!(baseline_actual_traj, baseline_rh_plan)
         else
             if t == 10
                 push!(actual_traj, inverse_rh.recovered_trajectory)
-                push!(baseline_actual_traj, baseline_inverse_rh.recovered_trajectory)
+                # push!(baseline_actual_traj, baseline_inverse_rh.recovered_trajectory)
             end
             push!(actual_traj, rh_plan.blocks[1])
-            push!(baseline_actual_traj, baseline_rh_plan.blocks[1])
+            # push!(baseline_actual_traj, baseline_rh_plan.blocks[1])
         end
 
-        if graph
-            ExperimentGraphingUtils.graph_rh_snapshot(
-                "rh_snapshot_t$(t)",
-                rh_observations,
-                inverse_rh.recovered_trajectory,
-                baseline_inverse_rh.recovered_trajectory,
-                rh_plan,
-                baseline_rh_plan,
-                init_rh.game_structure,
-                init_rh.horizon
-            )
-        end
+        # if graph
+        #     ExperimentGraphingUtils.graph_rh_snapshot(
+        #         "rh_snapshot_t$(t)",
+        #         rh_observations,
+        #         inverse_rh.recovered_trajectory,
+        #         baseline_inverse_rh.recovered_trajectory,
+        #         rh_plan,
+        #         baseline_rh_plan,
+        #         init_rh.game_structure,
+        #         init_rh.horizon
+        #     )
+        # end
 
-        push!(inverse_costs_future, norm(vcat(InD_observations[t+1:t+10]...) - rh_plan))
-        push!(baseline_inverse_costs_future, norm(vcat(InD_observations[t+1:t+10]...) - baseline_rh_plan))
-        push!(params_future, inverse_rh.recovered_params)
-        push!(baseline_params_future, baseline_inverse_rh.recovered_params)
-        open("rh.txt", "a") do f
-            write(f, "t: ", string(t), "\n")
-            write(f, "inverse_costs_future: ", string(round.(inverse_costs_future[end]; digits = 4)), "\n")
-            write(f, "baseline_inverse_costs_future: ", string(round.(baseline_inverse_costs_future[end]; digits = 4)), "\n")
-            write(f, "params_future: ", string(round.(params_future[end]; digits = 4)), "\n")
-            write(f, "baseline_params_future: ", string(round.(baseline_params_future[end]; digits = 4)), "\n")
-            open("baseline_rh_plan_$(t).txt", "w") do f
-                for state in baseline_rh_plan.blocks
-                    for i in 1:length(tracks)
-                        write(f, string(round.(state[(i-1)*4 + 1:i*4]; digits = 4)), "\n")
-                    end
-                    write(f, "--------------------------------\n")
-                end
-            end
-            open("rh_plan_$(t).txt", "w") do f
-                for state in rh_plan.blocks
-                    for i in 1:length(tracks)
-                        write(f, string(round.(state[(i-1)*4 + 1:i*4]; digits = 4)), "\n")
-                    end
-                    write(f, "--------------------------------\n")
-                end
-            end
-        end
+    #     push!(inverse_costs_future, norm(vcat(InD_observations[t+1:t+10]...) - rh_plan))
+    #     push!(baseline_inverse_costs_future, norm(vcat(InD_observations[t+1:t+10]...) - baseline_rh_plan))
+    #     push!(params_future, inverse_rh.recovered_params)
+    #     push!(baseline_params_future, baseline_inverse_rh.recovered_params)
+    #     open("rh.txt", "a") do f
+    #         write(f, "t: ", string(t), "\n")
+    #         write(f, "inverse_costs_future: ", string(round.(inverse_costs_future[end]; digits = 4)), "\n")
+    #         write(f, "baseline_inverse_costs_future: ", string(round.(baseline_inverse_costs_future[end]; digits = 4)), "\n")
+    #         write(f, "params_future: ", string(round.(params_future[end]; digits = 4)), "\n")
+    #         write(f, "baseline_params_future: ", string(round.(baseline_params_future[end]; digits = 4)), "\n")
+    #         open("baseline_rh_plan_$(t).txt", "w") do f
+    #             for state in baseline_rh_plan.blocks
+    #                 for i in 1:length(tracks)
+    #                     write(f, string(round.(state[(i-1)*4 + 1:i*4]; digits = 4)), "\n")
+    #                 end
+    #                 write(f, "--------------------------------\n")
+    #             end
+    #         end
+    #         open("rh_plan_$(t).txt", "w") do f
+    #             for state in rh_plan.blocks
+    #                 for i in 1:length(tracks)
+    #                     write(f, string(round.(state[(i-1)*4 + 1:i*4]; digits = 4)), "\n")
+    #                 end
+    #                 write(f, "--------------------------------\n")
+    #             end
+    #         end
+    #     end
     end
-    @infiltrate
     actual_traj = BlockVector(vcat(actual_traj...), [16 for _ in 1:total_horizon])
-    baseline_actual_traj = BlockVector(vcat(baseline_actual_traj...), [16 for _ in 1:total_horizon])
+    # baseline_actual_traj = BlockVector(vcat(baseline_actual_traj...), [16 for _ in 1:total_horizon])
 
 
     
@@ -733,25 +738,23 @@ function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true
             write(f, "--------------------------------\n")
         end
     end
-    open("baseline_whole_trajectory.txt", "w") do f
-        for state in baseline_actual_traj.blocks
-            for i in 1:length(tracks)
-                write(f, string(round.(state[(i-1)*4 + 1:i*4]; digits = 4)), "\n")
-            end
-            write(f, "--------------------------------\n")
-        end
-    end
+    # open("baseline_whole_trajectory.txt", "w") do f
+    #     for state in baseline_actual_traj.blocks
+    #         for i in 1:length(tracks)
+    #             write(f, string(round.(state[(i-1)*4 + 1:i*4]; digits = 4)), "\n")
+    #         end
+    #         write(f, "--------------------------------\n")
+    #     end
+    # end
 
     ExperimentGraphingUtils.graph_trajectories(
             "Recovered v. Observed",
-            [InD_observations, actual_traj, baseline_actual_traj],
+            [InD_observations, actual_traj],
             init_rh.game_structure,
             28;
             colors = [
-                [(:red, 1.0), (:red, 1.0), (:red, 1.0), (:red, 1.0)],
-                [(:blue, 1.0), (:blue, 1.0), (:blue, 1.0), (:blue, 1.0)],
-                [(:green, 1.0), (:green, 1.0), (:green, 1.0), (:green, 1.0)],
-                [(:purple, 1.0), (:purple, 1.0), (:purple, 1.0), (:purple, 1.0)]
+                [(:red, 0.0), (:blue, 0.0), (:green, 0.0), (:purple, 0.0)],
+                [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)],
             ],
             constraints = nothing,
             p_state_dim = 4
