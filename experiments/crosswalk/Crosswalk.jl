@@ -233,6 +233,11 @@ function problemLandscape(
     ]),
     hidden_params = mortar([[2, 0, 0.6], [0, 0, 0.6]]),
 )
+    function observe_trajectory(τs_solution)
+        vcat(map(blocks(τs_solution)) do x
+            x[[1, 2, 5, 6]]
+        end...)
+    end
     horizon = 25
     environment = PolygonEnvironment(6, 8)
     game = GameUtils.n_player_collision_avoidance(2; environment, min_distance = 0.5, collision_avoidance_coefficient = 5.0)
@@ -241,25 +246,32 @@ function problemLandscape(
 
     forward_solution = InverseGameDiscountFactor.solve_mcp_game(mcp_game, initial_state, hidden_params; verbose = false)
     for_sol = InverseGameDiscountFactor.reconstruct_solution(forward_solution, game.game, horizon)
+    partial_for_sol = observe_trajectory(for_sol)
 
     context_state_guess = copy(hidden_params)
 
-    granularity = 100
+    granularity = 165
     left_point1 = 0.0
-    right_point1 = 1.2
+    right_point1 = 1.1
 
-    left_point2 = 0.0
-    right_point2 = 1.2
+    left_point2 = left_point1
+    right_point2 = right_point1
+
+    ticklabelsize = 30
+    labelsize = 50
 
     # gammas1 = [round(i*((right_point1 - left_point1)/granularity) + left_point1, sigdigits=7) for i in left_point1:(right_point1 - left_point1)/granularity:right_point1]
     # gammas2 = [round(i*((right_point2 - left_point2)/granularity) + left_point2, sigdigits=7) for i in left_point2:(right_point2 - left_point2)/granularity:right_point2]
     gammas1 = LinRange(left_point1, right_point1, granularity)
     gammas2 = LinRange(left_point2, right_point2, granularity)
-    println("Gammas1: ", gammas1)
-    println("Gammas2: ", gammas2)
+    # println("Gammas1: ", gammas1)
+    # println("Gammas2: ", gammas2)
     costs = Array{Float64}(undef, length(gammas1), length(gammas2))
+    partial_costs = Array{Float64}(undef, length(gammas1), length(gammas2))
 
-    function likelihood_cost(τs_observed, context_state_estimation, initial_state)
+    
+
+    function likelihood_cost(τs_observed, context_state_estimation, initial_state; partial_observation = false)
         solution = InverseGameDiscountFactor.solve_mcp_game(mcp_game, initial_state, 
             context_state_estimation;verbose=false)
 
@@ -272,7 +284,7 @@ function problemLandscape(
         # last_solution = solution.status == PATHSolver.MCP_Solved ? (; primals = ForwardDiff.value.(solution.primals),
         # variables = ForwardDiff.value.(solution.variables), status = solution.status) : nothing
         τs_solution = InverseGameDiscountFactor.reconstruct_solution(solution, mcp_game.game, horizon)
-        observed_τs_solution = τs_solution
+        observed_τs_solution = partial_observation ? observe_trajectory(τs_solution) : τs_solution
     
         # @infiltrate
         
@@ -288,30 +300,74 @@ function problemLandscape(
     for i in eachindex(gammas1)
         context_state_guess[3] = gammas1[i]
         for j in eachindex(gammas2)
+            # @info "Context state guess: ", context_state_guess[[3, 6]]
             context_state_guess[6] = gammas2[j]
             # @infiltrate
             costs[i, j] = likelihood_cost(for_sol, context_state_guess, initial_state)
+            partial_costs[i, j] = likelihood_cost(partial_for_sol, context_state_guess, initial_state; partial_observation = true)
         end        
     end
 
+    costs .-= minimum(costs)
+    costs ./= maximum(costs)
+    partial_costs .-= minimum(partial_costs)
+    partial_costs ./= maximum(partial_costs)
+    
     fig1 = CairoMakie.Figure()
     ax1 = CairoMakie.Axis(fig1[1, 1],
     # xticks = (1:length(gammas), gammas),
-    xlabel = "Gamma P1",
+    xlabel = L"$\gamma_1$",
     # yticks = (1:length(gammas), gammas),
-    ylabel = "Gamma P2")
+    ylabel = L"$\gamma_2$",
+    xticklabelsize = ticklabelsize,
+    yticklabelsize = ticklabelsize,
+    xlabelsize = labelsize,
+    ylabelsize = labelsize)
 
-    CairoMakie.heatmap!(ax1,gammas1,gammas2, costs, colormap = :viridis)
-    # CairoMakie.Colorbar(fig1[1, 2], ax1, label = "Cost")
-    # Colorbar(fig1[1, 2], limits = (min(costs...), max(costs...)), colormap = :viridis)
-    # CairoMakie.xlabel!(ax1, "Gamma P1")
-    # CairoMakie.ylabel!(ax1, "Gamma P2")
-    # CairoMakie.Legend(fig1[2, 1], [ax1], ["Cost"])
+    ax2 = CairoMakie.Axis(fig1[1, 2],
+    ylabel = L"$\gamma_2$",
+    xticklabelsize = ticklabelsize,
+    yticklabelsize = 0,
+    xlabelsize = labelsize,
+    ylabelsize = 0)
+
+    hm1 = CairoMakie.heatmap!(ax1,gammas1,gammas2, costs, colormap = :viridis)
+    hm2 = CairoMakie.heatmap!(ax2,gammas1,gammas2, partial_costs, colormap = :viridis)
+    
+    # Add colorbars
+    CairoMakie.Colorbar(fig1[1, 3], hm1, ticklabelsize=ticklabelsize)
+
+    
 
     # println(costs)
 
-    CairoMakie.save("ProblemLandscape.png", fig1)
-
+    CairoMakie.save("ProblemLandscape.pdf", fig1, pt_per_unit=1, pt_per_inch=72)
+    # Save the heatmap data as space-separated values
+    open("heatmap_data_symmetric_0.6_0.6v2.txt", "w") do io
+        # Write gammas1
+        write(io, "gammas1: ")
+        join(io, gammas1, " ")
+        write(io, "\n")
+        
+        # Write gammas2
+        write(io, "gammas2: ")
+        join(io, gammas2, " ")
+        write(io, "\n")
+        
+        # Write costs matrix
+        write(io, "costs:\n")
+        for row in eachrow(costs)
+            join(io, row, " ")
+            write(io, "\n")
+        end
+        
+        # Write partial_costs matrix
+        write(io, "partial_costs:\n")
+        for row in eachrow(partial_costs)
+            join(io, row, " ")
+            write(io, "\n")
+        end
+    end
 end
 
 
