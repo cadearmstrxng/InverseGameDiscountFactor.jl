@@ -11,6 +11,7 @@ using ImageTransformations
 using Rotations
 using OffsetArrays:Origin
 using TrajectoryGamesExamples: BicycleDynamics, PolygonEnvironment
+using PATHSolver
 
 include("../GameUtils.jl")
 include("../graphing/ExperimentGraphingUtils.jl")
@@ -618,9 +619,8 @@ function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true
     baseline_params_future = []
     actual_traj = []
     baseline_actual_traj = []
-    initial_state_guess = init_rh.initial_state
+    rh_initial_state_guess = init_rh.initial_state
     initial_hidden_state_guess = init_rh.game_parameters
-    @infiltrate
     for t in 10:total_horizon-10
         rh_observations = InD_observations[t-10+1:t]
         # @infiltrate
@@ -630,8 +630,8 @@ function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true
             rh_observations,
             init_rh.observation_model,
             blocksizes(init_rh.game_parameters, 1);
-            initial_state = initial_state_guess,
-            hidden_state_guess = nothing,
+            initial_state = rh_initial_state_guess,
+            hidden_state_guess = initial_hidden_state_guess,
             max_grad_steps = 200,
             verbose = verbose,
             dynamics = dynamics,
@@ -653,12 +653,22 @@ function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true
         #     use_warm_start = false
         # )     
 
-        rh_initial_state = BlockVector(inverse_rh.recovered_trajectory.blocks[end], [4 for _ in 1:num_players(init_rh.game_structure.game)])
+        rh_initial_state_guess = BlockVector(inverse_rh.recovered_trajectory.blocks[end], [4 for _ in 1:num_players(init_rh.game_structure.game)])
         # baseline_rh_initial_state = BlockVector(baseline_inverse_rh.recovered_trajectory.blocks[end], [4 for _ in 1:num_players(baseline_init_rh.game_structure.game)])
         println("solving forward game $t....")
+        i = 0;
+        converged = false
+        sol = nothing
+        while (!converged && i < 5)
+            # InverseGameDiscountFactor.solve_mcp_game(solver_rh.mcp_game, rh_observations[end], inverse_rh.recovered_params),
+            sol = InverseGameDiscountFactor.solve_mcp_game(solver_rh.mcp_game, rh_initial_state_guess, inverse_rh.recovered_params)
+            i += 1
+            converged = sol.status == PATHSolver.MCP_Solved
+        end
+        println("took $i tries")
+
         rh_plan = InverseGameDiscountFactor.reconstruct_solution(
-            # InverseGameDiscountFactor.solve_mcp_game(solver_rh.mcp_game, rh_observations[end], inverse_rh.recovered_params), 
-            InverseGameDiscountFactor.solve_mcp_game(solver_rh.mcp_game, rh_initial_state, inverse_rh.recovered_params), 
+            sol, 
             init_rh.game_structure.game, 
             init_rh.horizon
         )
@@ -683,18 +693,20 @@ function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true
             # push!(baseline_actual_traj, baseline_rh_plan.blocks[1])
         end
 
-        # if graph
-        #     ExperimentGraphingUtils.graph_rh_snapshot(
-        #         "rh_snapshot_t$(t)",
-        #         rh_observations,
-        #         inverse_rh.recovered_trajectory,
-        #         baseline_inverse_rh.recovered_trajectory,
-        #         rh_plan,
-        #         baseline_rh_plan,
-        #         init_rh.game_structure,
-        #         init_rh.horizon
-        #     )
-        # end
+        if graph
+            ExperimentGraphingUtils.graph_rh_snapshot(
+                "rh_snapshot_t$(t)",
+                rh_observations,
+                inverse_rh.recovered_trajectory,
+                # baseline_inverse_rh.recovered_trajectory,
+                inverse_rh.recovered_trajectory,
+                rh_plan,
+                # baseline_rh_plan,
+                rh_plan,
+                init_rh.game_structure,
+                init_rh.horizon
+            )
+        end
 
     #     push!(inverse_costs_future, norm(vcat(InD_observations[t+1:t+10]...) - rh_plan))
     #     push!(baseline_inverse_costs_future, norm(vcat(InD_observations[t+1:t+10]...) - baseline_rh_plan))
@@ -724,7 +736,7 @@ function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true
     #         end
     #     end
     end
-    actual_traj = BlockVector(vcat(actual_traj...), [16 for _ in 1:total_horizon])
+    actual_traj = BlockVector(vcat(actual_traj...), [16 for _ in 1:(total_horizon-9)])
     # baseline_actual_traj = BlockVector(vcat(baseline_actual_traj...), [16 for _ in 1:total_horizon])
 
 
