@@ -1,408 +1,401 @@
-# using TrajectoryGamesBase:
-#     GeneralSumCostStructure,
-#     TrajectoryGameCost,
-#     TrajectoryGame,
-#     TrajectoryGamesBase
-# using ParametricMCPs
-using Infiltrator
-# using Symbolics
-# using BlockArrays: Block, BlockVector, mortar, blocksize
-struct NullEnv end
+# # using TrajectoryGamesBase:
+# #     GeneralSumCostStructure,
+# #     TrajectoryGameCost,
+# #     TrajectoryGame,
+# #     TrajectoryGamesBase
+# # using ParametricMCPs
+# using Infiltrator
+# # using Symbolics
+# # using BlockArrays: Block, BlockVector, mortar, blocksize
+# struct NullEnv end
 
-function TrajectoryGamesBase.get_constraints(env::NullEnv, ii)
-    function null_constraints(x)
-        []
-    end
-    null_constraints
-end
+# function TrajectoryGamesBase.get_constraints(env::NullEnv, ii)
+#     function null_constraints(x)
+#         []
+#     end
+#     null_constraints
+# end
 
-function warm_start_game(num_players;
-    environment,
-    observation_model = identity,
-    dynamics = nothing,
-    partial_observation_state_size = -1
-    )
+# function warm_start_game(num_players;
+#     environment,
+#     observation_model = identity,
+#     dynamics = nothing,
+#     partial_observation_state_size = -1
+#     )
 
-    dynamics = (isnothing(dynamics)) ? ProductDynamics([planar_double_integrator(;
-        state_bounds = (; lb = [-Inf, -Inf, -0.8, -0.8], ub = [Inf, Inf, 0.8, 0.8]),
-        control_bounds = (; lb = [-10, -10], ub = [10, 10]),) for _ in 1:num_players]) : ProductDynamics([dynamics for _ in 1:num_players])
+#     dynamics = (isnothing(dynamics)) ? ProductDynamics([planar_double_integrator(;
+#         state_bounds = (; lb = [-Inf, -Inf, -0.8, -0.8], ub = [Inf, Inf, 0.8, 0.8]),
+#         control_bounds = (; lb = [-10, -10], ub = [10, 10]),) for _ in 1:num_players]) : ProductDynamics([dynamics for _ in 1:num_players])
 
-    cost = let
-        function warm_start_cost_for_player(xᵢ,yᵢ)
-            # T = convert(Int64,size(x)[1]-1)
-            # state_size = partial_observation_state_size < 0 ? size(x[1][Block(1)])[1] : partial_observation_state_size
-            # num_players = blocksize(x[1], 1)
+#     cost = let
+#         function warm_start_cost_for_player(xᵢ,yᵢ)
+#             # T = convert(Int64,size(x)[1]-1)
+#             # state_size = partial_observation_state_size < 0 ? size(x[1][Block(1)])[1] : partial_observation_state_size
+#             # num_players = blocksize(x[1], 1)
 
-            sum(map(zip(xᵢ[2:end], yᵢ)) do (xₜ, yₜ)
-                # @infiltrate
-                norm_sqr(xₜ - yₜ)
-            end 
-            )
-        end
+#             sum(map(zip(xᵢ[2:end], yᵢ)) do (xₜ, yₜ)
+#                 # @infiltrate
+#                 norm_sqr(xₜ - yₜ)
+#             end 
+#             )
+#         end
 
-        function warm_start_cost(xs,ys)
+#         function warm_start_cost(xs,ys)
 
-            costs = []
-            horizon = length(ys)
+#             costs = []
+#             horizon = length(ys)
             
-            for i in 1:num_players
-                xᵢ = [observation_model(xs[t])[Block(i)] for t in 1:(horizon+1)]
-                yᵢ = [ys[t][Block(i)] for t in 1:horizon]
+#             for i in 1:num_players
+#                 xᵢ = [observation_model(xs[t])[Block(i)] for t in 1:(horizon+1)]
+#                 yᵢ = [ys[t][Block(i)] for t in 1:horizon]
 
-                push!(costs, warm_start_cost_for_player(xᵢ, yᵢ))
-            end
+#                 push!(costs, warm_start_cost_for_player(xᵢ, yᵢ))
+#             end
 
-            costs
-            # [warm_start_cost_for_player(i, x, y, T, state_size) for i in 1:T]
-        end
-        TrajectoryGameCost(warm_start_cost, GeneralSumCostStructure())
-    end
-    game = TrajectoryGame(
-        dynamics,
-        cost,
-        environment,
-        nothing,
-    )
-    CollisionAvoidanceGame(game)
-end
+#             costs
+#             # [warm_start_cost_for_player(i, x, y, T, state_size) for i in 1:T]
+#         end
+#         TrajectoryGameCost(warm_start_cost, GeneralSumCostStructure())
+#     end
+#     game = TrajectoryGame(
+#         dynamics,
+#         cost,
+#         environment,
+#         nothing,
+#     )
+#     CollisionAvoidanceGame(game)
+# end
 
-function warm_start_game_per_player(;
-    environment = NullEnv(),
-    observation_model = identity,
-    dynamics = nothing,
-    partial_observation_state_size = -1
-    )
-    dynamics = (isnothing(dynamics)) ? ProductDynamics([planar_double_integrator(;
-        state_bounds = (; lb = [-Inf, -Inf, -0.8, -0.8], ub = [Inf, Inf, 0.8, 0.8]),
-        control_bounds = (; lb = [-10, -10], ub = [10, 10]),) for _ in 1:num_players]) : ProductDynamics([dynamics for _ in 1:num_players])
+# function warm_start_game_per_player(;
+#     environment = NullEnv(),
+#     observation_model = identity,
+#     dynamics = nothing,
+#     partial_observation_state_size = -1
+#     )
+#     dynamics = (isnothing(dynamics)) ? ProductDynamics([planar_double_integrator(;
+#         state_bounds = (; lb = [-Inf, -Inf, -0.8, -0.8], ub = [Inf, Inf, 0.8, 0.8]),
+#         control_bounds = (; lb = [-10, -10], ub = [10, 10]),) for _ in 1:num_players]) : ProductDynamics([dynamics for _ in 1:num_players])
 
-    cost = let
-        function warm_start_cost(x,y)
+#     cost = let
+#         function warm_start_cost(x,y)
 
-            sum(map(zip(x[2:end], y)) do (xₜ, yₜ)
-                norm_sqr(xₜ - yₜ)
-            end 
-            )
-        end
+#             sum(map(zip(x[2:end], y)) do (xₜ, yₜ)
+#                 norm_sqr(xₜ - yₜ)
+#             end 
+#             )
+#         end
 
-        TrajectoryGameCost(warm_start_cost, GeneralSumCostStructure())
-    end
-    game = TrajectoryGame(
-        dynamics,
-        cost,
-        environment,
-        nothing,
-    )
-    CollisionAvoidanceGame(game)
+#         TrajectoryGameCost(warm_start_cost, GeneralSumCostStructure())
+#     end
+#     game = TrajectoryGame(
+#         dynamics,
+#         cost,
+#         environment,
+#         nothing,
+#     )
+#     CollisionAvoidanceGame(game)
 
-end
+# end
 
-# REQUIRES EXPAND WARM START
-function warm_start_per_player(y, initial_state, horizon; observation_model = identity, 
-    num_players = 2, partial_observation_state_size = -1, dynamics = nothing)
+# # REQUIRES EXPAND WARM START
+# function warm_start_per_player(y, initial_state, horizon; observation_model = identity, 
+#     num_players = 2, partial_observation_state_size = -1, dynamics = nothing)
 
-    state = (partial_observation_state_size < 0) ? state_dim(dynamics[1]) : partial_observation_state_size
-    control = control_dim(dynamics[1])
+#     state = (partial_observation_state_size < 0) ? state_dim(dynamics[1]) : partial_observation_state_size
+#     control = control_dim(dynamics[1])
 
-    environment = NullEnv()
-    games = [warm_start_game(
-        1;
-        environment,
-        observation_model = observation_model,
-        partial_observation_state_size = partial_observation_state_size,
-        dynamics = dynamics[i]) for i in 1:num_players]
+#     environment = NullEnv()
+#     games = [warm_start_game(
+#         1;
+#         environment,
+#         observation_model = observation_model,
+#         partial_observation_state_size = partial_observation_state_size,
+#         dynamics = dynamics[i]) for i in 1:num_players]
 
-    solutions = []
-    idx_sets = []
+#     solutions = []
+#     idx_sets = []
 
-    for i in 1:num_players
-        player_observations = [y[t][Block(i)] for t in 1:horizon]
-        solver = MCPCoupledOptimizationSolverWarmStart(games[i].game, player_observations, horizon)
-        push!(idx_sets, solver.mcp_game.index_sets)
-        solution = solve_mcp_game(
-            solver.mcp_game,
-            initial_state[Block(i)],
-            nothing;
-            verbose = false
-        )
-        push!(solutions, solution)
-    end
+#     for i in 1:num_players
+#         player_observations = [y[t][Block(i)] for t in 1:horizon]
+#         solver = MCPCoupledOptimizationSolverWarmStart(games[i].game, player_observations, horizon)
+#         push!(idx_sets, solver.mcp_game.index_sets)
+#         solution = solve_mcp_game(
+#             solver.mcp_game,
+#             initial_state[Block(i)],
+#             nothing;
+#             verbose = false
+#         )
+#         push!(solutions, solution)
+#     end
 
-    # reconstruct the full solution
-    primals = [solution.primals for solution in solutions]
+#     # reconstruct the full solution
+#     primals = [solution.primals for solution in solutions]
 
-    variables = let 
-        v = []
-        for t in 1:horizon
-            for i in 1:num_players
-                push!(v, primals[i][t*state-(state-1):t*(state)])
-            end
-        end
-        for t in 1:horizon
-            for i in 1:num_players
-                push!(v, primals[i][horizon*state + t*control-(control-1):horizon*control + t*(control)])
-            end
-        end
-        v
-    end
+#     variables = let 
+#         v = []
+#         for t in 1:horizon
+#             for i in 1:num_players
+#                 push!(v, primals[i][t*state-(state-1):t*(state)])
+#             end
+#         end
+#         for t in 1:horizon
+#             for i in 1:num_players
+#                 push!(v, primals[i][horizon*state + t*control-(control-1):horizon*control + t*(control)])
+#             end
+#         end
+#         v
+#     end
 
-    (; primals = primals, variables = variables, status = solutions[1].status, info = solutions[1].info)
-end
+#     (; primals = primals, variables = variables, status = solutions[1].status, info = solutions[1].info)
+# end
 
-"""
-This file contains problem formulation part of the MCP game solver code: casting open-loop
-Nash games as mixed complementarity problems (MCPs)
-A more optimized implementation of this solver is available at: 
-https://github.com/JuliaGameTheoreticPlanning/MCPTrajectoryGameSolver.jl
-"""
+# """
+# This file contains problem formulation part of the MCP game solver code: casting open-loop
+# Nash games as mixed complementarity problems (MCPs)
+# A more optimized implementation of this solver is available at: 
+# https://github.com/JuliaGameTheoreticPlanning/MCPTrajectoryGameSolver.jl
+# """
 
-struct WarmStartMCPGame{T1<:TrajectoryGame,T2<:ParametricMCPs.ParametricMCP,T3,T4}
-    game::T1
-    parametric_mcp::T2
-    index_sets::T3
-    horizon::T4
-end
+# struct WarmStartMCPGame{T1<:TrajectoryGame,T2<:ParametricMCPs.ParametricMCP,T3,T4}
+#     game::T1
+#     parametric_mcp::T2
+#     horizon::T4
+# end
 
-function WarmStartMCPGame(game, observed_trajectory, horizon)
-    num_player = num_players(game)
-    state_dimension = state_dim(game.dynamics)
-    control_dimension = control_dim(game.dynamics)
-    problem_size = horizon * (state_dimension + control_dimension)
-    state_block_dimensions = [state_dim(game.dynamics.subsystems[ii]) for ii in 1:num_player]
-    control_block_dimensions = [control_dim(game.dynamics.subsystems[ii]) for ii in 1:num_player]
+# function WarmStartMCPGame(game, observed_trajectory, horizon)
+#     num_player = num_players(game)
+#     state_dimension = state_dim(game.dynamics)
+#     control_dimension = control_dim(game.dynamics)
+#     problem_size = horizon * (state_dimension + control_dimension)
+#     state_block_dimensions = [state_dim(game.dynamics.subsystems[ii]) for ii in 1:num_player]
+#     control_block_dimensions = [control_dim(game.dynamics.subsystems[ii]) for ii in 1:num_player]
 
-    x0, z = let
-        @variables(
-            x0[1:state_dimension],
-            z[1:problem_size]
-        ) .|> scalarize
-    end
+#     x0, z = let
+#         @variables(
+#             x0[1:state_dimension],
+#             z[1:problem_size]
+#         ) .|> scalarize
+#     end
 
-    # convert to block structure
-    x0 = BlockVector(x0, state_block_dimensions)
+#     # convert to block structure
+#     x0 = BlockVector(x0, state_block_dimensions)
 
-    function trajectory_from_flattened_decision_variables(flattened_z)
-        states = let
-            future_states = eachcol(
-                reshape(flattened_z[1:(state_dimension * horizon)], state_dimension, horizon),
-            )
-            map(Iterators.flatten(([x0], future_states))) do x_joint
-                BlockVector(collect(x_joint), state_block_dimensions)
-            end
-        end
+#     function trajectory_from_flattened_decision_variables(flattened_z)
+#         states = let
+#             future_states = eachcol(
+#                 reshape(flattened_z[1:(state_dimension * horizon)], state_dimension, horizon),
+#             )
+#             map(Iterators.flatten(([x0], future_states))) do x_joint
+#                 BlockVector(collect(x_joint), state_block_dimensions)
+#             end
+#         end
 
-        control_inputs = let
-            controls = eachcol(
-                reshape(
-                    flattened_z[(state_dimension * horizon + 1):end],
-                    control_dimension,
-                    horizon,
-                ),
-            )
-            map(controls) do u_joint
-                BlockVector(collect(u_joint), control_block_dimensions)
-            end
-        end
-        (states, control_inputs)
-    end
+#         control_inputs = let
+#             controls = eachcol(
+#                 reshape(
+#                     flattened_z[(state_dimension * horizon + 1):end],
+#                     control_dimension,
+#                     horizon,
+#                 ),
+#             )
+#             map(controls) do u_joint
+#                 BlockVector(collect(u_joint), control_block_dimensions)
+#             end
+#         end
+#         (states, control_inputs)
+#     end
 
-    (xs, us) = trajectory_from_flattened_decision_variables(z)
-    (x_idx, u_idx) = trajectory_from_flattened_decision_variables(1:problem_size)
-    x_idx = x_idx[2:end]
-    τ_idx_set = let
-        map(1:num_player) do ii
-            x_idx_single_player = [idx[Block(ii)] for idx in x_idx]
-            u_idx_single_player = [idx[Block(ii)] for idx in u_idx]
-            [reduce(vcat, x_idx_single_player); reduce(vcat, u_idx_single_player)]
-        end
-    end
+#     (xs, us) = trajectory_from_flattened_decision_variables(z)
+#     (x_idx, u_idx) = trajectory_from_flattened_decision_variables(1:problem_size)
+#     x_idx = x_idx[2:end]
+#     τ_idx_set = let
+#         map(1:num_player) do ii
+#             x_idx_single_player = [idx[Block(ii)] for idx in x_idx]
+#             u_idx_single_player = [idx[Block(ii)] for idx in u_idx]
+#             [reduce(vcat, x_idx_single_player); reduce(vcat, u_idx_single_player)]
+#         end
+#     end
 
-    cost_per_player = game.cost(xs, observed_trajectory) .|> scalarize
-    # @infiltrate
+#     cost_per_player = game.cost(xs, observed_trajectory) .|> scalarize
+#     # @infiltrate
 
-    lb = Float64[]
-    ub = Float64[]
-    private_constraints = []
-    num_private_constraints = []
-    f = let
-        @variables(f[1:problem_size]) |> only |> scalarize
-    end
+#     lb = Float64[]
+#     ub = Float64[]
+#     private_constraints = []
+#     num_private_constraints = []
+#     f = let
+#         @variables(f[1:problem_size]) |> only |> scalarize
+#     end
 
-    private_constraint_per_player = let
-        map(1:num_player) do ii
-            environment_constraints = get_constraints(game.env, ii)
-            subdynamics = game.dynamics.subsystems[ii]
-            private_inequality_constraints = let
-                state_box_constraints = get_constraints_from_box_bounds(state_bounds(subdynamics))
-                control_box_constraints =
-                    get_constraints_from_box_bounds(control_bounds(subdynamics))
+#     private_constraint_per_player = let
+#         map(1:num_player) do ii
+#             environment_constraints = get_constraints(game.env, ii)
+#             subdynamics = game.dynamics.subsystems[ii]
+#             private_inequality_constraints = let
+#                 state_box_constraints = get_constraints_from_box_bounds(state_bounds(subdynamics))
+#                 control_box_constraints =
+#                     get_constraints_from_box_bounds(control_bounds(subdynamics))
 
-                ec = mapreduce(x -> environment_constraints(x[Block(ii)]), vcat, xs[2:end])
-                sc = mapreduce(x -> state_box_constraints(x[Block(ii)]), vcat, xs[2:end])
-                cc = mapreduce(x -> control_box_constraints(x[Block(ii)]), vcat, us[1:end])
-                [ec; sc; cc]
-            end
-            append!(lb, fill(0.0, length(private_inequality_constraints)))
-            append!(ub, fill(Inf, length(private_inequality_constraints)))
-            append!(private_constraints, private_inequality_constraints)
-            append!(num_private_constraints, length(private_inequality_constraints))
-        end
-    end
+#                 ec = mapreduce(x -> environment_constraints(x[Block(ii)]), vcat, xs[2:end])
+#                 sc = mapreduce(x -> state_box_constraints(x[Block(ii)]), vcat, xs[2:end])
+#                 cc = mapreduce(x -> control_box_constraints(x[Block(ii)]), vcat, us[1:end])
+#                 [ec; sc; cc]
+#             end
+#             append!(lb, fill(0.0, length(private_inequality_constraints)))
+#             append!(ub, fill(Inf, length(private_inequality_constraints)))
+#             append!(private_constraints, private_inequality_constraints)
+#             append!(num_private_constraints, length(private_inequality_constraints))
+#         end
+#     end
 
-    # set up the gradient of lagrangian
-    private_duals = let
-        @variables(μ[1:sum(num_private_constraints)]) |> only |> scalarize
-    end
-    for ii in 1:num_player
-        dual_offset = (ii > 1) ? sum(num_private_constraints[1:(ii - 1)]) : 0
-        local_lagrangian =
-            cost_per_player[ii] -
-            private_duals[(dual_offset + 1):(dual_offset + num_private_constraints[ii])]' *
-            private_constraints[(dual_offset + 1):(dual_offset + num_private_constraints[ii])]
-        f[τ_idx_set[ii]] = Symbolics.gradient(local_lagrangian, z[τ_idx_set[ii]])
-    end
-    private_inequality_idx_set = collect((problem_size + 1):(problem_size + length(private_duals)))
+#     # set up the gradient of lagrangian
+#     private_duals = let
+#         @variables(μ[1:sum(num_private_constraints)]) |> only |> scalarize
+#     end
+#     for ii in 1:num_player
+#         dual_offset = (ii > 1) ? sum(num_private_constraints[1:(ii - 1)]) : 0
+#         local_lagrangian =
+#             cost_per_player[ii] -
+#             private_duals[(dual_offset + 1):(dual_offset + num_private_constraints[ii])]' *
+#             private_constraints[(dual_offset + 1):(dual_offset + num_private_constraints[ii])]
+#         f[τ_idx_set[ii]] = Symbolics.gradient(local_lagrangian, z[τ_idx_set[ii]])
+#     end
+#     private_inequality_idx_set = collect((problem_size + 1):(problem_size + length(private_duals)))
 
-    lb = vcat(fill(-Inf, problem_size), lb)
-    ub = vcat(fill(Inf, problem_size), ub)
-    # append private duals to z
-    z = vcat(z, private_duals)
-    f = vcat(f, private_constraints)
+#     lb = vcat(fill(-Inf, problem_size), lb)
+#     ub = vcat(fill(Inf, problem_size), ub)
+#     # append private duals to z
+#     z = vcat(z, private_duals)
+#     f = vcat(f, private_constraints)
 
-    #shared dynamics equality constraints
-    shared_dynamics_equality_constraints = mapreduce(vcat, 1:horizon) do t
-        game.dynamics(xs[t], us[t], t) .- xs[t + 1]
-    end
-    shared_dynamics_duals = let
-        @variables(γ[1:length(shared_dynamics_equality_constraints)]) |> only |> scalarize
-    end
-    shared_dynamics_jacobian = Symbolics.sparsejacobian(shared_dynamics_equality_constraints, z)
-    f -= shared_dynamics_jacobian' * shared_dynamics_duals
-    z = vcat(z, shared_dynamics_duals)
-    f = vcat(f, shared_dynamics_equality_constraints)
-    lb = vcat(lb, fill(-Inf, length(shared_dynamics_equality_constraints)))
-    ub = vcat(ub, fill(Inf, length(shared_dynamics_equality_constraints)))
-    shared_equality_idx_set = collect(
-        (private_inequality_idx_set[end] + 1):(private_inequality_idx_set[end] + length(
-            shared_dynamics_duals,
-        )),
-    )
+#     #shared dynamics equality constraints
+#     shared_dynamics_equality_constraints = mapreduce(vcat, 1:horizon) do t
+#         game.dynamics(xs[t], us[t], t) .- xs[t + 1]
+#     end
+#     shared_dynamics_duals = let
+#         @variables(γ[1:length(shared_dynamics_equality_constraints)]) |> only |> scalarize
+#     end
+#     shared_dynamics_jacobian = Symbolics.sparsejacobian(shared_dynamics_equality_constraints, z)
+#     f -= shared_dynamics_jacobian' * shared_dynamics_duals
+#     z = vcat(z, shared_dynamics_duals)
+#     f = vcat(f, shared_dynamics_equality_constraints)
+#     lb = vcat(lb, fill(-Inf, length(shared_dynamics_equality_constraints)))
+#     ub = vcat(ub, fill(Inf, length(shared_dynamics_equality_constraints)))
+#     shared_equality_idx_set = collect(
+#         (private_inequality_idx_set[end] + 1):(private_inequality_idx_set[end] + length(
+#             shared_dynamics_duals,
+#         )),
+#     )
 
-    # coupled inequality constraints
-    if !isnothing(game.coupling_constraints)
-        coupled_inequality_constraints = game.coupling_constraints(xs[2:end], us)
-        coupled_duals = let
-            @variables(λ[1:length(coupled_inequality_constraints)]) |> only |> scalarize
-        end
-        coupled_constraints_jacobian = Symbolics.sparsejacobian(coupled_inequality_constraints, z)
-        f -= coupled_constraints_jacobian' * coupled_duals
+#     # coupled inequality constraints
+#     if !isnothing(game.coupling_constraints)
+#         coupled_inequality_constraints = game.coupling_constraints(xs[2:end], us)
+#         coupled_duals = let
+#             @variables(λ[1:length(coupled_inequality_constraints)]) |> only |> scalarize
+#         end
+#         coupled_constraints_jacobian = Symbolics.sparsejacobian(coupled_inequality_constraints, z)
+#         f -= coupled_constraints_jacobian' * coupled_duals
 
-        z = vcat(z, coupled_duals)
-        f = vcat(f, coupled_inequality_constraints)
-        lb = vcat(lb, fill(0.0, length(coupled_inequality_constraints)))
-        ub = vcat(ub, fill(Inf, length(coupled_inequality_constraints)))
-        shared_inequality_idx_set = collect(
-            (shared_equality_idx_set[end] + 1):(shared_equality_idx_set[end] + length(
-                coupled_duals,
-            )),
-        )
-    else
-        shared_inequality_idx_set = nothing
-    end
+#         z = vcat(z, coupled_duals)
+#         f = vcat(f, coupled_inequality_constraints)
+#         lb = vcat(lb, fill(0.0, length(coupled_inequality_constraints)))
+#         ub = vcat(ub, fill(Inf, length(coupled_inequality_constraints)))
+#         shared_inequality_idx_set = collect(
+#             (shared_equality_idx_set[end] + 1):(shared_equality_idx_set[end] + length(
+#                 coupled_duals,
+#             )),
+#         )
+#     else
+#         shared_inequality_idx_set = nothing
+#     end
 
-    θ = [x0;nothing]
-    index_sets = (;
-        τ_idx_set,
-        private_inequality_idx_set,
-        shared_equality_idx_set,
-        shared_inequality_idx_set,
-    )
+#     θ = [x0;nothing]
 
-    # F vector parametriztion
-    fill_F! = let
-        F! = Symbolics.build_function(f, [z; θ]; expression = Val{false})[2]
-        (vals, z, θ) -> F!(vals, [z; θ])
-    end
+#     # F vector parametriztion
+#     fill_F! = let
+#         F! = Symbolics.build_function(f, [z; θ]; expression = Val{false})[2]
+#         (vals, z, θ) -> F!(vals, [z; θ])
+#     end
 
-    # J matrix: jacobian of F vector
-    J = Symbolics.sparsejacobian(f, z)
+#     # J matrix: jacobian of F vector
+#     J = Symbolics.sparsejacobian(f, z)
 
-    fill_J! = let
-        J! = Symbolics.build_function(J, [z; θ]; expression = Val{false})[2]
-        rows, cols, _ = findnz(J)
-        constant_entries = ParametricMCPs.get_constant_entries(J, z)
-        ParametricMCPs.SparseFunction(rows, cols, size(J), constant_entries) do vals, z, θ
-            J!(vals, [z; θ])
-        end
-    end
+#     fill_J! = let
+#         J! = Symbolics.build_function(J, [z; θ]; expression = Val{false})[2]
+#         rows, cols, _ = findnz(J)
+#         constant_entries = ParametricMCPs.get_constant_entries(J, z)
+#         ParametricMCPs.SparseFunction(rows, cols, size(J), constant_entries) do vals, z, θ
+#             J!(vals, [z; θ])
+#         end
+#     end
 
-    # J_params: jacobian of F vector w.r.t. the parameters (i.e. the context_state)
-    J_params = Symbolics.sparsejacobian(f, θ)
+#     # J_params: jacobian of F vector w.r.t. the parameters (i.e. the context_state)
+#     J_params = Symbolics.sparsejacobian(f, θ)
 
-    fill_J_params! = let
-        J_params! = Symbolics.build_function(J_params, [z; θ]; expression = Val{false})[2]
-        rows, cols, _ = findnz(J_params)
-        ParametricMCPs.SparseFunction(rows, cols, size(J_params)) do vals, z, θ
-            J_params!(vals, [z; θ])
-        end
-    end
+#     fill_J_params! = let
+#         J_params! = Symbolics.build_function(J_params, [z; θ]; expression = Val{false})[2]
+#         rows, cols, _ = findnz(J_params)
+#         ParametricMCPs.SparseFunction(rows, cols, size(J_params)) do vals, z, θ
+#             J_params!(vals, [z; θ])
+#         end
+#     end
 
-    parameter_dimension = length(θ)
-    parametric_mcp =
-        ParametricMCPs.ParametricMCP(fill_F!, fill_J!, fill_J_params!, lb, ub, parameter_dimension)
+#     parameter_dimension = length(θ)
+#     parametric_mcp =
+#         ParametricMCPs.ParametricMCP(fill_F!, fill_J!, fill_J_params!, lb, ub, parameter_dimension)
 
-    MCPGame(game, parametric_mcp, index_sets, horizon)
-end
+#     MCPGame(game, parametric_mcp, index_sets, horizon)
+# end
 
-#== MCP TrajectoryGame Solver ==#
+# #== MCP TrajectoryGame Solver ==#
 
-function MCPCoupledOptimizationSolverWarmStart(game::TrajectoryGame, observed_trajectory, horizon)
-    mcp_game = WarmStartMCPGame(game, observed_trajectory, horizon)
-    MCPCoupledOptimizationSolver(mcp_game)
-end
+# function MCPCoupledOptimizationSolverWarmStart(game::TrajectoryGame, observed_trajectory, horizon)
+#     mcp_game = WarmStartMCPGame(game, observed_trajectory, horizon)
+#     MCPCoupledOptimizationSolver(mcp_game)
+# end
 
-"""
-TODO: observation model handled differently than inverse mcp solver.
-Solver handles it on a full game basis: τs_solution = expected_observation(τs_solution)
-We do observations per-player.
-"""
-function warm_start(y, initial_state, horizon; observation_model = identity, 
-                    num_players = 2, partial_observation_state_size = -1, dynamics = nothing)
-    environment = NullEnv()
-    game = warm_start_game(
-        num_players;
-        environment,
-        observation_model = observation_model,
-        partial_observation_state_size = partial_observation_state_size,
-        dynamics = dynamics)
+# """
+# TODO: observation model handled differently than inverse mcp solver.
+# Solver handles it on a full game basis: τs_solution = expected_observation(τs_solution)
+# We do observations per-player.
+# """
+# function warm_start(y, initial_state, horizon; observation_model = identity, 
+#                     num_players = 2, partial_observation_state_size = -1, dynamics = nothing)
+#     environment = NullEnv()
+#     game = warm_start_game(
+#         num_players;
+#         environment,
+#         observation_model = observation_model,
+#         partial_observation_state_size = partial_observation_state_size,
+#         dynamics = dynamics)
 
-    turn_length = 2
-    solver = MCPCoupledOptimizationSolverWarmStart(game.game, y, horizon)
-    mcp_game = solver.mcp_game
+#     turn_length = 2
+#     solver = MCPCoupledOptimizationSolverWarmStart(game.game, y, horizon)
+#     mcp_game = solver.mcp_game
 
-    solve_mcp_game(
-        mcp_game,
-        initial_state,
-        nothing;
-        verbose = false
-    )
-end
+#     solve_mcp_game(
+#         mcp_game,
+#         initial_state,
+#         nothing;
+#         verbose = false
+#     )
+# end
 
-function expand_warm_start(warm_start_sol, mcp_game)
-    variables = warm_start_sol[2]
-    index_sets = mcp_game.index_sets
-    expanded_duals = zeros(
-        length(mcp_game.parametric_mcp.lower_bounds) - 
-        length(variables)
-    )
+# function expand_warm_start(warm_start_sol, mcp_game)
+#     variables = warm_start_sol[2]
+#     index_sets = mcp_game.index_sets
+#     expanded_duals = zeros(
+#         length(mcp_game.parametric_mcp.lower_bounds) - 
+#         length(variables)
+#     )
 
-    expanded_variables = vcat(variables, copy(expanded_duals))
+#     expanded_variables = vcat(variables, copy(expanded_duals))
 
-    expanded_primals = []
-    for ii in 1:num_players(mcp_game.game)
-        push!(expanded_primals, expanded_variables[index_sets.τ_idx_set[ii]])
-    end
-    (; primals = expanded_primals, variables = expanded_variables, status = warm_start_sol[3], info = warm_start_sol[4])
-end
+#     expanded_primals = []
+#     for ii in 1:num_players(mcp_game.game)
+#         push!(expanded_primals, expanded_variables[index_sets.τ_idx_set[ii]])
+#     end
+#     (; primals = expanded_primals, variables = expanded_variables, status = warm_start_sol[3], info = warm_start_sol[4])
+# end
 
 

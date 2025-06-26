@@ -70,12 +70,13 @@ function n_player_collision_avoidance(
             norm_sqr(u) * (myopic ? context_state[3] ^ t : 1)
         end
         function collision_cost(x, i, context_state, t)
-            cost = [max(0.0, 1.0 + 0.2 * 1.0 - norm(x[Block(i)][1:2] - x[Block(paired_player)][1:2]))^2 for paired_player in [1:(i - 1); (i + 1):num_players]]
+            cost = [1.0 + 0.2 * 1.0 - norm(x[Block(i)][1:2] - x[Block(paired_player)][1:2])^2 for paired_player in [1:(i - 1); (i + 1):num_players]]
+            # TODO make this a max
             sum(cost) 
         end
         function cost_for_player(i, xs, us, context_state, T)
             # early_target = target_cost(xs[1][Block(i)], context_state[Block(i)], 1)
-            mean_target = mean([target_cost(xs[t + 1][Block(i)], context_state[Block(i)], t) for t in 1:T])
+            mean_target = mean([target_cost(xs[t][Block(i)], context_state[Block(i)], t) for t in 1:T])
             # minimum_target = minimum([target_cost(xs[t][Block(i)], context_state[Block(i)],t) for t in 1:T])
             control = mean([control_cost(us[t][Block(i)], context_state[Block(i)], t) for t in 1:T])
             safe_distance_violation = mean([collision_cost(xs[t], i, context_state[Block(i)], t) for t in 1:T])
@@ -89,7 +90,6 @@ function n_player_collision_avoidance(
             coeffs[3] * safe_distance_violation
         end
         function cost_function(xs, us, context_state)
-            num_players = blocksize(xs[1], 1)
             T = size(us,1)
             [cost_for_player(i, xs, us, context_state, T) for i in 1:num_players]
         end
@@ -141,11 +141,11 @@ function InD_collision_avoidance(
         end
         function cost_for_player(i, xs, us, context_state, T)
             early_target = target_cost(xs[1][Block(i)], context_state[Block(i)], 1)
-            mean_target = mean([target_cost(xs[t + 1][Block(i)], context_state[Block(i)], t) for t in 1:T])
+            mean_target = mean([target_cost(xs[t][Block(i)], context_state[Block(i)], t) for t in 1:T])
             minimum_target = minimum([target_cost(xs[t][Block(i)], context_state[Block(i)],t) for t in 1:T])
             control = mean([control_cost(us[t][Block(i)], context_state[Block(i)], t) for t in 1:T])
             safe_distance_violation = mean([collision_cost(xs[t], i, context_state[Block(i)], t) for t in 1:T])
-            lane_center = mean([lane_center_cost(xs[t+1][Block(i)], i, context_state[Block(i)], t) for t in 1:T])
+            lane_center = mean([lane_center_cost(xs[t][Block(i)], i, context_state[Block(i)], t) for t in 1:T])
 
             #contex states 6-10
 

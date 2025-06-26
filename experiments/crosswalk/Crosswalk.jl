@@ -15,8 +15,10 @@ using TrajectoryGamesBase:
 using TrajectoryGamesExamples:planar_double_integrator
 using CairoMakie
 include("../GameUtils.jl")
+# using GameUtils
 include("../graphing/ExperimentGraphingUtils.jl")
-include("../../src/InverseGameDiscountFactor.jl")
+# using ExperimentGraphingUtils
+using InverseGameDiscountFactor
 
 export run_myopic_crosswalk_sim
 
@@ -27,40 +29,43 @@ function run_myopic_crosswalk_sim(full_state = true, graph = true, verbose = tru
         myopic = true,
         initial_state = mortar([
             [2.0, 2.0, 0, 0],
-            [0, 2.0, 0, 0]]),
+            [0.1, 2.0, 0, 0]]),
         game_params = mortar([
             [0, 0, 0.95],
             [2, 0, 0.9]
         ]),
         coeffs = coeffs,
-        horizon = 25
+        horizon = 10
     )
 
-    init_baseline = GameUtils.init_crosswalk_game(
-        full_state;
-        myopic = false,
-        initial_state = init.initial_state,
-        game_params = mortar([
-            [0, 0],
-            [2, 0]
-        ]),
-        coeffs = coeffs,
-        horizon = init.horizon
-    )
+    # init_baseline = GameUtils.init_crosswalk_game(
+    #     full_state;
+    #     myopic = false,
+    #     initial_state = init.initial_state,
+    #     game_params = mortar([
+    #         [0, 0],
+    #         [2, 0]
+    #     ]),
+    #     coeffs = coeffs,
+    #     horizon = init.horizon
+    # )
     println("initialized game structure")
     
     mcp_game = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
         init.game_structure.game,
         init.horizon,
+        init.initial_state,
         blocksizes(init.game_parameters, 1)
     ).mcp_game
+    
+    # @infiltrate
 
-
-    mcp_game_baseline = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
-        init_baseline.game_structure.game,
-        init_baseline.horizon,
-        blocksizes(init_baseline.game_parameters, 1)
-    ).mcp_game
+    # mcp_game_baseline = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
+    #     init_baseline.game_structure.game,
+    #     init_baseline.horizon,
+    #     init_baseline.initial_state,
+    #     blocksizes(init_baseline.game_parameters, 1)
+    # ).mcp_game
 
     println("solving forward game ... ")
     for i in 1:num_players(mcp_game.game)
@@ -73,14 +78,16 @@ function run_myopic_crosswalk_sim(full_state = true, graph = true, verbose = tru
                 mcp_game,
                 init.initial_state,
                 init.game_parameters;
-                verbose = false
+                verbose = true
             )
-    forward_solution = InverseGameDiscountFactor.reconstruct_solution(
-        f_sol,
-        init.game_structure.game,
-        init.horizon
-    )
-        observed_forward_solution = GameUtils.observe_trajectory(forward_solution, init)
+    # forward_solution = InverseGameDiscountFactor.reconstruct_solution(
+    #     f_sol,
+    #     init.game_structure.game,
+    #     init.horizon
+    # )
+        # observed_forward_solution = GameUtils.observe_trajectory(forward_solution, init)
+    observed_forward_solution = [GameUtils.observe_trajectory(x, init; blocked_by_time = false) for x in f_sol.xs]
+    println(f_sol.status)
     println("solving inverse game ... ")
 
     method_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
@@ -88,50 +95,50 @@ function run_myopic_crosswalk_sim(full_state = true, graph = true, verbose = tru
         observed_forward_solution,
         init.observation_model,
         (3, 3);
-        hidden_state_guess = init.game_parameters,
+        hidden_state_guess = [0.5, 0.5, 0.99, 2.5, 0.5, 0.95],
         max_grad_steps = 200,
         retries_on_divergence = 3,
         verbose = false,
-        warm_start = false,
         lr = 1e-3
     )
+    println("recovered params: ", method_sol.recovered_params)
+    println("param error: ", norm(method_sol.recovered_params - init.game_parameters))
 
-    baseline_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
-        mcp_game_baseline,
-        observed_forward_solution,
-        init.observation_model,
-        (2, 2);
-        hidden_state_guess = init_baseline.game_parameters,
-        max_grad_steps = 200,
-        retries_on_divergence = 3,
-        verbose = false,
-        warm_start = false,
-        lr = 1e-3
-    )
-    println("solved inverse game")
-    println("convergence percent ours: ", count(==(PATHSolver.MCP_Solved), method_sol.solving_status) / length(method_sol.solving_status))
-    error = norm(method_sol.recovered_trajectory - forward_solution)
-    println("ours: ", error)
-    error_baseline = norm(baseline_sol.recovered_trajectory - forward_solution)
-    println("baseline: ", error_baseline)
-    println("improvement: ", (error_baseline - error) / error_baseline)
+    # baseline_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
+    #     mcp_game_baseline,
+    #     observed_forward_solution,
+    #     init.observation_model,
+    #     (2, 2);
+    #     hidden_state_guess = init_baseline.game_parameters,
+    #     max_grad_steps = 200,
+    #     retries_on_divergence = 3,
+    #     verbose = false,
+    #     lr = 1e-3
+    # )
+    # println("solved inverse game")
+    # println("convergence percent ours: ", count(==(PATHSolver.MCP_Solved), method_sol.solving_status) / length(method_sol.solving_status))
+    # error = norm(method_sol.recovered_trajectory - forward_solution)
+    # println("ours: ", error)
+    # error_baseline = norm(baseline_sol.recovered_trajectory - forward_solution)
+    # println("baseline: ", error_baseline)
+    # println("improvement: ", (error_baseline - error) / error_baseline)
 
-    method_traj = BlockVector(method_sol.recovered_trajectory, [init.state_dim[1] *2 for _ in 1:init.horizon])
-    baseline_traj = BlockVector(baseline_sol.recovered_trajectory, [init.state_dim[1] *2 for _ in 1:init.horizon])
-    if graph
-        ExperimentGraphingUtils.graph_crosswalk_trajectories(
-            "Our Method",
-            [forward_solution, method_traj, baseline_traj],
-            init.game_structure,
-            init.horizon;
-            observations = observed_forward_solution,
-            colors = [
-                [(:red, 1.0), (:blue, 1.0), (:green, 1.0)],
-                [(:red, 0.5), (:blue, 0.5), (:green, 0.5)],
-                [(:pink, 0.25), (:purple, 0.25), (:orange, 0.25)]
-            ]
-        )
-    end
+    # method_traj = BlockVector(method_sol.recovered_trajectory, [init.state_dim[1] *2 for _ in 1:init.horizon])
+    # baseline_traj = BlockVector(baseline_sol.recovered_trajectory, [init.state_dim[1] *2 for _ in 1:init.horizon])
+    # if graph
+    #     ExperimentGraphingUtils.graph_crosswalk_trajectories(
+    #         "Our Method",
+    #         [forward_solution, method_traj, baseline_traj],
+    #         init.game_structure,
+    #         init.horizon;
+    #         observations = observed_forward_solution,
+    #         colors = [
+    #             [(:red, 1.0), (:blue, 1.0), (:green, 1.0)],
+    #             [(:red, 0.5), (:blue, 0.5), (:green, 0.5)],
+    #             [(:pink, 0.25), (:purple, 0.25), (:orange, 0.25)]
+    #         ]
+    #     )
+    # end
 end
 
 function run_bicycle_crosswalk_sim(full_state = true, graph = true, verbose = true)
