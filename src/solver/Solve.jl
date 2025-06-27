@@ -12,60 +12,115 @@ function solve_mcp_game(
     verbose = false,
     lr = 1e-3
 )
-    solution = MixedComplementarityProblems.solve(
-        MixedComplementarityProblems.InteriorPoint(),
-        mcp_game.mcp,
-        context_state;
-        verbose = verbose,
-    )
+    (; game, parametric_mcp, index_sets, horizon) = mcp_game
+    (; dynamics) = game
 
-    interpret_variables(solution, mcp_game)   
+    z = ChainRulesCore.ignore_derivatives() do
+        #initial guess
+        if !isnothing(initial_guess)
+            z = initial_guess.variables
+            verbose && @info "Warm-started with the previous solution."
+        else
+            x0_value = ForwardDiff.value.(x0)
+            z = zeros(length(parametric_mcp.lower_bounds))
+            control_block_dimensions =
+                [control_dim(dynamics.subsystems[ii]) for ii in 1:num_players(game)]
+            state_dimension = state_dim(dynamics)
+            dummy_strategy =
+                (x, t) ->
+                    BlockVector(zeros(sum(control_block_dimensions)), control_block_dimensions)
+            xs = rollout(dynamics, dummy_strategy, x0_value, horizon + 1).xs[2:end]
+            xs = reduce(vcat, xs)
+            z[1:(state_dimension * horizon)] = xs
+        end
+        z
+    end
+
+    θ = [x0; context_state]
+
+    variables, status, info = ParametricMCPs.solve(
+        parametric_mcp,
+        θ;
+        initial_guess = z,
+        verbose,
+        cumulative_iteration_limit = 100_000,
+        proximal_perturbation = 1e-2,
+        use_basics = true,
+        use_start = true,
+        # convergence_tolerance = 1e-4,
+        lr = lr
+    ) # change this to David's package -> MixedComplementarityProblem.PrimalDualMCP (mcp.jl)
+
+    primals = map(1:num_players(game)) do ii
+        variables[index_sets.τ_idx_set[ii]]
+    end
+
+    (; primals, variables, status, info)
 end
 
-function interpret_variables(sol, game::MCPGame; debug::Bool = false)
-    dims = get_dimensions(game)
+function TrajectoryGamesBase.solve_trajectory_game!(
+    solver::MCPCoupledOptimizationSolver,
+    game::TrajectoryGame{<:ProductDynamics},
+    initial_state,
+    strategy;
+    verbose = false,
+    solving_info = nothing
+)
+    problem = solver.mcp_game
+    if !isnothing(strategy.last_solution) && strategy.last_solution.status == PATHSolver.MCP_Solved
+        solution = solve_mcp_game(
+            solver.mcp_game,
+            initial_state,
+            strategy.context_state;
+            initial_guess = strategy.last_solution,
+            verbose
+        )
+    else
+        solution = solve_mcp_game(solver.mcp_game, initial_state, strategy.context_state; verbose)
+    end
+    if !isnothing(solving_info)
+        push!(solving_info, solution.info)
+    end
+    # warm-start only when the last solution is valid
+    if solution.status == PATHSolver.MCP_Solved
+        strategy.last_solution = solution
+    end
+    strategy.solution_status = solution.status
 
-    # Extract states and controls for each player
-    xs = map(1:game.horizon) do t
-        mapreduce(vcat, 1:dims.n_players) do ii
-            sol.x[dims.player_xs[ii][t]]
+    rng = Random.MersenneTwister(1)
+
+    horizon = solver.mcp_game.horizon
+    num_player = num_players(game)
+    state_block_dimensions = [state_dim(game.dynamics.subsystems[ii]) for ii in 1:num_player]
+    control_block_dimensions = [control_dim(game.dynamics.subsystems[ii]) for ii in 1:num_player]
+
+    substrategies = let
+        map(1:num_player) do ii
+            xs = [
+                [initial_state[Block(ii)]]
+                collect.(
+                    eachcol(
+                        reshape(
+                            solution.primals[ii][1:(horizon * state_block_dimensions[ii])],
+                            state_block_dimensions[ii],
+                            :,
+                        ),
+                    )
+                )
+            ]
+            us =
+                collect.(
+                    eachcol(
+                        reshape(
+                            solution.primals[ii][(horizon * state_block_dimensions[ii] + 1):end],
+                            control_block_dimensions[ii],
+                            :,
+                        ),
+                    )
+                )
+
+            LiftedTrajectoryStrategy(ii, [(; xs, us)], [1], nothing, rng, Ref(0))
         end
     end
-    
-    us = map(1:game.horizon) do t
-        mapreduce(vcat, 1:dims.n_players) do ii
-            sol.x[dims.x_size .+ dims.player_us[ii][t]]
-        end
-    end
-
-    # Extract duals
-    player_λs = map(1:dims.n_players) do ii
-        sum(game.n_inequality_constraints[1:ii-1])+1:sum(game.n_inequality_constraints[1:ii])
-    end
-    player_μs = map(1:dims.n_players) do ii
-        sum(game.n_equality_constraints[1:ii-1])+1:sum(game.n_equality_constraints[1:ii])
-    end
-
-    # Extract equality multipliers (μ) for each player
-    μs = BlockVector(
-        mapreduce(vcat, 1:dims.n_players) do ii
-            sol.x[dims.x_size + dims.u_size .+ player_μs[ii]]
-        end,
-        game.n_equality_constraints
-    )
-
-    # Extract inequality multipliers (λ) for each player
-    λs = BlockVector(
-        mapreduce(vcat, 1:dims.n_players) do ii
-            sol.y[player_λs[ii]]
-        end,
-        game.n_inequality_constraints
-    )
-
-    # Extract shared inequality multipliers
-    λ_sh = sol.y[sum(game.n_inequality_constraints)+1:end]
-
-    slack = sol.s
-
-    return (; xs, us, μs, λs, λ_sh, slack, status = sol.status)
+    JointStrategy(substrategies)
 end

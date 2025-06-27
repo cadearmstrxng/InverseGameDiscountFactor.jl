@@ -5,68 +5,74 @@ function solve_inverse_mcp_game(
     initial_estimation,
     horizon;
     observation_model = identity,
-    max_grad_steps = 150, lr = 1, last_solution = nothing, discount_threshold = 1e-4, # lr usually 1e-3
+    max_grad_steps = 150, lr = 1e-5, last_solution = nothing, discount_threshold = 1e-4, # lr usually 1e-3
     regularization = 0.0
     )
     function observe_trajectory(x)
-        vcat([observation_model(state_t[1:end]) for state_t in x]...)
+        vcat([observation_model(state_t) for state_t in x.blocks]...)
     end
-    
-    function loss(context_state_estimation, initial_state, mcp_game, τs_observed)
-        solution = solve_mcp_game(mcp_game, initial_state, context_state_estimation)
-        if solution.status != :solved
-            return 1e10, solution
-        end
-        observed_τs_solution = observe_trajectory(solution.xs)
-        norm_sqr(vcat(τs_observed...) - observed_τs_solution), solution
-    end
+    solving_status = []
+    """
+    solve inverse game
 
+    gradient steps using differentiable game solver on the observation likelihood loss
+    """
+    function likelihood_cost(τs_observed, context_state_estimation, initial_state)
+        solution = solve_mcp_game(mcp_game, initial_state, 
+            context_state_estimation; initial_guess = last_solution)
+        if solution.status != PATHSolver.MCP_Solved
+            @info "Inner solve did not converge properly, re-initializing..."
+            solution = solve_mcp_game(mcp_game, initial_state, 
+                context_state_estimation; initial_guess = nothing)
+        end
+        push!(solving_info, solution.info)
+        push!(solving_status, solution.status)
+        last_solution = solution.status == PATHSolver.MCP_Solved ? (; primals = ForwardDiff.value.(solution.primals),
+        variables = ForwardDiff.value.(solution.variables), status = solution.status) : nothing
+        τs_solution = reconstruct_solution(solution, mcp_game.game, horizon)
+        observed_τs_solution = observe_trajectory(τs_solution)
+        
+        if solution.status == PATHSolver.MCP_Solved
+            infeasible_counter = 0
+        else
+            infeasible_counter += 1
+        end
+        norm_sqr(vcat(τs_observed...) - observed_τs_solution)
+    end
+    num_player = num_players(mcp_game.game)
     infeasible_counter = 0
     solving_info = []
     context_state_estimation = initial_estimation
     i_ = 0
     time_exec = 0
-    solving_status = []
-    
     for i in 1:max_grad_steps
         i_ = i
         
-        loss_for_grad = c -> loss(c, initial_state, mcp_game, τs_observed)
-        grad_step_time = @elapsed (l_val, solution_val), pb = Zygote.pullback(loss_for_grad, context_state_estimation)
-        push!(solving_status, solution_val.status)
-
-        if isnothing(pb)
-            @info "Gradient calculation failed (inner solver may have failed). Stopping optimization at iteration: "*string(i)
-            break
+        # FORWARD diff
+        grad_step_time = @elapsed gradient = Zygote.gradient(τs_observed, context_state_estimation, initial_state) do τs_observed, context_state_estimation, initial_state
+            Zygote.forwarddiff([context_state_estimation; initial_state]; chunk_threshold = length(context_state_estimation) + length(initial_state)) do θ
+                context_state_estimation = BlockVector(θ[1:length(context_state_estimation)], blocksizes(context_state_estimation)[1])
+                initial_state = BlockVector(θ[(length(context_state_estimation) + 1):end], blocksizes(initial_state)[1])
+                likelihood_cost(τs_observed, context_state_estimation, initial_state)
+            end
         end
-        gradient = pb((1.0, nothing))[1]
-        if isnothing(gradient)
-             @info "Gradient is `nothing`. This can happen if the inner solver fails. Stopping optimization at iteration: "*string(i)
-             @info "Inner solver status: " * string(solution_val.status)
-            break
-        end
-
         time_exec += grad_step_time
-        objective_grad = gradient
+        objective_grad = gradient[2]
+        x0_grad = gradient[3]
         clamp!(objective_grad, -50, 50)
+        clamp!(x0_grad, -10, 10)
         objective_update = lr * objective_grad
-        println("objective_update norm: ", norm(objective_update))
-        println("termination condition: ", norm(objective_update)/norm(context_state_estimation))
-        
-        if norm(objective_grad)/norm(context_state_estimation) < 1e-3
+        x0_update = 1e-3 * x0_grad
+        # if norm(objective_update)/norm(context_state_estimation) < 1e-4 && norm(x0_update)/norm(initial_state) < 1e-4
+        if norm(objective_update) < 1e-2 && norm(x0_update) < 1e-3
             @info "Inner iteration terminates at iteration: "*string(i)
             break
-        elseif solution_val.status != PATHSolver.MCP_Solved
-            infeasible_counter += 1
-            if infeasible_counter >= 4
-                @info "Inner iteration reached the maximal infeasible steps"
-                break
-            end
-        else
-            infeasible_counter = 0
+        elseif infeasible_counter >= 4
+            @info "Inner iteration reached the maximal infeasible steps"
+            break
         end
         context_state_estimation -= objective_update
-        println("context_state_estimation: ", context_state_estimation)
+        initial_state -= x0_update
     end
     (; context_state_estimation, last_solution, i_, solving_info, time_exec, solving_status)
 end
