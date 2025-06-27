@@ -33,7 +33,7 @@ function run_myopic_crosswalk_sim(full_state = true, graph = true, verbose = tru
             [2, 0, 0.9]
         ]),
         coeffs = coeffs,
-        horizon = 25
+        horizon = 30
     )
 
     init_baseline = GameUtils.init_crosswalk_game(
@@ -92,7 +92,7 @@ function run_myopic_crosswalk_sim(full_state = true, graph = true, verbose = tru
         max_grad_steps = 200,
         retries_on_divergence = 3,
         verbose = false,
-        warm_start = false,
+        use_warm_start = false,
         lr = 1e-3
     )
 
@@ -105,7 +105,7 @@ function run_myopic_crosswalk_sim(full_state = true, graph = true, verbose = tru
         max_grad_steps = 200,
         retries_on_divergence = 3,
         verbose = false,
-        warm_start = false,
+        use_warm_start = false,
         lr = 1e-3
     )
     println("solved inverse game")
@@ -370,5 +370,94 @@ function problemLandscape(
     end
 end
 
+function plot_heatmap_from_file(filename::String="heatmap_data_symmetric_0.6_0.6.txt"; save_filename::String="heatmap_plot.pdf")
+    # Read the data file
+    gammas1 = Float64[]
+    gammas2 = Float64[]
+    costs = Float64[]
+    partial_costs = Float64[]
+    
+    current_section = nothing
+    current_matrix = nothing
+    
+    open(filename, "r") do io
+        for line in eachline(io)
+            if startswith(line, "gammas1:")
+                gammas1 = parse.(Float64, split(line[9:end]))
+            elseif startswith(line, "gammas2:")
+                gammas2 = parse.(Float64, split(line[9:end]))
+            elseif line == "costs:"
+                current_section = :costs
+                current_matrix = Float64[]
+            elseif line == "partial_costs:"
+                current_section = :partial_costs
+                current_matrix = Float64[]
+            elseif !isempty(line)
+                row = parse.(Float64, split(line))
+                if current_section == :costs
+                    append!(costs, row)
+                elseif current_section == :partial_costs
+                    append!(partial_costs, row)
+                end
+            end
+        end
+    end
+    
+    # Reshape the matrices
+    n1 = length(gammas1)
+    n2 = length(gammas2)
+    costs = reshape(costs, n2, n1)'
+    partial_costs = reshape(partial_costs, n2, n1)'
+    
+    # Create the figure with a larger size
+    fig = CairoMakie.Figure(size = (1600, 1200))
+    
+    # Create a grid layout with specific column widths to make the colorbar the same height
+    g = fig[1, 1] = CairoMakie.GridLayout()
+    
+    # Create axes with equal aspect ratio
+    ax1 = CairoMakie.Axis(g[1, 1],
+        xlabel = L"$\gamma_1$",
+        ylabel = L"$\gamma_2$",
+        xticklabelsize = 30,
+        yticklabelsize = 30,
+        xlabelsize = 50,
+        ylabelsize = 50,
+        aspect = 1.0  # Make the plot square
+    )
+    
+    ax2 = CairoMakie.Axis(g[1, 2],
+        ylabel = L"$\gamma_2$",
+        xticklabelsize = 30,
+        yticklabelsize = 0,
+        xlabelsize = 50,
+        ylabelsize = 0,
+        aspect = 1.0  # Make the plot square
+    )
+    
+    # Create heatmaps
+    hm1 = CairoMakie.heatmap!(ax1, gammas1, gammas2, costs, colormap = :viridis, tellheight = true)
+    hm2 = CairoMakie.heatmap!(ax2, gammas1, gammas2, partial_costs, colormap = :viridis, tellheight = true)
+    
+    # Add colorbar with the same height as the heatmaps
+    CairoMakie.Colorbar(g[1, 3], hm1, ticklabelsize=30, tellheight = true)
+    
+    # Adjust column widths using relative sizes - making heatmaps larger
+    colsize!(g, 1, CairoMakie.Relative(0.48))  # First heatmap
+    colsize!(g, 2, CairoMakie.Relative(0.48))  # Second heatmap
+    colsize!(g, 3, CairoMakie.Relative(0.04))  # Colorbar - smaller proportion
+    
+    # Control the row height for the colorbar
+    rowsize!(g, 1, CairoMakie.Relative(0.5))  # Make the row slightly smaller than full height
+    
+    # Save the figure with vertical cropping
+    CairoMakie.save(save_filename, fig, 
+        pt_per_unit=1, 
+        pt_per_inch=18,
+        bbox_inches = (0, 2.0, 1, 1.5)  # (left, bottom, right, top) in figure coordinates
+    )
+    
+    return fig
+end
 
 end
