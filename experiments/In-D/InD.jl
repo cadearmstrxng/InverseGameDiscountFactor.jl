@@ -516,9 +516,7 @@ end
 function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true)
     frames = [26158, 26320] # 162
     tracks = [201, 205, 207, 208]
-    downsample_rate = 8
-    rng = MersenneTwister(1234)
-    Random.seed!(rng)
+    downsample_rate = 7
 
     # Get real trajectory data
     InD_observations = GameUtils.pull_trajectory("07";
@@ -548,7 +546,7 @@ function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true
         dt = 0.04*downsample_rate,
         l = 1.0,
         state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
-        control_bounds = (; lb = [-5, -pi/4], ub = [5, pi/4]),
+        control_bounds = (; lb = [-3, -pi/4], ub = [3, pi/4]),
         integration_scheme = :forward_euler
     )
 
@@ -556,7 +554,7 @@ function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true
         full_state;
         initial_state = InD_observations[1],
         game_params = mortar([
-            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0, 10.0] for i in 1:length(tracks)]...]),
+            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 5.0, 1.0, 1.0, 10.0] for i in 1:length(tracks)]...]),
         horizon = 10,
         n = length(tracks),
         dt = 0.04*downsample_rate,
@@ -602,8 +600,10 @@ function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true
     baseline_actual_traj = []
     rh_initial_state_guess = init_rh.initial_state
     initial_hidden_state_guess = init_rh.game_parameters
-    for t in 10:total_horizon-10
-        rh_observations = InD_observations[t-10+1:t]
+    last_sol = nothing
+
+    for t in init_rh.horizon:total_horizon-init_rh.horizon
+        rh_observations = InD_observations[t-init_rh.horizon+1:t]
         # @infiltrate
 
         inverse_rh = InverseGameDiscountFactor.solve_myopic_inverse_game(
@@ -611,7 +611,7 @@ function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true
             rh_observations,
             init_rh.observation_model,
             blocksizes(init_rh.game_parameters, 1);
-            initial_state = rh_initial_state_guess,
+            initial_state = rh_observations[1],
             hidden_state_guess = initial_hidden_state_guess,
             max_grad_steps = 200,
             verbose = verbose,
@@ -642,7 +642,8 @@ function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true
         sol = nothing
         while (!converged && i < 5)
             # InverseGameDiscountFactor.solve_mcp_game(solver_rh.mcp_game, rh_observations[end], inverse_rh.recovered_params),
-            sol = InverseGameDiscountFactor.solve_mcp_game(solver_rh.mcp_game, rh_initial_state_guess, inverse_rh.recovered_params)
+            sol = InverseGameDiscountFactor.solve_mcp_game(solver_rh.mcp_game, rh_initial_state_guess, initial_hidden_state_guess; initial_guess = last_sol)
+            last_sol = sol
             i += 1
             converged = sol.status == PATHSolver.MCP_Solved
         end
@@ -662,11 +663,11 @@ function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true
         #     baseline_init_rh.game_structure.game, 
         #     baseline_init_rh.horizon
         # )
-        if t == 18
+        if t == total_horizon-init_rh.horizon+1
             push!(actual_traj, rh_plan)
             # push!(baseline_actual_traj, baseline_rh_plan)
         else
-            if t == 10
+            if t == init_rh.horizon
                 push!(actual_traj, inverse_rh.recovered_trajectory)
                 # push!(baseline_actual_traj, baseline_inverse_rh.recovered_trajectory)
             end
@@ -717,7 +718,7 @@ function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true
     #         end
     #     end
     end
-    actual_traj = BlockVector(vcat(actual_traj...), [16 for _ in 1:(total_horizon-9)])
+    actual_traj = BlockVector(vcat(actual_traj...), [16 for _ in 1:(total_horizon-(init_rh.horizon-1))])
     # baseline_actual_traj = BlockVector(vcat(baseline_actual_traj...), [16 for _ in 1:total_horizon])
 
 
@@ -741,7 +742,7 @@ function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true
     # end
 
     ExperimentGraphingUtils.graph_trajectories(
-            "Recovered v. Observed",
+            "./experiments/In-D/rh_full_traj",
             [InD_observations, actual_traj],
             init_rh.game_structure,
             28;
@@ -995,12 +996,14 @@ end
 function monte_carlo_rh_study(;full_state=true, verbose=true)
     # Fixed parameters
     noise_level = 0.002
+    # noise_level = 0.000
+    # num_trials = 30
     num_trials = 50
     frames = [26158, 26320]
     tracks = [201, 205, 207, 208]
-    downsample_rate = 6
+    downsample_rate = 7
     total_horizon = length(frames[1]:downsample_rate:frames[2])
-    planning_horizon = 10  # Fixed planning horizon for RH
+    planning_horizon = 10
     
     # Initialize random number generator
     rng = MersenneTwister(1234)
@@ -1033,7 +1036,7 @@ function monte_carlo_rh_study(;full_state=true, verbose=true)
         dt = 0.04*downsample_rate,
         l = 1.0,
         state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
-        control_bounds = (; lb = [-5, -pi/4], ub = [5, pi/4]),
+        control_bounds = (; lb = [-2, -pi/8], ub = [2, pi/8]),
         integration_scheme = :forward_euler
     )
 
@@ -1042,7 +1045,7 @@ function monte_carlo_rh_study(;full_state=true, verbose=true)
         full_state;
         initial_state = InD_observations[1],
         game_params = mortar([
-            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0, 10.0] for i in 1:length(tracks)]...]),
+            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0, 20.0] for i in 1:length(tracks)]...]),
         horizon = planning_horizon,
         n = length(tracks),
         dt = 0.04*downsample_rate,
@@ -1056,7 +1059,7 @@ function monte_carlo_rh_study(;full_state=true, verbose=true)
         full_state;
         initial_state = InD_observations[1],
         game_params = mortar([
-            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 10.0] for i in 1:length(tracks)]...]),
+            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 20.0] for i in 1:length(tracks)]...]),
         horizon = planning_horizon,
         n = length(tracks),
         dt = 0.04*downsample_rate,
@@ -1085,6 +1088,10 @@ function monte_carlo_rh_study(;full_state=true, verbose=true)
     method_player_errors = zeros(num_trials, total_horizon - 2*planning_horizon + 1, length(tracks))
     baseline_player_errors = zeros(num_trials, total_horizon - 2*planning_horizon + 1, length(tracks))
     
+    # Storage for trajectories
+    # method_trajectories = []
+    # baseline_trajectories = []
+    
     # Get true goal positions
     true_goals = zeros(8)  # 2 positions per player
     for i in 1:4
@@ -1105,6 +1112,12 @@ function monte_carlo_rh_study(;full_state=true, verbose=true)
                 for _ in 1:num_players(init.game_structure.game)])
         end
 
+        # # Storage for this trial's trajectories
+        # trial_method_trajectory = []
+        # trial_baseline_trajectory = []
+        # last_sol = nothing
+        # baseline_last_sol = nothing
+
         # Run receding horizon for each time step
         for t in planning_horizon:total_horizon-planning_horizon
             rh_observations = noisy_observations[t-planning_horizon+1:t]
@@ -1115,12 +1128,13 @@ function monte_carlo_rh_study(;full_state=true, verbose=true)
                 rh_observations,
                 init.observation_model,
                 blocksizes(init.game_parameters, 1);
-                initial_state = init.initial_state,
+                initial_state = rh_observations[1],
                 hidden_state_guess = init.game_parameters,
                 max_grad_steps = 200,
                 verbose = false,
                 dynamics = dynamics,
-                use_warm_start = false
+                use_warm_start = false,
+                lr=1e-7
             )
 
             # Solve with baseline method
@@ -1129,13 +1143,22 @@ function monte_carlo_rh_study(;full_state=true, verbose=true)
                 rh_observations,
                 baseline_init.observation_model,
                 blocksizes(baseline_init.game_parameters, 1);
-                initial_state = baseline_init.initial_state,
+                initial_state = rh_observations[1],
                 hidden_state_guess = baseline_init.game_parameters,
                 max_grad_steps = 200,
                 verbose = false,
                 dynamics = dynamics,
-                use_warm_start = false
+                use_warm_start = false,
+                lr=1e-7
             )
+            # # println("inverse params: ", round.(inverse_rh.recovered_params; digits = 4))
+            # for i in 1:8:length(inverse_rh.recovered_params)
+            #     println(round.(inverse_rh.recovered_params[i:i+7]; digits = 4))
+            # end
+            # # println("baseline params: ", round.(baseline_inverse_rh.recovered_params; digits = 4))
+            # for i in 1:7:length(baseline_inverse_rh.recovered_params)
+            #     println(round.(baseline_inverse_rh.recovered_params[i:i+6]; digits = 4))
+            # end
 
             # Extract goal positions from recovered parameters
             method_goals = zeros(8)
@@ -1155,38 +1178,177 @@ function monte_carlo_rh_study(;full_state=true, verbose=true)
             # Calculate total goal position errors
             method_goal_errors[trial, t-planning_horizon+1] = norm(method_goals - true_goals)
             baseline_goal_errors[trial, t-planning_horizon+1] = norm(baseline_goals - true_goals)
+
+        #     i = 0
+        #     converged = false
+        #     sol = nothing
+        #     spotv1 = BlockVector(rh_observations[end], [4 for _ in 1:length(tracks)])
+        #     spotv2 = t != planning_horizon ? BlockVector(trial_method_trajectory[end], [4 for _ in 1:length(tracks)]) : BlockVector(inverse_rh.recovered_trajectory[Block(planning_horizon)], [4 for _ in 1:length(tracks)])
+        #     println("spotv1: ", spotv1)
+        #     println("spotv2: ", spotv2)
+        #     println("spot v diff norm: ", norm(spotv1 - spotv2))
+        #     println("solving for plan ", t)
+        #     spot = spotv1
+        #     while (!converged && i < 5)
+        #         sol = InverseGameDiscountFactor.solve_mcp_game(solver.mcp_game, spot, inverse_rh.recovered_params;)
+        #         last_sol = sol
+        #         i += 1
+        #         converged = sol.status == PATHSolver.MCP_Solved
+        #     end
+        #     println("solved for plan ", t)
+
+        #     i = 0
+        #     converged = false
+        #     baseline_sol = nothing
+        #     println("solving for baseline plan ", t)
+        #     while (!converged && i < 5)
+        #         baseline_sol = InverseGameDiscountFactor.solve_mcp_game(baseline_solver.mcp_game, spot, baseline_inverse_rh.recovered_params;)
+        #         baseline_last_sol = baseline_sol
+        #         i += 1
+        #         converged = baseline_sol.status == PATHSolver.MCP_Solved
+        #     end
+        #     println("solved for baseline plan ", t)
+
+        #     # Reconstruct solutions
+        #     method_plan = InverseGameDiscountFactor.reconstruct_solution(
+        #         sol, 
+        #         init.game_structure.game, 
+        #         init.horizon
+        #     )
+
+        #     baseline_plan = InverseGameDiscountFactor.reconstruct_solution(
+        #         baseline_sol, 
+        #         baseline_init.game_structure.game, 
+        #         baseline_init.horizon
+        #     )
+
+        #     open("monte_carlo_rh_plan_trial_$(trial)_t_$(t).txt", "w") do f
+        #         write(f, "Method Plan:\n")
+        #         for state in deepcopy(method_plan.blocks)
+        #             for i in 1:length(tracks)
+        #                 write(f, string(round.(state[(i-1)*4 + 1:i*4]; digits = 4)), "\n")
+        #             end
+        #             write(f, "--------------------------------\n")
+        #         end
+        #         write(f, "\nBaseline Plan:\n")
+        #         for state in deepcopy(baseline_plan.blocks)
+        #             for i in 1:length(tracks)
+        #                 write(f, string(round.(state[(i-1)*4 + 1:i*4]; digits = 4)), "\n")
+        #             end
+        #             write(f, "--------------------------------\n")
+        #         end
+        #     end
+
+        #     if t == total_horizon-planning_horizon+1
+        #         push!(trial_method_trajectory, deepcopy(method_plan))
+        #     else
+        #         if t == planning_horizon
+        #             push!(trial_method_trajectory, deepcopy(inverse_rh.recovered_trajectory))
+        #         end
+        #         push!(trial_method_trajectory, deepcopy(method_plan.blocks[1]))
+        #     end
+
+        #     ExperimentGraphingUtils.graph_trajectories(
+        #         "./graphs/plan_method_vs_baseline_trial_$(trial)_t_$(t)",
+        #         [InD_observations, method_plan, baseline_plan],
+        #         init.game_structure,
+        #         init.horizon;
+        #         colors = [
+        #             [(:red, 0.0), (:blue, 0.0), (:green, 0.0), (:purple, 0.0)],
+        #             [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)],
+        #             [(:red, 0.5), (:blue, 0.5), (:green, 0.5), (:purple, 0.5)]
+        #         ],
+        #         constraints = init.environment === nothing ? nothing : get_constraints(init.environment),
+        #         p_state_dim = 4
+        #     )
+
+        #     ExperimentGraphingUtils.graph_trajectories(
+        #         "./graphs/plan_method_trial_$(trial)_t_$(t)",
+        #         [InD_observations, method_plan],
+        #         init.game_structure,
+        #         init.horizon;
+        #         colors = [
+        #             [(:red, 0.0), (:blue, 0.0), (:green, 0.0), (:purple, 0.0)],
+        #             [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)],
+        #         ],
+        #         constraints = init.environment === nothing ? nothing : get_constraints(init.environment),
+        #         p_state_dim = 4
+        #     )
+
+        #     # Graph baseline receding horizon plans
+        #     ExperimentGraphingUtils.graph_trajectories(
+        #         "./graphs/baseline_rh_plan_trial_$(trial)_t_$(t)",
+        #         [InD_observations, baseline_plan],
+        #         baseline_init.game_structure,
+        #         baseline_init.horizon;
+        #         colors = [
+        #             [(:red, 0.3), (:blue, 0.3), (:green, 0.3), (:purple, 0.3)],
+        #             [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)]
+        #         ],
+        #         constraints = baseline_init.environment === nothing ? nothing : get_constraints(baseline_init.environment),
+        #         p_state_dim = 4
+        #     )
+
         end
+
+        # # Store complete trajectories for this trial
+        # method_trajectory = BlockVector(vcat(trial_method_trajectory...), [16 for _ in 1:(total_horizon-(planning_horizon-1))])
+        # push!(method_trajectories, method_trajectory)
+
+        # ExperimentGraphingUtils.graph_trajectories(
+        #     "./graphs/method_vs_obs_trial_$(trial)",
+        #     [InD_observations, method_trajectory],
+        #     init.game_structure,
+        #     total_horizon-(planning_horizon-1);
+        #     colors = [
+        #         [(:red, 0.7), (:blue, 0.7), (:green, 0.7), (:purple, 0.7)],
+        #         [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)]
+        #     ],
+        #     constraints = init.environment === nothing ? nothing : get_constraints(init.environment),
+        #     p_state_dim = 4
+        # )
     end
 
     # Save results
-    open("monte_carlo_rh_results.txt", "w") do f
-        write(f, "Method Goal Errors:\n")
-        for trial in 1:num_trials
-            write(f, "Trial $trial: ")
-            write(f, string(round.(method_goal_errors[trial,:]; digits=4)), "\n")
-        end
-        write(f, "\nBaseline Goal Errors:\n")
-        for trial in 1:num_trials
-            write(f, "Trial $trial: ")
-            write(f, string(round.(baseline_goal_errors[trial,:]; digits=4)), "\n")
-        end
-        write(f, "\nMethod Player Errors:\n")
-        for trial in 1:num_trials
-            write(f, "Trial $trial:\n")
-            for player in 1:length(tracks)
-                write(f, "  Player $player: ")
-                write(f, string(round.(method_player_errors[trial,:,player]; digits=4)), "\n")
-            end
-        end
-        write(f, "\nBaseline Player Errors:\n")
-        for trial in 1:num_trials
-            write(f, "Trial $trial:\n")
-            for player in 1:length(tracks)
-                write(f, "  Player $player: ")
-                write(f, string(round.(baseline_player_errors[trial,:,player]; digits=4)), "\n")
-            end
-        end
-    end
+    # open("monte_carlo_rh_results.txt", "w") do f
+    #     write(f, "Method Goal Errors:\n")
+    #     for trial in 1:num_trials
+    #         write(f, "Trial $trial: ")
+    #         write(f, string(round.(method_goal_errors[trial,:]; digits=4)), "\n")
+    #     end
+    #     write(f, "\nBaseline Goal Errors:\n")
+    #     for trial in 1:num_trials
+    #         write(f, "Trial $trial: ")
+    #         write(f, string(round.(baseline_goal_errors[trial,:]; digits=4)), "\n")
+    #     end
+    #     write(f, "\nMethod Player Errors:\n")
+    #     for trial in 1:num_trials
+    #         write(f, "Trial $trial:\n")
+    #         for player in 1:length(tracks)
+    #             write(f, "  Player $player: ")
+    #             write(f, string(round.(method_player_errors[trial,:,player]; digits=4)), "\n")
+    #         end
+    #     end
+    #     write(f, "\nBaseline Player Errors:\n")
+    #     for trial in 1:num_trials
+    #         write(f, "Trial $trial:\n")
+    #         for player in 1:length(tracks)
+    #             write(f, "  Player $player: ")
+    #             write(f, string(round.(baseline_player_errors[trial,:,player]; digits=4)), "\n")
+    #         end
+    #     end
+    # end
+
+    # for trial in 1:num_trials
+    #     open("monte_carlo_trajectory_trial_$(trial).txt", "w") do f
+    #         for state in method_trajectories[trial].blocks
+    #             for i in 1:length(tracks)
+    #                 write(f, string(round.(state[(i-1)*4 + 1:i*4]; digits = 4)), "\n")
+    #             end
+    #             write(f, "--------------------------------\n")
+    #         end
+    #     end
+    # end
 
     method_mean = mean(method_goal_errors, dims=1)
     method_std = std(method_goal_errors, dims=1)

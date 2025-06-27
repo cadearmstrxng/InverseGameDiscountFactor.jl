@@ -54,7 +54,7 @@ function graph_metrics(
     baseline_full_data = baseline_data[1:num_noise_levels, :]
     baseline_partial_data = partial_state_included ? baseline_data[(num_noise_levels+1):end, :] : nothing
     
-    our_method_full_data = our_method_data[1:num_noise_levels, :]
+    our_method_full_data = our_method_data[1:nInverseGameDiscountFactor.jlum_noise_levels, :]
     our_method_partial_data = partial_state_included ? our_method_data[(num_noise_levels+1):end, :] : nothing
     
     σs = [parse(Float64, replace(String(level), r"^[bm]" => "")) for level in baseline_full_data[:, 1]]

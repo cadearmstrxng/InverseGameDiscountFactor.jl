@@ -72,6 +72,7 @@ function solve_inverse_mcp_game(
             break
         end
         context_state_estimation -= objective_update
+        # context_state_estimation[[3, 11, 19, 27]] .= max.(context_state_estimation[[3, 11, 19, 27]], 0.9)
         initial_state -= x0_update
     end
     (; context_state_estimation, last_solution, i_, solving_info, time_exec, solving_status)
