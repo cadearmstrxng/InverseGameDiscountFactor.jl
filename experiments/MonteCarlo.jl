@@ -323,7 +323,7 @@ function run_monte_carlo_crosswalk(;
                 max_grad_steps = 200,
                 retries_on_divergence = 3,
                 verbose = false,
-                warm_start = false,
+                use_warm_start = false,
                 lr = 1e-3,
                 regularization = 1.0
             )
@@ -338,7 +338,7 @@ function run_monte_carlo_crosswalk(;
                 hidden_state_guess = fo_init_baseline.game_parameters,
                 max_grad_steps = 200,
                 verbose = false,
-                warm_start = false,
+                use_warm_start = false,
                 lr = 1e-3,
                 regularization = 1.0
             )
@@ -353,7 +353,7 @@ function run_monte_carlo_crosswalk(;
                 hidden_state_guess = po_init.game_parameters,
                 max_grad_steps = 200,
                 verbose = false,
-                warm_start = false,
+                use_warm_start = false,
                 lr = 1e-3,
                 regularization = 1.0
             )
@@ -368,7 +368,7 @@ function run_monte_carlo_crosswalk(;
                 hidden_state_guess = po_init_baseline.game_parameters,
                 max_grad_steps = 200,
                 verbose = false,
-                warm_start = false,
+                use_warm_start = false,
                 lr = 1e-3,
                 regularization = 1.0
             )
