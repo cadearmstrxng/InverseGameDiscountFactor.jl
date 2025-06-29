@@ -16,7 +16,7 @@ using Statistics: mean, std
 
 include("../GameUtils.jl")
 include("../graphing/ExperimentGraphingUtils.jl")
-include("../../src/InverseGameDiscountFactor.jl")
+using InverseGameDiscountFactor
 include("Environment.jl")
 
 export run_bicycle_sim

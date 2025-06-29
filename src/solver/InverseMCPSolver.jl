@@ -17,6 +17,7 @@ function solve_inverse_mcp_game(
 )
     # Store all trajectories for animation
     all_trajectories = []
+    last_solution_ref = Ref{Any}(last_solution)
     
     function observe_trajectory(x)
         vcat([observation_model(state_t) for state_t in x.blocks]...)
@@ -28,38 +29,47 @@ function solve_inverse_mcp_game(
     """
     function likelihood_cost(τs_observed, context_state_estimation, initial_state)
         solution = solve_mcp_game(mcp_game, initial_state, 
-            context_state_estimation; initial_guess = last_solution, total_horizon = total_horizon)
+            context_state_estimation; initial_guess = last_solution_ref[], total_horizon = total_horizon)
         # if solution.status != PATHSolver.MCP_Solved
         #     @info "Inner solve did not converge properly, re-initializing..."
         #     solution = solve_mcp_game(mcp_game, initial_state, 
         #         context_state_estimation; initial_guess = nothing, total_horizon = total_horizon)
         # end
-        push!(solving_info, solution.info)
-        last_solution = (; primals = ForwardDiff.value.(solution.primals),
-        variables = ForwardDiff.value.(solution.variables), status = solution.status)
+        
         τs_solution = reconstruct_solution(solution, mcp_game.game, total_horizon)
+        
         ChainRulesCore.ignore_derivatives() do
+            push!(solving_info, solution.info)
+            last_solution_ref[] = (; primals = ForwardDiff.value.(solution.primals),
+                variables = ForwardDiff.value.(solution.variables), status = solution.status)
             push!(all_trajectories, ForwardDiff.value.(deepcopy(τs_solution)))
             println("forward game success ratio: ", solution.success_ratio)
-        end
         
+            was_successful[] = solution.success_ratio >= 0.9
+        
+            if was_successful[]
+                last_known_good_context_state[] = ForwardDiff.value.(deepcopy(context_state_estimation))
+                infeasible_counter[] = 0
+                if use_adaptive_lr
+                    consecutive_success_counter[] += 1
+                end
+            else
+                infeasible_counter[] += 1
+                if use_adaptive_lr
+                    consecutive_success_counter[] = 0
+                end
+            end
+        end
+
         observed_τs_solution = observe_trajectory(τs_solution)
         
-        if solution.success_ratio >= 0.9
-            last_known_good_context_state = deepcopy(context_state_estimation)
-            if use_adaptive_lr
-                consecutive_success_counter += 1
-            end
-        else
-            if use_adaptive_lr
-                consecutive_success_counter = 0
-            end
-        end
         norm_sqr(vcat(τs_observed...) - observed_τs_solution)
     end
     num_player = num_players(mcp_game.game)
-    last_known_good_context_state = initial_estimation
-    consecutive_success_counter = 0
+    infeasible_counter = Ref(0)
+    last_known_good_context_state = Ref(initial_estimation)
+    consecutive_success_counter = Ref(0)
+    was_successful = Ref(false)
     current_lr = lr
     solving_info = []
     context_state_estimation = initial_estimation
@@ -92,11 +102,11 @@ function solve_inverse_mcp_game(
 
         if use_adaptive_lr
             
-            if !was_successful
+            if !was_successful[]
                 current_lr = max(current_lr * lr_reduction_factor, min_lr)
-            elseif consecutive_success_counter >= max_consecutive_success
+            elseif consecutive_success_counter[] >= max_consecutive_success
                 current_lr = min(current_lr * lr_increase_factor, lr) # don't exceed original lr
-                consecutive_success_counter = 0 # Reset after increasing LR
+                consecutive_success_counter[] = 0 # Reset after increasing LR
             end
             
             if current_lr <= min_lr
@@ -113,16 +123,16 @@ function solve_inverse_mcp_game(
         if (norm(objective_grad) / norm(context_state_estimation) < 1e-4 && norm(x0_grad) / norm(initial_state) < 1e-4)
             @info "Inner iteration terminates at iteration: "*string(i)
             break
-        elseif infeasible_counter >= 4
+        elseif infeasible_counter[] >= 4
             @info "Inner iteration reached the maximal infeasible steps"
-            return (; last_known_good_context_state, last_solution, i_, solving_info, time_exec, all_trajectories, context_states)
+            return (; last_known_good_context_state = last_known_good_context_state[], last_solution = last_solution_ref[], i_, solving_info, time_exec, all_trajectories, context_states)
             break
         end
         context_state_estimation -= objective_update
         initial_state -= x0_update
     end
     context_state_estimation = ForwardDiff.value.(context_state_estimation)
-    (; context_state_estimation, last_solution, i_, solving_info, time_exec, all_trajectories, context_states)
+    (; context_state_estimation, last_solution = last_solution_ref[], i_, solving_info, time_exec, all_trajectories, context_states)
 end
 
 # Add a new function to create an animation
