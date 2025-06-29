@@ -113,6 +113,7 @@ function InD_collision_avoidance(
     collision_avoidance_coefficient = 20.0,
     ped_dynamics = nothing,
     car_dynamics = nothing,
+    dynamics = nothing,
     myopic = true)
 
     cost = let
@@ -167,7 +168,7 @@ function InD_collision_avoidance(
         end
         TrajectoryGameCost(cost_function, GeneralSumCostStructure())
     end
-    dynamics = ProductDynamics(vcat([ped_dynamics for _ in 1:2]..., [car_dynamics for _ in 3:num_players]...))
+    dynamics = dynamics isa Nothing ? ProductDynamics(vcat([ped_dynamics for _ in 1:2]..., [car_dynamics for _ in 3:num_players]...)) : ProductDynamics([dynamics for _ in 1:num_players])
     game = TrajectoryGame(
         dynamics,
         cost,
@@ -265,6 +266,7 @@ function init_bicycle_test_game(
     ped_dynamics = nothing,
     car_dynamics = nothing,
     lane_centers = nothing,
+    dynamics = nothing,
 )
     !verbose || print("initializing game ... ")
     game_structure = InD_collision_avoidance(
@@ -275,7 +277,8 @@ function init_bicycle_test_game(
         collision_avoidance_coefficient = 5.0,
         ped_dynamics = ped_dynamics,
         car_dynamics = car_dynamics,
-        myopic = myopic
+        myopic = myopic,
+        dynamics = dynamics
     )
     !verbose || print(" game structure initialized\n")
     if full_state

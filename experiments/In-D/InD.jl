@@ -11,7 +11,8 @@ using ImageTransformations
 using Rotations
 using OffsetArrays:Origin
 using TrajectoryGamesExamples: BicycleDynamics, PolygonEnvironment
-using Statistics: mean
+using PATHSolver
+using Statistics: mean, std
 
 include("../GameUtils.jl")
 include("../graphing/ExperimentGraphingUtils.jl")
@@ -28,8 +29,7 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
     # 207,26098,26320
     # 208,26158,26381,
     tracks = [201, 205, 207, 208]
-    # downsample_rate = 17
-    downsample_rate = 6
+    downsample_rate = 9
     InD_observations = GameUtils.pull_trajectory("07";
         track = tracks, downsample_rate = downsample_rate, all = false, frames = frames)
     open("InD_observations.tmp.txt", "w") do f
@@ -37,80 +37,52 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
             write(f, string(round.(InD_observations[i]; digits = 4)), "\n")
         end
     end
-    trk_201_lane_center(x) = 5.230483199466720*x^2 +
-                    1.617412494933504e+02
-    trk_205_lane_center(x) = 3.127167536999156*x^2 +
-                    1.251972178433281e+02
+    trk_201_lane_center(x) = 0.0  # Placeholder if no coefficients provided
+    trk_205_lane_center(x) = 0.0  # Placeholder if no coefficients provided
 
+    # 6th degree polynomial for track 207
     trk_207_lane_center(x) = -0.00017689424941367952*x^5 + 
-                            -0.01392776676762521*x^4 + 
-                            -0.38618068109105161*x^3 + 
-                            -3.938661796855388*x^2 + 
-                            1.9163167828141503*x + 
-                            252.1918028422481
+    -0.01392776676762521*x^4 + 
+    -0.38618068109105161*x^3 + 
+    -3.938661796855388*x^2 + 
+    1.9163167828141503*x + 
+    252.1918028422481
 
     # Linear function for track 208
     trk_208_lane_center(x) = 8.304049624037807*x + 1.866183521575921e+02
 
     # Update the lane centers array to match the tracks array
     lane_centers = [trk_201_lane_center, trk_205_lane_center, trk_207_lane_center, trk_208_lane_center]
-    car_dynamics = BicycleDynamics(;
+    dynamics = BicycleDynamics(;
         dt = 0.04*downsample_rate, # needs to become framerate
         l = 1.0,
         state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
-        control_bounds = (; lb = [-3, -pi/4], ub = [2, pi/4]),
-        integration_scheme = :forward_euler
-    )
-    ped_dynamics = BicycleDynamics(;
-        dt = 0.04*downsample_rate, # needs to become framerate
-        l = 1.0,
-        state_bounds = (; lb = [-Inf, -Inf, -5, -Inf], ub = [Inf, Inf, 5, Inf]),
-        control_bounds = (; lb = [-5, -pi], ub = [5, pi]),
+        control_bounds = (; lb = [-5, -pi/4], ub = [5, pi/4]),
         integration_scheme = :forward_euler
     )
 
-    total_horizon = length(frames[1]:downsample_rate:frames[2])
-    horizon_window = 15
-    # Initialize game with full state observation
     init = GameUtils.init_bicycle_test_game(
         full_state;
         initial_state = InD_observations[1],
         game_params = mortar([
-            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0, 10.0] for i in 1:length(tracks)]...]),
-        # game_params = mortar([
-        #     [-16.3672, 74.4905, 1.01, 1.0, 0.9916, 1.0084, 1.0, 10.0],
-        #     [-16.087, 74.7452, 1.01, 1.0, 1.0013, 0.9987, 1.0, 10.0],
-        #     [-25.9715, 63.8053, 1.01, 1.0, 0.99, 1.01, 1.0, 10.0005],
-        #     [-14.198, 67.8343, 1.01, 1.0, 0.99, 1.01, 1.0, 10.0]
-        # ]),
-        horizon = horizon_window,
+            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0, 5.0] for i in 1:length(tracks)]...]),
+        horizon = length(frames[1]:downsample_rate:frames[2]),
         n = length(tracks),
         dt = 0.04*downsample_rate,
         myopic=true,
         verbose = verbose,
-        ped_dynamics = ped_dynamics,
-        car_dynamics = car_dynamics,
-        lane_centers = lane_centers
+        dynamics = dynamics,
+        lane_centers = lane_centers,
+        # game_environment = PolygonEnvironment(4, 200)
     )
-
-
-    InD_observations = (full_state) ? InD_observations : [BlockVector(GameUtils.observe_trajectory(InD_observations[t], init;blocked_by_time = false),
-        [init.observation_dim for _ in 1:length(tracks)]) for t in 1:init.horizon]
-
-    # ExperimentGraphingUtils.graph_trajectories(
-    #     "lane centers",
-    #     [InD_observations],
-    #     init.game_structure,
-    #     init.horizon;
-    #     lane_centers = lane_centers[3:4]
-    # )
-
-    # return
     !verbose || println("initial state: ", init.initial_state)
     !verbose || println("initial game parameters: ", init.game_parameters)
     !verbose || println("initial horizon: ", init.horizon)
     !verbose || println("observation model: ", init.observation_model)
     !verbose || println("observation dim: ", init.observation_dim)
+    
+    InD_observations = (full_state) ? InD_observations : [BlockVector(GameUtils.observe_trajectory(InD_observations[t], init;blocked_by_time = false),
+        [init.observation_dim for _ in 1:length(tracks)]) for t in 1:init.horizon]
     
     !verbose || println("game initialized\ninitializing mcp coupled optimization solver")
     mcp_solver = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
@@ -121,55 +93,36 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
     !verbose || println("mcp coupled optimization solver initialized")
 
 
-    # !verbose || println("solving forward game")
-    # raw_sol = InverseGameDiscountFactor.solve_mcp_game(
-    #     mcp_solver.mcp_game,
-    #     init.initial_state,
-    #     init.game_parameters;
-    #     verbose = false,
-    #     total_horizon = total_horizon
-    #     )
-    # !verbose || println("forward game solved: ", raw_sol.status)
-    # forward_solution = InverseGameDiscountFactor.reconstruct_solution(
-    #     raw_sol,
-    #     init.game_structure.game,
-    #     total_horizon
-    # )
-    # ExperimentGraphingUtils.graph_trajectories(
-    #     "Forward Game",
-    #     [InD_observations, forward_solution],
-    #     init.game_structure,
-    #     init.horizon;
-    #     colors = [
-    #         [(:red, 0.5), (:blue, 0.5), (:green, 0.5), (:brown, 0.5)],
-    #         [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:brown, 1.0)]
-    #     ],
-    #     constraints = get_constraints(init.environment),
-    #     lane_centers = lane_centers[3:4]
-    # )
-    # println("forward game solved w/ error: ", norm_sqr(vcat(InD_observations...) - vcat(forward_solution...)) / length(InD_observations))
-    # return
-
     !verbose || println("solving inverse game")
     method_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
         mcp_solver.mcp_game,
         InD_observations,
         # forward_game_observations,
         init.observation_model,
-        Tuple(blocksizes(init.game_parameters, 1)),;
+        Tuple(blocksizes(init.game_parameters, 1));
         initial_state = init.initial_state,
         hidden_state_guess = init.game_parameters,
         max_grad_steps = 200,
         retries_on_divergence = 3,
         verbose = verbose,
-        dynamics = init.game_structure.game.dynamics,
-        total_horizon = total_horizon,
-        lr = 1e-4
+        dynamics = dynamics,
     )
     !verbose || println("finished inverse game")
     !verbose || println("recovered pararms: ", method_sol.recovered_params)
 
     if graph
+        ExperimentGraphingUtils.graph_trajectories(
+            "Observed v. Recovered v. Warm Start",
+            [InD_observations, method_sol.recovered_trajectory, method_sol.warm_start_trajectory],
+            init.game_structure,
+            init.horizon;
+            colors = [
+                [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)],
+                [(:red, 0.5), (:blue, 0.5), (:green, 0.5), (:purple, 0.5)],
+                [(:red, 0.2 ), (:blue, 0.2), (:green, 0.2), (:purple, 0.2)]
+            ],
+            constraints = get_constraints(init.environment)
+        )
         ExperimentGraphingUtils.graph_trajectories(
             "Observed v. Recovered",
             [InD_observations, method_sol.recovered_trajectory],
@@ -182,10 +135,37 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
             ],
             constraints = get_constraints(init.environment)
         )
+        ExperimentGraphingUtils.graph_trajectories(
+            "Observed v. Warm Start",
+            [InD_observations, method_sol.warm_start_trajectory],
+            init.game_structure,
+            init.horizon;
+            colors = [
+                [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)],
+                [(:red, 0.5), (:blue, 0.5), (:green, 0.5), (:purple, 0.5)],
+                [(:red, 0.2 ), (:blue, 0.2), (:green, 0.2), (:purple, 0.2)]
+            ],
+            constraints = get_constraints(init.environment)
+        )
+        ExperimentGraphingUtils.graph_trajectories(
+            "Recovered v. Warm Start",
+            [InD_observations, method_sol.recovered_trajectory, method_sol.warm_start_trajectory],
+            init.game_structure,
+            init.horizon;
+            colors = [
+                [(:red, 0.0), (:blue, 0.0), (:green, 0.0), (:purple, 0.0)],
+                [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)], 
+                [(:red, 0.5), (:blue, 0.5), (:green, 0.5), (:purple, 0.5)]
+            ],
+            constraints = get_constraints(init.environment)
+        )
     end
 
-    sol_error = norm_sqr(vcat(method_sol.recovered_trajectory...) - vcat(InD_observations...))
-    !verbose || println("inverse sol error: ", sol_error / length(InD_observations))
+    sol_error = norm_sqr(method_sol.recovered_trajectory - vcat(InD_observations...))
+    !verbose || println("inverse sol error: ", sol_error)
+    warm_sol_error = norm_sqr(method_sol.warm_start_trajectory - vcat(InD_observations...))
+    !verbose || println("warm start sol error: ", warm_sol_error)
+    !verbose || println("% improvement on warm start: ", (warm_sol_error - sol_error) / warm_sol_error * 100)
 end
 
 function compare_to_baseline(;full_state=false, graph=true, verbose = true)
@@ -216,50 +196,41 @@ function compare_to_baseline(;full_state=false, graph=true, verbose = true)
             [2 for _ in 1:length(tracks)]) 
         for observation in InD_observations]
 
-    trk_201_lane_center(x) = 0.0  # Placeholder if no coefficients provided
-    trk_205_lane_center(x) = 0.0  # Placeholder if no coefficients provided
-
-    # 6th degree polynomial for track 207
-    trk_207_lane_center(x) =-0.00017689424941367952*x^5 + 
-                            -0.01392776676762521*x^4 + 
-                            -0.38618068109105161*x^3 + 
-                            -3.938661796855388*x^2 + 
-                            1.9163167828141503*x + 
-                            252.1918028422481
-
-    # Linear function for track 208
+    # Lane center functions - using same as compare_noise_levels
+    trk_201_lane_center(x) = 0.0
+    trk_205_lane_center(x) = 0.0
+    trk_207_lane_center(x) = -6.535465682649165e-04*x^6 + 
+                            -0.069559792458210*x^5 + 
+                            -3.033950160533982*x^4 + 
+                            -69.369975733866840*x^3 + 
+                            -8.760325006936075e+02*x^2 + 
+                            -5.782944928944775e+03*x + 
+                            -1.547509969706588e+04
     trk_208_lane_center(x) = 8.304049624037807*x + 1.866183521575921e+02
     lane_centers = [trk_201_lane_center, trk_205_lane_center, trk_207_lane_center, trk_208_lane_center]
-    car_dynamics = BicycleDynamics(;
-        dt = 0.04*downsample_rate, # needs to become framerate
+    
+    # Setup dynamics - using same as compare_noise_levels
+    dynamics = BicycleDynamics(;
+        dt = 0.04*downsample_rate,
         l = 1.0,
         state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
-        control_bounds = (; lb = [-3, -pi/4], ub = [2, pi/4]),
-        integration_scheme = :forward_euler
-    )
-    ped_dynamics = BicycleDynamics(;
-        dt = 0.04*downsample_rate, # needs to become framerate
-        l = 1.0,
-        state_bounds = (; lb = [-Inf, -Inf, -5, -Inf], ub = [Inf, Inf, 5, Inf]),
-        control_bounds = (; lb = [-5, -pi], ub = [5, pi]),
+        control_bounds = (; lb = [-5, -pi/4], ub = [5, pi/4]),
         integration_scheme = :forward_euler
     )
 
     total_horizon = length(frames[1]:downsample_rate:frames[2])
-    horizon_window = 10
-    # Initialize game with full state observation
+    # Initialize game with full state observation - using same as compare_noise_levels
     init = GameUtils.init_bicycle_test_game(
         full_state;
         initial_state = first_full_observation,
         game_params = mortar([
             [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0, 10.0] for i in 1:length(tracks)]...]),
-        horizon = horizon_window,
+        horizon = total_horizon,
         n = length(tracks),
         dt = 0.04*downsample_rate,
         myopic=true,
         verbose = false,
-        car_dynamics = car_dynamics,
-        ped_dynamics = ped_dynamics,
+        dynamics = dynamics,
         lane_centers = lane_centers
     )
 
@@ -273,8 +244,7 @@ function compare_to_baseline(;full_state=false, graph=true, verbose = true)
         dt = 0.04*downsample_rate,
         myopic=false,
         verbose = false,
-        car_dynamics = car_dynamics,
-        ped_dynamics = ped_dynamics,
+        dynamics = dynamics,
         lane_centers = lane_centers
     )
     # Create MCP game solvers
@@ -305,9 +275,9 @@ function compare_to_baseline(;full_state=false, graph=true, verbose = true)
         hidden_state_guess = init.game_parameters,
         max_grad_steps = 200,
         verbose = false,
-        dynamics = init.game_structure.game.dynamics,
+        dynamics = dynamics,
         total_horizon = total_horizon,
-        lr = 1e-4
+        lr = 1e-4,
     )
     println("done")
     print("solving inverse game baseline method...")
@@ -321,9 +291,9 @@ function compare_to_baseline(;full_state=false, graph=true, verbose = true)
         hidden_state_guess = init_baseline.game_parameters,
         max_grad_steps = 200,
         verbose = false,
-        dynamics = init_baseline.game_structure.game.dynamics,
+        dynamics = dynamics,
         total_horizon = total_horizon,
-        lr = 1e-4
+        lr = 1e-4,
     )
     println("done")
     for i in 1:length(tracks)
@@ -332,8 +302,17 @@ function compare_to_baseline(;full_state=false, graph=true, verbose = true)
     for i in 1:length(tracks)
         println("baseline sol: ", baseline_sol.recovered_params[(i-1)*blocksizes(init_baseline.game_parameters, 1)[1]+1:i*blocksizes(init_baseline.game_parameters, 1)[1]])
     end
-    method_error = norm_sqr(method_sol.recovered_trajectory - vcat(InD_observations...))
-    baseline_error = norm_sqr(baseline_sol.recovered_trajectory - vcat(InD_observations...))
+    
+    # Apply observation model to recovered trajectories to match observed_trajectory structure
+    observed_method_traj = map(blocks(method_sol.recovered_trajectory)) do state_t
+        init.observation_model(state_t)
+    end
+    observed_baseline_traj = map(blocks(baseline_sol.recovered_trajectory)) do state_t
+        init.observation_model(state_t)
+    end
+    
+    method_error = norm_sqr(vcat(observed_method_traj...) - vcat(InD_observations...))
+    baseline_error = norm_sqr(vcat(observed_baseline_traj...) - vcat(InD_observations...))
 
     println("method error: ", method_error)
     println("baseline error: ", baseline_error)
@@ -345,7 +324,7 @@ function compare_to_baseline(;full_state=false, graph=true, verbose = true)
 
 
     ExperimentGraphingUtils.graph_trajectories(
-        "Observed v. Recovered v. Baseline",
+        "experiments/In-D/data/Observed v. Recovered v. Baseline",
         [InD_observations, method_sol.recovered_trajectory, baseline_sol.recovered_trajectory],
         init.game_structure,
         init.horizon;
@@ -358,7 +337,7 @@ function compare_to_baseline(;full_state=false, graph=true, verbose = true)
     )
 
     ExperimentGraphingUtils.graph_trajectories(
-        "Recovered v. Baseline",
+        "experiments/In-D/data/Recovered v. Baseline",
         [InD_observations, method_sol.recovered_trajectory, baseline_sol.recovered_trajectory],
         init.game_structure,
         init.horizon;
@@ -463,6 +442,10 @@ function compare_noise_levels(;full_state=true, noise_levels=[0.0, 0.01, 0.05, 0
             max_grad_steps = 200,
             verbose = verbose,
             dynamics = dynamics,
+            use_adaptive_step_size = true,
+            max_adaptive_attempts = 5,
+            adaptive_step_size_reduction = 0.5,
+            min_adaptive_step_size = 0.01
         )
         
         # Calculate error
@@ -498,6 +481,215 @@ function compare_noise_levels(;full_state=true, noise_levels=[0.0, 0.01, 0.05, 0
     end
 end
 
+function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true)
+    frames = [26158, 26320] # 162
+    tracks = [201, 205, 207, 208]
+    downsample_rate = 7
+
+    # Get real trajectory data
+    InD_observations = GameUtils.pull_trajectory("07";
+        track = tracks, 
+        downsample_rate = downsample_rate, 
+        all = false, 
+        frames = frames
+    )
+    total_horizon = length(frames[1]:downsample_rate:frames[2])
+    
+    # Lane center functions
+    trk_201_lane_center(x) = 0.0
+    trk_205_lane_center(x) = 0.0
+    trk_207_lane_center(x) = -6.535465682649165e-04*x^6 + 
+                            -0.069559792458210*x^5 + 
+                            -3.033950160533982*x^4 + 
+                            -69.369975733866840*x^3 + 
+                            -8.760325006936075e+02*x^2 + 
+                            -5.782944928944775e+03*x + 
+                            -1.547509969706588e+04
+    trk_208_lane_center(x) = 8.304049624037807*x + 1.866183521575921e+02
+    
+    lane_centers = [trk_201_lane_center, trk_205_lane_center, trk_207_lane_center, trk_208_lane_center]
+    
+    # Setup dynamics
+    dynamics = BicycleDynamics(;
+        dt = 0.04*downsample_rate,
+        l = 1.0,
+        state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
+        control_bounds = (; lb = [-3, -pi/4], ub = [3, pi/4]),
+        integration_scheme = :forward_euler
+    )
+
+    init_rh = GameUtils.init_bicycle_test_game(
+        full_state;
+        initial_state = InD_observations[1],
+        game_params = mortar([
+            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 5.0, 1.0, 1.0, 10.0] for i in 1:length(tracks)]...]),
+        horizon = 10,
+        n = length(tracks),
+        dt = 0.04*downsample_rate,
+        myopic=true,
+        verbose = false,
+        dynamics = dynamics,
+        lane_centers = lane_centers
+    )
+
+    solver_rh = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
+        init_rh.game_structure.game,
+        init_rh.horizon,
+        blocksizes(init_rh.game_parameters, 1)
+    )
+
+    inverse_costs_future = []
+    baseline_inverse_costs_future = []
+    params_future = []
+    baseline_params_future = []
+    actual_traj = []
+    baseline_actual_traj = []
+    rh_initial_state_guess = init_rh.initial_state
+    initial_hidden_state_guess = init_rh.game_parameters
+    last_sol = nothing
+
+    for t in init_rh.horizon:total_horizon-init_rh.horizon
+        rh_observations = InD_observations[t-init_rh.horizon+1:t]
+        # @infiltrate
+
+        inverse_rh = InverseGameDiscountFactor.solve_myopic_inverse_game(
+            solver_rh.mcp_game,
+            rh_observations,
+            init_rh.observation_model,
+            blocksizes(init_rh.game_parameters, 1);
+            initial_state = rh_observations[1],
+            hidden_state_guess = initial_hidden_state_guess,
+            max_grad_steps = 200,
+            verbose = verbose,
+            dynamics = dynamics,
+            use_warm_start = false,
+            use_adaptive_step_size = true,
+            max_adaptive_attempts = 5,
+            adaptive_step_size_reduction = 0.5,
+            min_adaptive_step_size = 0.01
+        )
+
+        initial_hidden_state_guess = inverse_rh.recovered_params
+
+        rh_initial_state_guess = BlockVector(inverse_rh.recovered_trajectory.blocks[end], [4 for _ in 1:num_players(init_rh.game_structure.game)])
+        println("solving forward game $t....")
+        i = 0;
+        converged = false
+        sol = nothing
+        while (!converged && i < 5)
+            sol = InverseGameDiscountFactor.solve_mcp_game(solver_rh.mcp_game, rh_initial_state_guess, initial_hidden_state_guess; initial_guess = last_sol)
+            last_sol = sol
+            i += 1
+            converged = sol.status == PATHSolver.MCP_Solved
+        end
+        println("took $i tries")
+
+        rh_plan = InverseGameDiscountFactor.reconstruct_solution(
+            sol, 
+            init_rh.game_structure.game, 
+            init_rh.horizon
+        )
+        println("forward game solved")
+        if t == total_horizon-init_rh.horizon+1
+            push!(actual_traj, rh_plan)
+        else
+            if t == init_rh.horizon
+                push!(actual_traj, inverse_rh.recovered_trajectory)
+            end
+            push!(actual_traj, rh_plan.blocks[1])
+        end
+
+        if graph
+            ExperimentGraphingUtils.graph_rh_snapshot(
+                "rh_snapshot_t$(t)",
+                rh_observations,
+                inverse_rh.recovered_trajectory,
+                inverse_rh.recovered_trajectory,
+                inverse_rh.recovered_trajectory,
+                rh_plan,
+                rh_plan,
+                init_rh.game_structure,
+                init_rh.horizon
+            )
+        end
+    end
+    actual_traj = BlockVector(vcat(actual_traj...), [16 for _ in 1:(total_horizon-(init_rh.horizon-1))])
+
+    open("whole_trajectory.txt", "w") do f
+        for state in actual_traj.blocks
+            for i in 1:length(tracks)
+                write(f, string(round.(state[(i-1)*4 + 1:i*4]; digits = 4)), "\n")
+            end
+            write(f, "--------------------------------\n")
+        end
+    end
+
+    ExperimentGraphingUtils.graph_trajectories(
+            "./experiments/In-D/rh_full_traj",
+            [InD_observations, actual_traj],
+            init_rh.game_structure,
+            28;
+            colors = [
+                [(:red, 0.0), (:blue, 0.0), (:green, 0.0), (:purple, 0.0)],
+                [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)],
+            ],
+            constraints = nothing,
+            p_state_dim = 4
+        )
+end
+
+function plot_rh()
+    fig1 = ExperimentGraphingUtils.plot_rh_costs("./experiments/In-D/rh_snapshot/rh.txt")
+    frames = [26158, 26320] # 162
+    tracks = [201, 205, 207, 208]
+    downsample_rate = 6
+
+    # Get real trajectory data
+    InD_observations = GameUtils.pull_trajectory("07";
+        track = tracks, 
+        downsample_rate = downsample_rate, 
+        all = false, 
+        frames = frames
+    )
+    final_obs = InD_observations[end]
+    
+    true_params = zeros(32)  # 8 parameters per player, 4 players
+    
+    # Set goal positions for each player (first two parameters per player)
+    for i in 1:4
+        true_params[(i-1)*8+1] = final_obs[Block(i)][1]  # x position
+        true_params[(i-1)*8+2] = final_obs[Block(i)][2]  # y position
+        # Set default values for other parameters
+        true_params[(i-1)*8+3] = 1.0  # discount factor
+        true_params[(i-1)*8+4] = 1.0  # other parameters
+        true_params[(i-1)*8+5] = 1.0
+        true_params[(i-1)*8+6] = 1.0
+        true_params[(i-1)*8+7] = 1.0
+        true_params[(i-1)*8+8] = 10.0
+    end
+    
+    # Generate the parameter difference plots
+    fig2 = ExperimentGraphingUtils.plot_rh_parameter_differences("./experiments/In-D/rh_snapshot/rh.txt", true_params)
+    
+    # Parse the rh.txt file to get parameter histories
+    times, _, _, params_history, baseline_params_history = ExperimentGraphingUtils.parse_rh_file("./experiments/In-D/rh_snapshot/rh.txt")
+    
+    # Generate the goal estimates plot
+    ExperimentGraphingUtils.plot_goal_estimates(
+        "./experiments/In-D/rh_snapshot/goal_estimates",
+        params_history,
+        baseline_params_history,
+        true_params
+    )
+    
+    println("Plotting complete. Files saved:")
+    println("  - costs over time.pdf")
+    println("  - parameter differences over time.pdf")
+    println("  - parameter differences per player over time.pdf")
+    println("  - goal differences per player over time.pdf")
+    println("  - goal_estimates.png")
+end
+
 function generate_visualization()
     CairoMakie.activate!();
     fig = CairoMakie.Figure()
@@ -517,16 +709,12 @@ function generate_visualization()
     x = (x_crop_max - x_crop_min) * scale
     y = (y_crop_max - y_crop_min) * scale
 
-    # println(x,' ', y)
-
     image_data = ImageTransformations.warp(image_data, trfm)
     image_data = Origin(0)(image_data)
     image_data = image_data[x_crop_min:x_crop_max, y_crop_min:y_crop_max]
     
     x_offset = -34.75
     y_offset = 22
-
-    # println(x_offset..(x+x_offset-2), ' ', y_offset..(y-2+y_offset))
 
     image!(ax1,
         x_offset..(x+x_offset),
@@ -546,11 +734,9 @@ function generate_visualization()
     InD_observations = let 
         new_observations = []
         for observation_t in InD_observations
-            # states = [observation_t[Block(i)] for i in 1:num_players]
             for i in 1:num_players
                 push!(new_observations, observation_t[Block(i)])
             end
-            # push!(new_observations, observation_t[Block(i)] for i in 1:num_players)
         end
         BlockVector(new_observations, [num_players for _ in 1:horizon])
     end
@@ -672,6 +858,386 @@ function generate_visualization()
     ])
 
     CairoMakie.save("InD_visualization", fig)
+end
+
+function monte_carlo_rh_study(;full_state=true, verbose=true)
+    # Fixed parameters
+    noise_level = 0.002
+    # noise_level = 0.000
+    # num_trials = 30
+    num_trials = 50
+    frames = [26158, 26320]
+    tracks = [201, 205, 207, 208]
+    downsample_rate = 7
+    total_horizon = length(frames[1]:downsample_rate:frames[2])
+    planning_horizon = 10
+    
+    # Initialize random number generator
+    rng = MersenneTwister(1234)
+    Random.seed!(rng)
+    
+    # Get real trajectory data
+    InD_observations = GameUtils.pull_trajectory("07";
+        track = tracks, 
+        downsample_rate = downsample_rate, 
+        all = false, 
+        frames = frames
+    )
+    
+    # Lane center functions
+    trk_201_lane_center(x) = 0.0
+    trk_205_lane_center(x) = 0.0
+    trk_207_lane_center(x) = -6.535465682649165e-04*x^6 + 
+                            -0.069559792458210*x^5 + 
+                            -3.033950160533982*x^4 + 
+                            -69.369975733866840*x^3 + 
+                            -8.760325006936075e+02*x^2 + 
+                            -5.782944928944775e+03*x + 
+                            -1.547509969706588e+04
+    trk_208_lane_center(x) = 8.304049624037807*x + 1.866183521575921e+02
+    
+    lane_centers = [trk_201_lane_center, trk_205_lane_center, trk_207_lane_center, trk_208_lane_center]
+    
+    # Setup dynamics
+    dynamics = BicycleDynamics(;
+        dt = 0.04*downsample_rate,
+        l = 1.0,
+        state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
+        control_bounds = (; lb = [-5, -pi/4], ub = [5, pi/4]),
+        integration_scheme = :forward_euler
+    )
+
+    # Initialize base game with full state observation
+    init = GameUtils.init_bicycle_test_game(
+        full_state;
+        initial_state = InD_observations[1],
+        game_params = mortar([
+            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0, 10.0] for i in 1:length(tracks)]...]),
+        horizon = planning_horizon,
+        n = length(tracks),
+        dt = 0.04*downsample_rate,
+        myopic=true,
+        verbose = false,
+        dynamics = dynamics,
+        lane_centers = lane_centers
+    )
+
+    baseline_init = GameUtils.init_bicycle_test_game(
+        full_state;
+        initial_state = InD_observations[1],
+        game_params = mortar([
+            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 10.0] for i in 1:length(tracks)]...]),
+        horizon = planning_horizon,
+        n = length(tracks),
+        dt = 0.04*downsample_rate,
+        myopic=false,
+        verbose = false,
+        dynamics = dynamics,
+        lane_centers = lane_centers
+    )
+
+    # Create MCP game solvers
+    solver = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
+        init.game_structure.game,
+        init.horizon,
+        blocksizes(init.game_parameters, 1)
+    )
+
+    baseline_solver = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
+        baseline_init.game_structure.game,
+        baseline_init.horizon,
+        blocksizes(baseline_init.game_parameters, 1)
+    )
+
+    # Storage for results
+    method_goal_errors = zeros(num_trials, total_horizon - 2*planning_horizon + 1)
+    baseline_goal_errors = zeros(num_trials, total_horizon - 2*planning_horizon + 1)
+    method_player_errors = zeros(num_trials, total_horizon - 2*planning_horizon + 1, length(tracks))
+    baseline_player_errors = zeros(num_trials, total_horizon - 2*planning_horizon + 1, length(tracks))
+    
+    # Storage for trajectories
+    # method_trajectories = []
+    # baseline_trajectories = []
+    
+    # Get true goal positions
+    true_goals = zeros(8)  # 2 positions per player
+    for i in 1:4
+        true_goals[(i-1)*2+1] = InD_observations[end][Block(i)][1]
+        true_goals[(i-1)*2+2] = InD_observations[end][Block(i)][2]
+    end
+
+    # Run Monte Carlo trials
+    for trial in 1:num_trials
+        if verbose
+            println("Running trial ", trial, " of ", num_trials)
+        end
+        
+        # Add noise to observations
+        noisy_observations = map(InD_observations) do obs
+            BlockVector(init.observation_model(obs, σ=noise_level),
+                [Int64(state_dim(init.game_structure.game.dynamics) ÷ num_players(init.game_structure.game)) 
+                for _ in 1:num_players(init.game_structure.game)])
+        end
+
+        # # Storage for this trial's trajectories
+        # trial_method_trajectory = []
+        # trial_baseline_trajectory = []
+        # last_sol = nothing
+        # baseline_last_sol = nothing
+
+        # Run receding horizon for each time step
+        for t in planning_horizon:total_horizon-planning_horizon
+            rh_observations = noisy_observations[t-planning_horizon+1:t]
+            
+            # Solve with new method
+            inverse_rh = InverseGameDiscountFactor.solve_myopic_inverse_game(
+                solver.mcp_game,
+                rh_observations,
+                init.observation_model,
+                blocksizes(init.game_parameters, 1);
+                initial_state = rh_observations[1],
+                hidden_state_guess = init.game_parameters,
+                max_grad_steps = 200,
+                verbose = false,
+                dynamics = dynamics,
+                use_warm_start = false,
+                use_adaptive_step_size = true,
+                max_adaptive_attempts = 5,
+                adaptive_step_size_reduction = 0.5,
+                min_adaptive_step_size = 0.01
+            )
+
+            # Solve with baseline method
+            baseline_inverse_rh = InverseGameDiscountFactor.solve_myopic_inverse_game(
+                baseline_solver.mcp_game,
+                rh_observations,
+                baseline_init.observation_model,
+                blocksizes(baseline_init.game_parameters, 1);
+                initial_state = rh_observations[1],
+                hidden_state_guess = baseline_init.game_parameters,
+                max_grad_steps = 200,
+                verbose = false,
+                dynamics = dynamics,
+                use_warm_start = false,
+                use_adaptive_step_size = true,
+                max_adaptive_attempts = 5,
+                adaptive_step_size_reduction = 0.5,
+                min_adaptive_step_size = 0.01
+            )
+            # # println("inverse params: ", round.(inverse_rh.recovered_params; digits = 4))
+            # for i in 1:8:length(inverse_rh.recovered_params)
+            #     println(round.(inverse_rh.recovered_params[i:i+7]; digits = 4))
+            # end
+            # # println("baseline params: ", round.(baseline_inverse_rh.recovered_params; digits = 4))
+            # for i in 1:7:length(baseline_inverse_rh.recovered_params)
+            #     println(round.(baseline_inverse_rh.recovered_params[i:i+6]; digits = 4))
+            # end
+
+            # Extract goal positions from recovered parameters
+            method_goals = zeros(8)
+            baseline_goals = zeros(8)
+            
+            for i in 1:4
+                method_goals[(i-1)*2+1] = inverse_rh.recovered_params[(i-1)*8+1]
+                method_goals[(i-1)*2+2] = inverse_rh.recovered_params[(i-1)*8+2]
+                baseline_goals[(i-1)*2+1] = baseline_inverse_rh.recovered_params[(i-1)*7+1]
+                baseline_goals[(i-1)*2+2] = baseline_inverse_rh.recovered_params[(i-1)*7+2]
+                
+                # Calculate per-player errors
+                method_player_errors[trial, t-planning_horizon+1, i] = norm(method_goals[(i-1)*2+1:i*2] - true_goals[(i-1)*2+1:i*2])
+                baseline_player_errors[trial, t-planning_horizon+1, i] = norm(baseline_goals[(i-1)*2+1:i*2] - true_goals[(i-1)*2+1:i*2])
+            end
+
+            # Calculate total goal position errors
+            method_goal_errors[trial, t-planning_horizon+1] = norm(method_goals - true_goals)
+            baseline_goal_errors[trial, t-planning_horizon+1] = norm(baseline_goals - true_goals)
+
+        #     i = 0
+        #     converged = false
+        #     sol = nothing
+        #     spotv1 = BlockVector(rh_observations[end], [4 for _ in 1:length(tracks)])
+        #     spotv2 = t != planning_horizon ? BlockVector(trial_method_trajectory[end], [4 for _ in 1:length(tracks)]) : BlockVector(inverse_rh.recovered_trajectory[Block(planning_horizon)], [4 for _ in 1:length(tracks)])
+        #     println("spotv1: ", spotv1)
+        #     println("spotv2: ", spotv2)
+        #     println("spot v diff norm: ", norm(spotv1 - spotv2))
+        #     println("solving for plan ", t)
+        #     spot = spotv1
+        #     while (!converged && i < 5)
+        #         sol = InverseGameDiscountFactor.solve_mcp_game(solver.mcp_game, spot, inverse_rh.recovered_params;)
+        #         last_sol = sol
+        #         i += 1
+        #         converged = sol.status == PATHSolver.MCP_Solved
+        #     end
+        #     println("solved for plan ", t)
+
+        #     i = 0
+        #     converged = false
+        #     baseline_sol = nothing
+        #     println("solving for baseline plan ", t)
+        #     while (!converged && i < 5)
+        #         baseline_sol = InverseGameDiscountFactor.solve_mcp_game(baseline_solver.mcp_game, spot, baseline_inverse_rh.recovered_params;)
+        #         baseline_last_sol = baseline_sol
+        #         i += 1
+        #         converged = baseline_sol.status == PATHSolver.MCP_Solved
+        #     end
+        #     println("solved for baseline plan ", t)
+
+        #     # Reconstruct solutions
+        #     method_plan = InverseGameDiscountFactor.reconstruct_solution(
+        #         sol, 
+        #         init.game_structure.game, 
+        #         init.horizon
+        #     )
+
+        #     baseline_plan = InverseGameDiscountFactor.reconstruct_solution(
+        #         baseline_sol, 
+        #         baseline_init.game_structure.game, 
+        #         baseline_init.horizon
+        #     )
+
+        #     open("monte_carlo_rh_plan_trial_$(trial)_t_$(t).txt", "w") do f
+        #         write(f, "Method Plan:\n")
+        #         for state in deepcopy(method_plan.blocks)
+        #             for i in 1:length(tracks)
+        #                 write(f, string(round.(state[(i-1)*4 + 1:i*4]; digits = 4)), "\n")
+        #             end
+        #             write(f, "--------------------------------\n")
+        #         end
+        #         write(f, "\nBaseline Plan:\n")
+        #         for state in deepcopy(baseline_plan.blocks)
+        #             for i in 1:length(tracks)
+        #                 write(f, string(round.(state[(i-1)*4 + 1:i*4]; digits = 4)), "\n")
+        #             end
+        #             write(f, "--------------------------------\n")
+        #         end
+        #     end
+
+        #     if t == total_horizon-planning_horizon+1
+        #         push!(trial_method_trajectory, deepcopy(method_plan))
+        #     else
+        #         if t == planning_horizon
+        #             push!(trial_method_trajectory, deepcopy(inverse_rh.recovered_trajectory))
+        #         end
+        #         push!(trial_method_trajectory, deepcopy(method_plan.blocks[1]))
+        #     end
+
+        #     ExperimentGraphingUtils.graph_trajectories(
+        #         "./graphs/plan_method_vs_baseline_trial_$(trial)_t_$(t)",
+        #         [InD_observations, method_plan, baseline_plan],
+        #         init.game_structure,
+        #         init.horizon;
+        #         colors = [
+        #             [(:red, 0.0), (:blue, 0.0), (:green, 0.0), (:purple, 0.0)],
+        #             [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)],
+        #             [(:red, 0.5), (:blue, 0.5), (:green, 0.5), (:purple, 0.5)]
+        #         ],
+        #         constraints = init.environment === nothing ? nothing : get_constraints(init.environment),
+        #         p_state_dim = 4
+        #     )
+
+        #     ExperimentGraphingUtils.graph_trajectories(
+        #         "./graphs/plan_method_trial_$(trial)_t_$(t)",
+        #         [InD_observations, method_plan],
+        #         init.game_structure,
+        #         init.horizon;
+        #         colors = [
+        #             [(:red, 0.0), (:blue, 0.0), (:green, 0.0), (:purple, 0.0)],
+        #             [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)],
+        #         ],
+        #         constraints = init.environment === nothing ? nothing : get_constraints(init.environment),
+        #         p_state_dim = 4
+        #     )
+
+        #     # Graph baseline receding horizon plans
+        #     ExperimentGraphingUtils.graph_trajectories(
+        #         "./graphs/baseline_rh_plan_trial_$(trial)_t_$(t)",
+        #         [InD_observations, baseline_plan],
+        #         baseline_init.game_structure,
+        #         baseline_init.horizon;
+        #         colors = [
+        #             [(:red, 0.3), (:blue, 0.3), (:green, 0.3), (:purple, 0.3)],
+        #             [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)]
+        #         ],
+        #         constraints = baseline_init.environment === nothing ? nothing : get_constraints(baseline_init.environment),
+        #         p_state_dim = 4
+        #     )
+
+        end
+
+        # # Store complete trajectories for this trial
+        # method_trajectory = BlockVector(vcat(trial_method_trajectory...), [16 for _ in 1:(total_horizon-(planning_horizon-1))])
+        # push!(method_trajectories, method_trajectory)
+
+        # ExperimentGraphingUtils.graph_trajectories(
+        #     "./graphs/method_vs_obs_trial_$(trial)",
+        #     [InD_observations, method_trajectory],
+        #     init.game_structure,
+        #     total_horizon-(planning_horizon-1);
+        #     colors = [
+        #         [(:red, 0.7), (:blue, 0.7), (:green, 0.7), (:purple, 0.7)],
+        #         [(:red, 1.0), (:blue, 1.0), (:green, 1.0), (:purple, 1.0)]
+        #     ],
+        #     constraints = init.environment === nothing ? nothing : get_constraints(init.environment),
+        #     p_state_dim = 4
+        # )
+    end
+
+    # Save results
+    # open("monte_carlo_rh_results.txt", "w") do f
+    #     write(f, "Method Goal Errors:\n")
+    #     for trial in 1:num_trials
+    #         write(f, "Trial $trial: ")
+    #         write(f, string(round.(method_goal_errors[trial,:]; digits=4)), "\n")
+    #     end
+    #     write(f, "\nBaseline Goal Errors:\n")
+    #     for trial in 1:num_trials
+    #         write(f, "Trial $trial: ")
+    #         write(f, string(round.(baseline_goal_errors[trial,:]; digits=4)), "\n")
+    #     end
+    #     write(f, "\nMethod Player Errors:\n")
+    #     for trial in 1:num_trials
+    #         write(f, "Trial $trial:\n")
+    #         for player in 1:length(tracks)
+    #             write(f, "  Player $player: ")
+    #             write(f, string(round.(method_player_errors[trial,:,player]; digits=4)), "\n")
+    #         end
+    #     end
+    #     write(f, "\nBaseline Player Errors:\n")
+    #     for trial in 1:num_trials
+    #         write(f, "Trial $trial:\n")
+    #         for player in 1:length(tracks)
+    #             write(f, "  Player $player: ")
+    #             write(f, string(round.(baseline_player_errors[trial,:,player]; digits=4)), "\n")
+    #         end
+    #     end
+    # end
+
+    # for trial in 1:num_trials
+    #     open("monte_carlo_trajectory_trial_$(trial).txt", "w") do f
+    #         for state in method_trajectories[trial].blocks
+    #             for i in 1:length(tracks)
+    #                 write(f, string(round.(state[(i-1)*4 + 1:i*4]; digits = 4)), "\n")
+    #             end
+    #             write(f, "--------------------------------\n")
+    #         end
+    #     end
+    # end
+
+    method_mean = mean(method_goal_errors, dims=1)
+    method_std = std(method_goal_errors, dims=1)
+    baseline_mean = mean(baseline_goal_errors, dims=1)
+    baseline_std = std(baseline_goal_errors, dims=1)
+
+    println("\nResults Summary:")
+    println("Time Step | Method Mean ± Std | Baseline Mean ± Std")
+    println("------------------------------------------------")
+    for t in 1:size(method_goal_errors, 2)
+        println("$t | $(round(method_mean[t], digits=4)) ± $(round(method_std[t], digits=4)) | $(round(baseline_mean[t], digits=4)) ± $(round(baseline_std[t], digits=4))")
+    end
+
+    ExperimentGraphingUtils.plot_monte_carlo_goal_errors(method_goal_errors, baseline_goal_errors, method_player_errors, baseline_player_errors)
+
+    return method_goal_errors, baseline_goal_errors, method_player_errors, baseline_player_errors
 end
 
 end

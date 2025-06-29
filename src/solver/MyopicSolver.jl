@@ -77,7 +77,13 @@ function solve_myopic_inverse_game(
                 #         vcat([ForwardDiff.value.(last_solution.primals[i][(t-1)*state_size + 1: t*state_size]) for i in 1:num_players(mcp_game.game)]...)
                 # end
                 inv_sol = reconstruct_solution(sol, mcp_game.game, total_horizon)
-                sol_error = norm_sqr(vcat(inv_sol...) - vcat(observed_trajectory...))
+                
+                # Apply observation model to reconstructed solution to match observed_trajectory structure
+                observed_inv_sol = map(blocks(inv_sol)) do state_t
+                    observation_model(state_t)
+                end
+                
+                sol_error = norm_sqr(vcat(observed_inv_sol...) - vcat(observed_trajectory...))
 
 
                 return (;

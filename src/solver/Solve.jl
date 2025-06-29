@@ -26,6 +26,8 @@ function solve_mcp_game(
         cbd, sd, dummy_strategy, offset, nothing, nothing, nothing
     end
 
+    num_successful_solves = 0
+
     z = ChainRulesCore.ignore_derivatives() do
         #initial guess
         if !isnothing(initial_guess)
@@ -63,6 +65,9 @@ function solve_mcp_game(
                 info = info_
             end
         end
+        if status == PATHSolver.MCP_Solved
+            num_successful_solves += 1
+        end
         ChainRulesCore.ignore_derivatives() do
             @info "time step: $i, $status"
         end
@@ -94,7 +99,8 @@ function solve_mcp_game(
     primals = map(1:num_players(game)) do ii
         vcat(vcat(final_primals_xs[ii]...), vcat(final_primals_us[ii]...))
     end
-    (; primals, variables, status, info)
+    success_ratio = total_horizon > 0 ? num_successful_solves / total_horizon : 1.0
+    (; primals, variables, status, info, success_ratio)
 end
 
 function TrajectoryGamesBase.solve_trajectory_game!(
