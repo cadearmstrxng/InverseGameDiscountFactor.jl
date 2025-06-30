@@ -3,7 +3,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.12
+  - python=3.11
   - pip
   - ipykernel
   - numpy
@@ -21,4 +21,7 @@ dependencies:
     - black
     - flake8
     - mypy
-    - ipython 
+    - ipython
+    - tensorflow>=2.11.0
+    - jax>=0.4.6
+    - git+https://github.com/waymo-research/waymax.git@main#egg=waymo-waymax 
