@@ -78,16 +78,19 @@ function solve_inverse_mcp_game(
     time_exec = 0
     grad_step_time = 0
     gradient = nothing
+    len_cse = length(context_state_estimation)
+    bs_cse = blocksizes(context_state_estimation)[1]
+    bs_is = blocksizes(initial_state)[1]
     for i in 1:max_grad_steps
         i_ = i
         
         # FORWARD diff
         # try
             grad_step_time = @elapsed gradient = Zygote.gradient(τs_observed, context_state_estimation, initial_state) do τs_observed, context_state_estimation, initial_state
-                Zygote.forwarddiff([context_state_estimation; initial_state]; chunk_threshold = length(context_state_estimation) + length(initial_state)) do θ
-                    context_state_estimation = BlockVector(θ[1:length(context_state_estimation)], blocksizes(context_state_estimation)[1])
-                    initial_state = BlockVector(θ[(length(context_state_estimation) + 1):end], blocksizes(initial_state)[1])
-                    likelihood_cost(τs_observed, context_state_estimation, initial_state)
+                Zygote.forwarddiff([context_state_estimation; initial_state]; chunk_threshold = len_cse + length(initial_state)) do θ
+                    context_state_estimation_dual = BlockVector(@view(θ[1:len_cse]), bs_cse)
+                    initial_state_dual = BlockVector(@view(θ[(len_cse + 1):end]), bs_is)
+                    likelihood_cost(τs_observed, context_state_estimation_dual, initial_state_dual)
                 end
             end
         # catch e
