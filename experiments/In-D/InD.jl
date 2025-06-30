@@ -20,7 +20,7 @@ using InverseGameDiscountFactor
 include("Environment.jl")
 
 export run_bicycle_sim
-function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
+function run_bicycle_sim(;full_state=false, graph=true, verbose = true)
 
     # InD_observations = GameUtils.observe_trajectory(forward_solution, init)
     frames = [26158, 26320] # 162
@@ -29,24 +29,26 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
     # 207,26098,26320
     # 208,26158,26381,
     tracks = [201, 205, 207, 208]
-    downsample_rate = 9
+    downsample_rate = 6
+    rng = MersenneTwister(1234)
+    Random.seed!(rng)
+
     InD_observations = GameUtils.pull_trajectory("07";
         track = tracks, downsample_rate = downsample_rate, all = false, frames = frames)
-    open("InD_observations.tmp.txt", "w") do f
-        for i in eachindex(InD_observations)
-            write(f, string(round.(InD_observations[i]; digits = 4)), "\n")
-        end
-    end
+    
+    first_full_observation = InD_observations[1]
+    
     trk_201_lane_center(x) = 0.0  # Placeholder if no coefficients provided
     trk_205_lane_center(x) = 0.0  # Placeholder if no coefficients provided
 
     # 6th degree polynomial for track 207
-    trk_207_lane_center(x) = -0.00017689424941367952*x^5 + 
-    -0.01392776676762521*x^4 + 
-    -0.38618068109105161*x^3 + 
-    -3.938661796855388*x^2 + 
-    1.9163167828141503*x + 
-    252.1918028422481
+    trk_207_lane_center(x) = -6.535465682649165e-04*x^6 + 
+                            -0.069559792458210*x^5 + 
+                            -3.033950160533982*x^4 + 
+                            -69.369975733866840*x^3 + 
+                            -8.760325006936075e+02*x^2 + 
+                            -5.782944928944775e+03*x + 
+                            -1.547509969706588e+04
 
     # Linear function for track 208
     trk_208_lane_center(x) = 8.304049624037807*x + 1.866183521575921e+02
@@ -60,13 +62,13 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
         control_bounds = (; lb = [-5, -pi/4], ub = [5, pi/4]),
         integration_scheme = :forward_euler
     )
-
+    total_horizon = length(frames[1]:downsample_rate:frames[2])
     init = GameUtils.init_bicycle_test_game(
         full_state;
-        initial_state = InD_observations[1],
+        initial_state = first_full_observation,
         game_params = mortar([
-            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0, 5.0] for i in 1:length(tracks)]...]),
-        horizon = length(frames[1]:downsample_rate:frames[2]),
+            [[InD_observations[end][Block(i)][1:2]..., 1.0, 1.0, 1.0, 1.0, 1.0, 10.0] for i in 1:length(tracks)]...]),
+        horizon = total_horizon,
         n = length(tracks),
         dt = 0.04*downsample_rate,
         myopic=true,
@@ -81,8 +83,12 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
     !verbose || println("observation model: ", init.observation_model)
     !verbose || println("observation dim: ", init.observation_dim)
     
-    InD_observations = (full_state) ? InD_observations : [BlockVector(GameUtils.observe_trajectory(InD_observations[t], init;blocked_by_time = false),
-        [init.observation_dim for _ in 1:length(tracks)]) for t in 1:init.horizon]
+    InD_observations = full_state ? 
+        InD_observations :
+        [BlockVector(
+            mapreduce(x -> x[1:2], vcat, observation.blocks),
+            [2 for _ in 1:length(tracks)]) 
+        for observation in InD_observations]
     
     !verbose || println("game initialized\ninitializing mcp coupled optimization solver")
     mcp_solver = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
@@ -103,9 +109,10 @@ function run_bicycle_sim(;full_state=true, graph=true, verbose = true)
         initial_state = init.initial_state,
         hidden_state_guess = init.game_parameters,
         max_grad_steps = 200,
-        retries_on_divergence = 3,
         verbose = verbose,
         dynamics = dynamics,
+        total_horizon = total_horizon,
+        lr = 1e-4,
     )
     !verbose || println("finished inverse game")
     !verbose || println("recovered pararms: ", method_sol.recovered_params)

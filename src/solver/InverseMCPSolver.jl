@@ -9,7 +9,7 @@ function solve_inverse_mcp_game(
     lr = 1e-5, 
     last_solution = nothing, 
     discount_threshold = 1e-4,
-    use_adaptive_lr = false,
+    use_adaptive_lr = true,
     lr_reduction_factor = 0.5,
     lr_increase_factor = 1.1,
     min_lr = 1e-7,
@@ -43,7 +43,7 @@ function solve_inverse_mcp_game(
             last_solution_ref[] = (; primals = ForwardDiff.value.(solution.primals),
                 variables = ForwardDiff.value.(solution.variables), status = solution.status)
             push!(all_trajectories, ForwardDiff.value.(deepcopy(τs_solution)))
-            println("forward game success ratio: ", solution.success_ratio)
+            # println("forward game success ratio: ", solution.success_ratio)
         
             was_successful[] = solution.success_ratio >= 0.9
         

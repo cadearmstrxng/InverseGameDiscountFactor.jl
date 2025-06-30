@@ -208,7 +208,6 @@ function init_crosswalk_game(
         min_distance = 0.5,
         collision_avoidance_coefficient = 5.0,
         myopic = myopic, # TODO don't love
-        dynamics = dynamics
     )
     if full_state
         observation_dim = 4
