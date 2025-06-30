@@ -1,0 +1,24 @@
+name: inverse-game-discount-factor
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - pip
+  - ipykernel
+  - numpy
+  - scipy
+  - matplotlib
+  - pandas
+  - seaborn
+  - pip:
+    - julia
+    - pyjulia
+    - plotly
+    - scikit-learn
+    - tqdm
+    - pytest
+    - black
+    - flake8
+    - mypy
+    - ipython 
