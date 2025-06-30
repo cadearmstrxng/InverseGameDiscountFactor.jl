@@ -110,7 +110,8 @@ function solve_mcp_game(
     initial_guess = nothing,
     verbose = false,
     lr = 1e-3,
-    total_horizon = 10
+    total_horizon = 10,
+    maxiter = 100_000
 )
     (; game, parametric_mcp, index_sets, horizon) = mcp_game
     (; dynamics) = game
@@ -146,7 +147,7 @@ function solve_mcp_game(
         θ;
         initial_guess = z,
         verbose,
-        cumulative_iteration_limit = 100_000,
+        cumulative_iteration_limit = maxiter,
         convergence_tolerance = 1e-3
     ) 
     if status != PATHSolver.MCP_Solved
