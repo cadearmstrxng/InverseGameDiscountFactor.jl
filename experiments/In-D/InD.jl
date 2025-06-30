@@ -40,15 +40,11 @@ function run_bicycle_sim(;full_state=false, graph=true, verbose = true)
     
     trk_201_lane_center(x) = 0.0  # Placeholder if no coefficients provided
     trk_205_lane_center(x) = 0.0  # Placeholder if no coefficients provided
-
-    # 6th degree polynomial for track 207
-    trk_207_lane_center(x) = -6.535465682649165e-04*x^6 + 
-                            -0.069559792458210*x^5 + 
-                            -3.033950160533982*x^4 + 
-                            -69.369975733866840*x^3 + 
-                            -8.760325006936075e+02*x^2 + 
-                            -5.782944928944775e+03*x + 
-                            -1.547509969706588e+04
+    trk_207_lane_center(x) = 0.002435612807751*x^4 +
+        0.212982977467914*x^3 +
+        6.943601944356569*x^2 +
+        1.002666455897435e+02*x +
+        6.072095511007267e+02
 
     # Linear function for track 208
     trk_208_lane_center(x) = 8.304049624037807*x + 1.866183521575921e+02
@@ -206,13 +202,11 @@ function compare_to_baseline(;full_state=false, graph=true, verbose = true)
     # Lane center functions - using same as compare_noise_levels
     trk_201_lane_center(x) = 0.0
     trk_205_lane_center(x) = 0.0
-    trk_207_lane_center(x) = -6.535465682649165e-04*x^6 + 
-                            -0.069559792458210*x^5 + 
-                            -3.033950160533982*x^4 + 
-                            -69.369975733866840*x^3 + 
-                            -8.760325006936075e+02*x^2 + 
-                            -5.782944928944775e+03*x + 
-                            -1.547509969706588e+04
+    trk_207_lane_center(x) = 0.002435612807751*x^4 +
+        0.212982977467914*x^3 +
+        6.943601944356569*x^2 +
+        1.002666455897435e+02*x +
+        6.072095511007267e+02
     trk_208_lane_center(x) = 8.304049624037807*x + 1.866183521575921e+02
     lane_centers = [trk_201_lane_center, trk_205_lane_center, trk_207_lane_center, trk_208_lane_center]
     
@@ -379,13 +373,11 @@ function compare_noise_levels(;full_state=true, noise_levels=[0.0, 0.01, 0.05, 0
     # Lane center functions
     trk_201_lane_center(x) = 0.0
     trk_205_lane_center(x) = 0.0
-    trk_207_lane_center(x) = -6.535465682649165e-04*x^6 + 
-                            -0.069559792458210*x^5 + 
-                            -3.033950160533982*x^4 + 
-                            -69.369975733866840*x^3 + 
-                            -8.760325006936075e+02*x^2 + 
-                            -5.782944928944775e+03*x + 
-                            -1.547509969706588e+04
+    trk_207_lane_center(x) = 0.002435612807751*x^4 +
+        0.212982977467914*x^3 +
+        6.943601944356569*x^2 +
+        1.002666455897435e+02*x +
+        6.072095511007267e+02
     trk_208_lane_center(x) = 8.304049624037807*x + 1.866183521575921e+02
     
     lane_centers = [trk_201_lane_center, trk_205_lane_center, trk_207_lane_center, trk_208_lane_center]
@@ -505,13 +497,11 @@ function receding_horizon_snapshots(;full_state=true, graph=true, verbose = true
     # Lane center functions
     trk_201_lane_center(x) = 0.0
     trk_205_lane_center(x) = 0.0
-    trk_207_lane_center(x) = -6.535465682649165e-04*x^6 + 
-                            -0.069559792458210*x^5 + 
-                            -3.033950160533982*x^4 + 
-                            -69.369975733866840*x^3 + 
-                            -8.760325006936075e+02*x^2 + 
-                            -5.782944928944775e+03*x + 
-                            -1.547509969706588e+04
+    trk_207_lane_center(x) = 0.002435612807751*x^4 +
+        0.212982977467914*x^3 +
+        6.943601944356569*x^2 +
+        1.002666455897435e+02*x +
+        6.072095511007267e+02
     trk_208_lane_center(x) = 8.304049624037807*x + 1.866183521575921e+02
     
     lane_centers = [trk_201_lane_center, trk_205_lane_center, trk_207_lane_center, trk_208_lane_center]
