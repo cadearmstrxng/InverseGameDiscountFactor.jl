@@ -29,9 +29,7 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl", 
             controlled_object=_config.ObjectType.SDC,
         ),
     )
-
-
-    # Setup a few actors, see visualization below for how each actor behaves.
+    
 
     # An actor that doesn't move, controlling all objects with index > 4
     obj_idx = jnp.arange(scenario.object_metadata.num_objects)
