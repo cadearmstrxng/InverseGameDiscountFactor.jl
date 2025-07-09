@@ -4,9 +4,10 @@ using BlockArrays
 using TrajectoryGamesBase
 using TrajectoryGamesExamples
 using LinearAlgebra
-using Statistics: mean
-using Polynomials
+using Statistics: mean,median
+# using Polynomials
 using CairoMakie
+using Optim
 
 include("../GameUtils.jl")
 using InverseGameDiscountFactor
@@ -166,25 +167,38 @@ function get_next_action(current_state, player_params; horizon=10, dt=0.1)
     return ego_action_t1
 end
 
-function calculate_road_func(roadpoints; degree = nothing)
-    xs = map(x -> x[1], roadpoints)
-    ys = map(x -> x[2], roadpoints)
+function calculate_road_func(roadpoints; display_plot = false)
+    xs = map(p -> p[1], roadpoints)
+    ys = map(p -> p[2], roadpoints)
 
+    model(x, p) = p[1] * exp(p[2] * (x - p[3])) + p[4]
     
-    if isnothing(degree)
-        CairoMakie.activate!()
-        fig = Figure()
-        ax = Axis(fig[1, 1])
-        scatter!(ax, xs, ys)
-        for n in 1:6
-            p = fit(Polynomial, xs, ys, n)
-            lines!(ax, xs, p.(xs))
+    loss(p) = sum((model.(xs, Ref(p)) .- ys).^2)
+
+    p0 = [-1.0, 1.0, median(xs), median(ys)]
+
+    try
+        result = optimize(loss, p0, LBFGS())
+        best_params = Optim.minimizer(result)
+        println("Fit complete. Best parameters [c1, c2, c3]: ", best_params)
+
+        if display_plot
+            CairoMakie.activate!()
+            fig = Figure()
+            ax = Axis(fig[1, 1], aspect = DataAspect(), xlabel="x", ylabel="y", title="Exponential Fit with Optim.jl: y = c1*e^(c2*x) + c3")
+            
+            scatter!(ax, xs, ys, label="Data", markersize=4)
+            
+            x_smooth = range(minimum(xs), stop=maximum(xs), length=500)
+            y_fit = model.(x_smooth, Ref(best_params))
+            lines!(ax, x_smooth, y_fit, label="Fitted Curve", color=:red, linewidth=2)
+            
+            display(fig)
         end
-        display(fig)
-    else
-        p = fit(Polynomial, xs, ys, degree)
-        return p
-    end   
+        return model, best_params
+    catch e
+        println("An error occurred during fitting: ", e)
+    end
 end
 
 function pull_roadpoints(filename)
@@ -197,4 +211,11 @@ function pull_roadpoints(filename)
     return roadpoints
 end
 
+function get_ego_road_func()
+    filename = "experiments/waymax/data/roadgraph_points.txt"
+    roadpoints = pull_roadpoints(filename)
+    model, params = calculate_road_func(roadpoints)
+    params[4] -= 2 # shift down a bit to help visual similarity
+    return x -> model(x, Ref(params))
+end
 end 
