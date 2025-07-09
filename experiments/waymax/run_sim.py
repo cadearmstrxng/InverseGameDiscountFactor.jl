@@ -5,7 +5,7 @@ import mediapy
 from tqdm import tqdm
 import dataclasses
 import pickle
-
+import os
 from waymax import config as _config
 from waymax import dataloader
 from waymax import datatypes
@@ -29,7 +29,14 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl", 
             controlled_object=_config.ObjectType.SDC,
         ),
     )
-    
+
+    roadgraph_points_file = "experiments/waymax/data/roadgraph_points.txt"
+    if not os.path.exists(roadgraph_points_file):
+        roadgraph_points = scenario.roadgraph_points
+        valid_roadgraph_points = list(map(lambda v: v[0], filter(lambda v: v[1], zip(roadgraph_points.xy, roadgraph_points.valid))))
+        with open(roadgraph_points_file, "w") as f:
+            for point in valid_roadgraph_points:
+                f.write(f"{point[0]} {point[1]}\n")
 
     # An actor that doesn't move, controlling all objects with index > 4
     obj_idx = jnp.arange(scenario.object_metadata.num_objects)
