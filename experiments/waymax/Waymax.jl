@@ -5,12 +5,14 @@ using TrajectoryGamesBase
 using TrajectoryGamesExamples
 using LinearAlgebra
 using Statistics: mean
+using Polynomials
+using CairoMakie
 
 include("../GameUtils.jl")
 using InverseGameDiscountFactor
-include("../../src/solver/ProblemFormulation.jl")
-include("../../src/solver/Solve.jl")
-include("../../src/solver/MyopicSolver.jl")
+# include("../../src/solver/ProblemFormulation.jl")
+# include("../../src/solver/Solve.jl")
+# include("../../src/solver/MyopicSolver.jl")
 
 export get_next_action, waymax_game, get_next_action_inverse
 
@@ -162,6 +164,37 @@ function get_next_action(current_state, player_params; horizon=10, dt=0.1)
     ego_action_t1 = primals[start_idx:end_idx]
 
     return ego_action_t1
+end
+
+function calculate_road_func(roadpoints; degree = nothing)
+    xs = map(x -> x[1], roadpoints)
+    ys = map(x -> x[2], roadpoints)
+
+    
+    if isnothing(degree)
+        CairoMakie.activate!()
+        fig = Figure()
+        ax = Axis(fig[1, 1])
+        scatter!(ax, xs, ys)
+        for n in 1:6
+            p = fit(Polynomial, xs, ys, n)
+            lines!(ax, xs, p.(xs))
+        end
+        display(fig)
+    else
+        p = fit(Polynomial, xs, ys, degree)
+        return p
+    end   
+end
+
+function pull_roadpoints(filename)
+    data = readlines(filename)
+    roadpoints = []
+    for line in data
+        x, y = split(line, " ")
+        push!(roadpoints, [parse(Float64, x), parse(Float64, y)])
+    end
+    return roadpoints
 end
 
 end 
