@@ -24,25 +24,22 @@ using TrajectoryGamesBase:
     ProductDynamics,
     GeneralSumCostStructure,
     TrajectoryGameCost
-using LiftedTrajectoryGames: LiftedTrajectoryStrategy
 using BlockArrays: Block, BlockVector, mortar, blocksizes, blocksize
 using SparseArrays: findnz
 using PATHSolver: PATHSolver
 using LinearAlgebra: I, norm_sqr, norm
 using Random: Random
-using CairoMakie
 using Symbolics: Symbolics, @variables, scalarize
 using ChainRulesCore: ChainRulesCore
 using ForwardDiff: ForwardDiff
 using Zygote: Zygote
 using ParametricMCPs: ParametricMCPs
 using Statistics
-using Plots: Plots
 
 # include("utils/ExampleProblems.jl")
 # using .ExampleProblems: n_player_collision_avoidance, CollisionAvoidanceGame
 
-include("../experiments/In-D/Environment.jl")
+# include("../experiments/In-D/Environment.jl")
 
 include("utils/Utils.jl")
 
@@ -62,8 +59,8 @@ include("solver/WarmStart.jl")
 include("solver/MyopicSolver.jl")
 export solve_myopic_inverse_game
 
-include("graphing/GraphingUtilities.jl")
-export generate_front_page_figure, generate_partial_state_graphs
+# include("graphing/GraphingUtilities.jl")
+# export generate_front_page_figure, generate_partial_state_graphs
 
 
 # function main(;

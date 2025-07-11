@@ -178,6 +178,59 @@ function InD_collision_avoidance(
     )
     CollisionAvoidanceGame(game)
 
+end
+
+function Waymax_collision_avoidance(
+    num_players,
+    lane_centers;
+    environment,
+    min_distance = 1.0, # context state 5
+    collision_avoidance_coefficient = 20.0,
+    dynamics = nothing,
+    myopic = true)
+
+    cost = let
+        function target_cost(x, context_state, t)
+            (myopic ? context_state[3] ^ t : 1) * norm_sqr(x[1:2] - context_state[1:2])
+        end
+        function control_cost(u, context_state, t)
+            norm_sqr(u) * (myopic ? context_state[3] ^ t : 1)
+        end
+        function lane_center_cost(x, i, context_state, t)
+            (myopic ? context_state[3] ^ t : 1) * norm_sqr(x[2] - lane_centers[i](x[1]))
+        end
+        function collision_cost(x, i, context_state, t)
+            cost = [(1/(1+exp(10 * (norm(x[Block(i)][1:2] - x[Block(paired_player)][1:2]) - context_state[4])))) for paired_player in [1:(i - 1); (i + 1):num_players]]
+            sum(cost)
+        end
+        function cost_for_player(i, xs, us, context_state, T)
+            mean_target = mean([target_cost(xs[t + 1][Block(i)], context_state[Block(i)], t) for t in 1:T])
+            control = mean([control_cost(us[t][Block(i)], context_state[Block(i)], t) for t in 1:T])
+            safe_distance_violation = mean([collision_cost(xs[t], i, context_state[Block(i)], t) for t in 1:T])
+            lane_center = mean([lane_center_cost(xs[t+1][Block(i)], i, context_state[Block(i)], t) for t in 1:T])
+
+            context_state[Block(i)][myopic ? 5 : 4] * mean_target + 
+            context_state[Block(i)][myopic ? 6 : 5] * control +
+            context_state[Block(i)][myopic ? 7 : 6] * safe_distance_violation +
+            (context_state[Block(i)][myopic ? 8 : 7] * lane_center : 0.0)
+
+        end
+        function cost_function(xs, us, context_state)
+            num_players = blocksize(xs[1], 1)
+            T = size(us,1)
+            [cost_for_player(i, xs, us, context_state, T) for i in 1:num_players]
+        end
+        TrajectoryGameCost(cost_function, GeneralSumCostStructure())
+    end
+    dynamics = ProductDynamics([dynamics for _ in 1:num_players])
+    game = TrajectoryGame(
+        dynamics,
+        cost,
+        environment,
+        # shared_collision_avoidance_coupling_constraints(num_players, min_distance),
+        nothing
+    )
+    CollisionAvoidanceGame(game)
 
 end
 
@@ -226,6 +279,68 @@ function init_crosswalk_game(
                     for i in 1:num_players ]...
             )
     end
+
+    (;
+    initial_state = initial_state,
+    game_parameters = game_params,
+    environment = game_environment,
+    observation_model = observation_model,
+    observation_dim = observation_dim,
+    horizon = horizon,
+    state_dim = state_dim,
+    action_dim = action_dim,
+    σ = σ_,
+    game_structure = game_structure,
+    )
+end
+
+function init_waymax_test_game(;
+    state_dim = (4, 4, 4, 4),
+    action_dim = (2, 2, 2, 2),
+    σ_ = 0.0,
+    game_environment = nothing, 
+    initial_state = mortar([
+        [0, 2, 0.2236, 2*pi-1.10715], # initial x, y, initial velocity magnitude, heading angle (player 1)
+        [2.5, 2, 0.0, 0.0],# player 2
+        [2.5, 0, 0.0, 0.0] # player 3
+    ]),
+    game_params = mortar([
+        [0.0, 0.0, 0.6, 1.0], # target x,y, discount, min_dist
+        [0.0, 0.0, 0.6, 1.0],
+        [0.0, 0.0, 0.6, 1.0]
+    ]),
+    horizon = 10,
+    n = 4,
+    dt = 0.04,
+    myopic = false,
+    verbose = false,
+    lane_centers = nothing,
+    dynamics = nothing,
+)
+    !verbose || print("initializing game ... ")
+    game_structure = Waymax_collision_avoidance(
+        n,
+        lane_centers; # lane centers
+        environment = game_environment,
+        min_distance = 0.5,
+        collision_avoidance_coefficient = 5.0,
+        myopic = myopic,
+        dynamics = dynamics
+    )
+    !verbose || print(" game structure initialized\n")
+    
+    observation_dim = state_dim[1]
+    observation_model = 
+        (x; σ = σ_) -> 
+        BlockVector(
+            vcat(
+                [ x[state_dim[1] * (i - 1)+1:state_dim[1]*i] .+ σ * randn(state_dim[1])
+                    for i in 1:n]...
+            ),
+            [state_dim[1] for _ in 1:n]
+        )
+    
+    !verbose || println("observation model initialized")
 
     (;
     initial_state = initial_state,

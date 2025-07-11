@@ -5,51 +5,56 @@ using TrajectoryGamesBase
 using TrajectoryGamesExamples
 using LinearAlgebra
 using Statistics: mean,median
-# using Polynomials
+using Random
 using CairoMakie
 using Optim
 
 include("../GameUtils.jl")
 using InverseGameDiscountFactor
-# include("../../src/solver/ProblemFormulation.jl")
-# include("../../src/solver/Solve.jl")
-# include("../../src/solver/MyopicSolver.jl")
 
 export get_next_action, waymax_game, get_next_action_inverse
 
-function waymax_game(num_players; dynamics, myopic=true)
-    cost = let
-        function cost_for_player(i, xs, us, context_state, T)
-            target_weight = 1.0
-            control_weight = 0.1
-            collision_weight = 20.0
 
-            target_x, target_y = context_state[Block(i)][1], context_state[Block(i)][2]
-            target_cost = mean(norm_sqr(xs[t][Block(i)][1:2] - [target_x, target_y]) for t in 1:T)
-            
-            control_cost = mean(norm_sqr(us[t][Block(i)]) for t in 1:T)
+function run_waymax_sim(;full_state=false, graph=true, verbose = true)
 
-            collision_cost = 0.0
-            for j in 1:num_players
-                if i == j continue end
-                collision_cost += sum(max(0.0, 1.0 - norm(xs[t][Block(i)][1:2] - xs[t][Block(j)][1:2]))^2 for t in 1:T)
-            end
-            
-            (myopic ? context_state[Block(i)][3]^T : 1.0) * (target_weight * target_cost + control_weight * control_cost + collision_weight * collision_cost)
-        end
+    rng = MersenneTwister(1234)
+    Random.seed!(rng)
 
-        function cost_function(xs, us, context_state)
-            num_players = blocksize(xs[1], 1)
-            T = size(us, 1)
-            [cost_for_player(i, xs, us, context_state, T) for i in 1:num_players]
-        end
-        TrajectoryGameCost(cost_function, GeneralSumCostStructure())
-    end
+    # Find Lane Center Funcs
+    ego_roadgraph_idx = 3001:3340
+    agent_3_roadgraph_idx = vcat(2000:2109, 2676:2900)
+    agent_8_roadgraph_idx = [4441]
+    agent_2_roadgraph_idx = agent_8_roadgraph_idx
 
-    game_dynamics = ProductDynamics([dynamics for _ in 1:num_players])
-    environment = PolygonEnvironment(1,1)
+    roadgraph_points = pull_roadpoints("experiments/waymax/data/roadgraph_points.txt")
+    ego_roadgraph_points = roadgraph_points[ego_roadgraph_idx]
+    agent_3_roadgraph_points = roadgraph_points[agent_3_roadgraph_idx]
+    agent_8_roadgraph_points = roadgraph_points[agent_8_roadgraph_idx]
+    agent_2_roadgraph_points = roadgraph_points[agent_2_roadgraph_idx]
 
-    TrajectoryGame(game_dynamics, cost, environment, nothing)
+    ego_model, ego_params = calculate_road_func(ego_roadgraph_points)
+    ego_params[4] -= 2
+    agent_3_model, agent_3_params = calculate_road_func(agent_3_roadgraph_points)
+    agent_8_point = roadgraph_points[agent_8_roadgraph_idx][1]
+    agent_2_point = roadgraph_points[agent_2_roadgraph_idx][1]
+
+    ego_lane_center = x -> ego_model(x, Ref(ego_params))
+    agent_3_lane_center = x -> agent_3_model(x, Ref(agent_3_params))
+    agent_8_lane_center = x -> agent_8_point
+    agent_2_lane_center = x -> agent_2_point
+
+    lane_centers = [ego_lane_center, agent_3_lane_center, agent_8_lane_center, agent_2_lane_center]
+
+
+    dynamics = TrajectoryGamesExamples.BicycleDynamics(;
+        dt = 0.04*downsample_rate, # needs to become framerate
+        l = 1.0,
+        state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
+        control_bounds = (; lb = [-5, -pi/4], ub = [5, pi/4]),
+        integration_scheme = :forward_euler
+    )
+
+
 end
 
 function get_next_action_inverse(
@@ -175,10 +180,13 @@ function calculate_road_func(roadpoints; display_plot = false)
     
     loss(p) = sum((model.(xs, Ref(p)) .- ys).^2)
 
-    p0 = [-1.0, 1.0, median(xs), median(ys)]
+    p0 = [1.0, 1.0, median(xs), median(ys)]
+
+    lower = [-Inf, -100.0, -Inf, -Inf]
+    upper = [Inf, 100.0, Inf, Inf]
 
     try
-        result = optimize(loss, p0, LBFGS())
+        result = optimize(loss, lower, upper, p0, Fminbox(LBFGS()))
         best_params = Optim.minimizer(result)
         println("Fit complete. Best parameters [c1, c2, c3]: ", best_params)
 
@@ -209,13 +217,5 @@ function pull_roadpoints(filename)
         push!(roadpoints, [parse(Float64, x), parse(Float64, y)])
     end
     return roadpoints
-end
-
-function get_ego_road_func()
-    filename = "experiments/waymax/data/roadgraph_points.txt"
-    roadpoints = pull_roadpoints(filename)
-    model, params = calculate_road_func(roadpoints)
-    params[4] -= 2 # shift down a bit to help visual similarity
-    return x -> model(x, Ref(params))
 end
 end 

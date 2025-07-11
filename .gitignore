@@ -8,3 +8,6 @@ warm_start_sol.txt
 _tmp.*
 **/*.png
 **/*.gif
+flamegraph_output.txt
+.CondaPkg
+trajectory_optimization.gif
