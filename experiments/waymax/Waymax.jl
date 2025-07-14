@@ -9,7 +9,8 @@ using Random
 using CairoMakie
 using Optim
 
-include("../../src/InverseGameDiscountFactor.jl")
+# include("../../src/InverseGameDiscountFactor.jl")
+using InverseGameDiscountFactor
 
 export run_waymax_sim
 
@@ -102,7 +103,7 @@ function run_waymax_sim(;full_state=false, graph=true, verbose = true, myopic = 
         agent_states = readlines("experiments/waymax/agent_states.txt")
         agent_states = [split(line, " ") for line in agent_states]
         agent_states = [[parse(Float64, x) for x in line] for line in agent_states]
-        agent_states = [BlockArray(state, (4, 4, 4, 4)) for state in agent_states]
+        agent_states = [BlockArray(state, [4, 4, 4, 4]) for state in agent_states]
 
         initial_state = agent_states[1]
 

@@ -201,9 +201,16 @@ function MCPGame(game, horizon, context_state_block_dimensions = 0)
     end
 
     parameter_dimension = length(θ)
-    parametric_mcp =
-        ParametricMCPs.ParametricMCP(fill_F!, fill_J!, fill_J_params!, lb, ub, parameter_dimension) # no need to make these functions, just store f, z, θ, lb, ub, and parameter_dimension
-        # change this to David's package -> MixedComplementarityProblem.PrimalDualMCP (mcp.jl)
+    problem_dimension = length(z)
+    parametric_mcp = ParametricMCPs.ParametricMCP(
+        fill_F!,
+        fill_J!,
+        fill_J_params!,
+        lb,
+        ub,
+        parameter_dimension,
+        problem_dimension,
+    )
 
     MCPGame(game, parametric_mcp, index_sets, horizon)
 end

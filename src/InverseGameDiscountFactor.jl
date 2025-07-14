@@ -1,6 +1,6 @@
 module InverseGameDiscountFactor
 
-# using Infiltrator
+using Infiltrator
 
 using DifferentiableTrajectoryOptimization:
     get_constraints_from_box_bounds
