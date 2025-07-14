@@ -14,8 +14,11 @@ using InverseGameDiscountFactor
 
 export get_next_action, waymax_game, get_next_action_inverse
 
+struct CollisionAvoidanceGame
+    game::TrajectoryGame
+end
 
-function run_waymax_sim(;full_state=false, graph=true, verbose = true)
+function run_waymax_sim(;full_state=false, graph=true, verbose = true, myopic = true)
 
     rng = MersenneTwister(1234)
     Random.seed!(rng)
@@ -45,7 +48,6 @@ function run_waymax_sim(;full_state=false, graph=true, verbose = true)
 
     lane_centers = [ego_lane_center, agent_3_lane_center, agent_8_lane_center, agent_2_lane_center]
 
-
     dynamics = TrajectoryGamesExamples.BicycleDynamics(;
         dt = 0.04*downsample_rate, # needs to become framerate
         l = 1.0,
@@ -53,123 +55,93 @@ function run_waymax_sim(;full_state=false, graph=true, verbose = true)
         control_bounds = (; lb = [-5, -pi/4], ub = [5, pi/4]),
         integration_scheme = :forward_euler
     )
-
-
-end
-
-function get_next_action_inverse(
-    current_state, 
-    observed_trajectory; 
-    horizon=10, 
-    dt=0.1,
-    game_params_guess = nothing,
-    )
-    num_players = length(current_state.blocks)
-
-    dynamics = BicycleDynamics(;
-        dt = dt,
-        l = 2.8, # average car length
-        state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
-        control_bounds = (; lb = [-5, -pi/4], ub = [5, pi/4]), # a, δ
-    )
-
-    game = waymax_game(num_players; dynamics=dynamics)
     
-    # For the inverse solve, we need a guess for the parameters.
-    # If not provided, we'll create a default one.
-    if isnothing(game_params_guess)
-        # Each player has [target_x, target_y, discount_factor]
-        # We'll make each player's target their own final position in the observed trajectory.
-        final_states = observed_trajectory[end].blocks
-        game_params_guess_vec = [[fs[1], fs[2], 0.9] for fs in final_states]
-        game_params_guess = BlockVector(mortar(game_params_guess_vec), [3 for _ in 1:num_players])
+    # experiments/waymax/agent_states.txt
+    agent_states = readlines("experiments/waymax/agent_states.txt")
+    agent_states = [split(line, " ") for line in agent_states]
+    agent_states = [[parse(Float64, x) for x in line] for line in agent_states]
+    agent_states = [BlockArray(state, (4, 4, 4, 4)) for state in agent_states]
+    
+    initial_state = agent_states[1]
+    goal_init_guess = [mean(roadgraph_points), mean(roadgraph_points)]
+    if myopic
+        game_params = mortar([
+            [[goal_init_guess..., 1.0, 1.0, 1.0, 1.0, 1.0, 10.0 ] for i in 1:4]...])
+    else
+        game_params = mortar([
+            [[goal_init_guess..., 1.0, 1.0, 1.0, 1.0, 10.0 ] for i in 1:4]...])
     end
-
-    mcp_solver = MCPCoupledOptimizationSolver(game, horizon, blocksizes(game_params_guess, 1))
-
-    # We need a simple observation model that just returns the state.
-    # In this case, we assume full observability.
-    observation_model(x) = x
     
-    # Solve the inverse game to find the player parameters
-    method_sol = solve_myopic_inverse_game(
-        mcp_solver.mcp_game,
-        observed_trajectory,
-        observation_model,
-        Tuple(blocksizes(game_params_guess, 1));
-        initial_state = current_state,
-        hidden_state_guess = game_params_guess,
-        max_grad_steps = 100, # Keep it low for performance
-        verbose = false,
-        dynamics = dynamics,
-        total_horizon = horizon,
-        lr = 1e-3,
+    horizon = length(agent_states)
+
+    init = init_waymax_test_game(;
+        initial_state = initial_state,
+        game_params = game_params,
+        horizon = horizon,
+        n = 4,
+        dt = 0.04,
+        myopic = myopic,
+        verbose = verbose)
+
+    !verbose || println("initial state: ", init.initial_state)
+    !verbose || println("initial game parameters: ", init.game_parameters)
+    !verbose || println("initial horizon: ", init.horizon)
+    !verbose || println("observation model: ", init.observation_model)
+    !verbose || println("observation dim: ", init.observation_dim)
+
+    !verbose || println("game initialized\ninitializing mcp coupled optimization solver")
+    mcp_solver = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
+        init.game_structure.game,
+        init.horizon,
+        blocksizes(init.game_parameters, 1)
     )
+    !verbose || println("mcp coupled optimization solver initialized")
 
-    recovered_params = method_sol.recovered_params
+    return function get_next_action_inverse(;)
+        agent_states = readlines("experiments/waymax/agent_states.txt")
+        agent_states = [split(line, " ") for line in agent_states]
+        agent_states = [[parse(Float64, x) for x in line] for line in agent_states]
+        agent_states = [BlockArray(state, (4, 4, 4, 4)) for state in agent_states]
 
-    # Now, solve the forward game with the recovered parameters to get the action
-    forward_solution = solve_mcp_game(
-        mcp_solver.mcp_game,
-        current_state,
-        recovered_params
-    )
-    
-    primals = forward_solution.primals
-    state_dims = [state_dim(game.dynamics.subsystems[i]) for i in 1:num_players]
-    control_dims = [control_dim(game.dynamics.subsystems[i]) for i in 1:num_players]
-    control_offset = sum(state_dims)
-    
-    # Get the action for the first player (the SDC)
-    start_idx = control_offset + 1
-    end_idx = control_offset + control_dims[1]
-    
-    ego_action_t1 = primals[start_idx:end_idx]
+        initial_state = agent_states[1]
 
-    return ego_action_t1
-end
+        !verbose || println("solving inverse game")
+        method_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
+            mcp_solver.mcp_game,
+            agent_states,
+            # forward_game_observations,
+            init.observation_model,
+            Tuple(blocksizes(init.game_parameters, 1));
+            initial_state = init.initial_state,
+            hidden_state_guess = init.game_parameters,
+            max_grad_steps = 200,
+            verbose = verbose,
+            dynamics = dynamics,
+            total_horizon = horizon,
+            lr = 1e-4,
+        )
+        !verbose || println("finished inverse game")
+        !verbose || println("recovered pararms: ", method_sol.recovered_params)
 
-function get_next_action(current_state, player_params; horizon=10, dt=0.1)
-    num_players = length(current_state.blocks)
+        recovered_params = method_sol.recovered_params
 
-    dynamics = BicycleDynamics(;
-        dt = dt,
-        l = 2.8,
-        state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
-        control_bounds = (; lb = [-5, -pi/4], ub = [5, pi/4]),
-    )
+        current_state = agent_states[end]
 
-    game = waymax_game(num_players; dynamics=dynamics)
+        forward_solution = solve_mcp_game(
+            mcp_solver.mcp_game,
+            current_state,
+            recovered_params
+        )
 
-    mcp_solver = MCPCoupledOptimizationSolver(game, horizon, blocksizes(player_params, 1))
-    
-    solution = solve_mcp_game(
-        mcp_solver.mcp_game,
-        current_state,
-        player_params
-    )
-    
-    # The solution object holds the primal variables in `.primals`
-    primals = solution.primals
+        primals = forward_solution.primals
+        player_state_dim = state_dim(dynamics.subsystems[1])
+        player_control_dim = control_dim(dynamics.subsystems[1])
+        ego_action_t1 = primals[player_state_dim+1:player_state_dim+player_control_dim]
 
-    # Reconstruct the optimal control sequence from the primal variables
-    state_dims = [state_dim(game.dynamics.subsystems[i]) for i in 1:num_players]
-    control_dims = [control_dim(game.dynamics.subsystems[i]) for i in 1:num_players]
+        return ego_action_t1
+        
+    end
     
-    # As per the problem formulation, variables are ordered [x1, ..., xN, u1, ..., uN] for each time step
-    step_vars_count = sum(state_dims) + sum(control_dims)
-    
-    # We want the control for the first player at the first time step.
-    # The offset for controls in a time step:
-    control_offset = sum(state_dims)
-    
-    # The index for the first player's control at the first time step:
-    start_idx = control_offset + 1
-    end_idx = control_offset + control_dims[1]
-    
-    ego_action_t1 = primals[start_idx:end_idx]
-
-    return ego_action_t1
 end
 
 function calculate_road_func(roadpoints; display_plot = false)
@@ -218,4 +190,121 @@ function pull_roadpoints(filename)
     end
     return roadpoints
 end
+
+function init_waymax_test_game(;
+    state_dim = (4, 4, 4, 4),
+    action_dim = (2, 2, 2, 2),
+    σ_ = 0.0,
+    game_environment = nothing, 
+    initial_state = mortar([
+        [0, 2, 0.2236, 2*pi-1.10715], # initial x, y, initial velocity magnitude, heading angle (player 1)
+        [2.5, 2, 0.0, 0.0],# player 2
+        [2.5, 0, 0.0, 0.0] # player 3
+    ]),
+    game_params = mortar([
+        [0.0, 0.0, 0.6, 1.0], # target x,y, discount, min_dist
+        [0.0, 0.0, 0.6, 1.0],
+        [0.0, 0.0, 0.6, 1.0]
+    ]),
+    horizon = 10,
+    n = 4,
+    dt = 0.04,
+    myopic = false,
+    verbose = false,
+    lane_centers = nothing,
+    dynamics = nothing,
+)
+    !verbose || print("initializing game ... ")
+    game_structure = Waymax_collision_avoidance(
+        n,
+        lane_centers; # lane centers
+        environment = game_environment,
+        min_distance = 0.5,
+        collision_avoidance_coefficient = 5.0,
+        myopic = myopic,
+        dynamics = dynamics
+    )
+    !verbose || print(" game structure initialized\n")
+    
+    observation_dim = state_dim[1]
+    observation_model = 
+        (x; σ = σ_) -> 
+        BlockVector(
+            vcat(
+                [ x[state_dim[1] * (i - 1)+1:state_dim[1]*i] .+ σ * randn(state_dim[1])
+                    for i in 1:n]...
+            ),
+            [state_dim[1] for _ in 1:n]
+        )
+    
+    !verbose || println("observation model initialized")
+
+    (;
+    initial_state = initial_state,
+    game_parameters = game_params,
+    environment = game_environment,
+    observation_model = observation_model,
+    observation_dim = observation_dim,
+    horizon = horizon,
+    state_dim = state_dim,
+    action_dim = action_dim,
+    σ = σ_,
+    game_structure = game_structure,
+    )
+end
+
+function Waymax_collision_avoidance(
+    num_players,
+    lane_centers;
+    environment,
+    min_distance = 1.0, # context state 5
+    collision_avoidance_coefficient = 20.0,
+    dynamics = nothing,
+    myopic = true)
+
+    cost = let
+        function target_cost(x, context_state, t)
+            (myopic ? context_state[3] ^ t : 1) * norm_sqr(x[1:2] - context_state[1:2])
+        end
+        function control_cost(u, context_state, t)
+            norm_sqr(u) * (myopic ? context_state[3] ^ t : 1)
+        end
+        function lane_center_cost(x, i, context_state, t)
+            (myopic ? context_state[3] ^ t : 1) * norm_sqr(x[2] - lane_centers[i](x[1]))
+        end
+        function collision_cost(x, i, context_state, t)
+            cost = [(1/(1+exp(10 * (norm(x[Block(i)][1:2] - x[Block(paired_player)][1:2]) - context_state[4])))) for paired_player in [1:(i - 1); (i + 1):num_players]]
+            sum(cost)
+        end
+        function cost_for_player(i, xs, us, context_state, T)
+            mean_target = mean([target_cost(xs[t + 1][Block(i)], context_state[Block(i)], t) for t in 1:T])
+            control = mean([control_cost(us[t][Block(i)], context_state[Block(i)], t) for t in 1:T])
+            safe_distance_violation = mean([collision_cost(xs[t], i, context_state[Block(i)], t) for t in 1:T])
+            lane_center = mean([lane_center_cost(xs[t+1][Block(i)], i, context_state[Block(i)], t) for t in 1:T])
+
+            context_state[Block(i)][myopic ? 5 : 4] * mean_target + 
+            context_state[Block(i)][myopic ? 6 : 5] * control +
+            context_state[Block(i)][myopic ? 7 : 6] * safe_distance_violation +
+            (context_state[Block(i)][myopic ? 8 : 7] * lane_center : 0.0)
+
+        end
+        function cost_function(xs, us, context_state)
+            num_players = blocksize(xs[1], 1)
+            T = size(us,1)
+            [cost_for_player(i, xs, us, context_state, T) for i in 1:num_players]
+        end
+        TrajectoryGameCost(cost_function, GeneralSumCostStructure())
+    end
+    dynamics = ProductDynamics([dynamics for _ in 1:num_players])
+    game = TrajectoryGame(
+        dynamics,
+        cost,
+        environment,
+        # shared_collision_avoidance_coupling_constraints(num_players, min_distance),
+        nothing
+    )
+    InverseGameDiscountFactor.CollisionAvoidanceGame(game)
+
+end
+
 end 
