@@ -137,9 +137,7 @@ function run_waymax_sim(;full_state=false, graph=true, verbose = true, myopic = 
         primals = forward_solution.primals
         player_state_dim = state_dim(dynamics)
         player_control_dim = control_dim(dynamics)
-        @infiltrate
-        ego_action_t1 = primals[player_state_dim+1:player_state_dim+player_control_dim]
-
+        ego_action_t1 = primals[player_state_dim*horizon+1:player_state_dim*horizon+player_control_dim]
         return ego_action_t1
     end
 end
