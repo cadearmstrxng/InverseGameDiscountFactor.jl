@@ -57,7 +57,7 @@ function solve_myopic_inverse_game(
                     lr = lr,
                 )
             @info "inverse game took $(time_exec) seconds"
-            animate_optimization_progress(all_trajectories, mcp_game)
+            # animate_optimization_progress(all_trajectories, mcp_game)
             # verbose||println("solved, status: ", last_solution.status)
             # if solving_info[end].status == PATHSolver.MCP_Solved
                 sol = solve_mcp_game(mcp_game, initial_state, context_state_estimation; verbose = false, total_horizon = total_horizon)

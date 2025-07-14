@@ -1,6 +1,6 @@
 module InverseGameDiscountFactor
 
-using Infiltrator
+# using Infiltrator
 
 using DifferentiableTrajectoryOptimization:
     get_constraints_from_box_bounds
@@ -35,11 +35,7 @@ using ForwardDiff: ForwardDiff
 using Zygote: Zygote
 using ParametricMCPs: ParametricMCPs
 using Statistics
-
-# include("utils/ExampleProblems.jl")
-# using .ExampleProblems: n_player_collision_avoidance, CollisionAvoidanceGame
-
-include("../experiments/In-D/Environment.jl")
+using Plots
 
 include("utils/Utils.jl")
 

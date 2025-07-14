@@ -9,10 +9,9 @@ using Random
 using CairoMakie
 using Optim
 
-include("../GameUtils.jl")
-using InverseGameDiscountFactor
+include("../../src/InverseGameDiscountFactor.jl")
 
-export get_next_action, waymax_game, get_next_action_inverse
+export run_waymax_sim
 
 struct CollisionAvoidanceGame
     game::TrajectoryGame
@@ -41,15 +40,15 @@ function run_waymax_sim(;full_state=false, graph=true, verbose = true, myopic = 
     agent_8_point = roadgraph_points[agent_8_roadgraph_idx][1]
     agent_2_point = roadgraph_points[agent_2_roadgraph_idx][1]
 
-    ego_lane_center = x -> ego_model(x, Ref(ego_params))
-    agent_3_lane_center = x -> agent_3_model(x, Ref(agent_3_params))
-    agent_8_lane_center = x -> agent_8_point
-    agent_2_lane_center = x -> agent_2_point
+    ego_lane_center = x -> ego_model(x, ego_params)
+    agent_3_lane_center = x -> agent_3_model(x, agent_3_params)
+    agent_8_lane_center = x -> agent_8_point[2]
+    agent_2_lane_center = x -> agent_2_point[2]
 
     lane_centers = [ego_lane_center, agent_3_lane_center, agent_8_lane_center, agent_2_lane_center]
 
     dynamics = TrajectoryGamesExamples.BicycleDynamics(;
-        dt = 0.04*downsample_rate, # needs to become framerate
+        dt = 0.1, # needs to become framerate
         l = 1.0,
         state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
         control_bounds = (; lb = [-5, -pi/4], ub = [5, pi/4]),
@@ -60,7 +59,7 @@ function run_waymax_sim(;full_state=false, graph=true, verbose = true, myopic = 
     agent_states = readlines("experiments/waymax/agent_states.txt")
     agent_states = [split(line, " ") for line in agent_states]
     agent_states = [[parse(Float64, x) for x in line] for line in agent_states]
-    agent_states = [BlockArray(state, (4, 4, 4, 4)) for state in agent_states]
+    agent_states = [BlockArray(state, [4, 4, 4, 4]) for state in agent_states]
     
     initial_state = agent_states[1]
     goal_init_guess = [mean(roadgraph_points), mean(roadgraph_points)]
@@ -81,7 +80,9 @@ function run_waymax_sim(;full_state=false, graph=true, verbose = true, myopic = 
         n = 4,
         dt = 0.04,
         myopic = myopic,
-        verbose = verbose)
+        verbose = verbose,
+        lane_centers = lane_centers
+    )
 
     !verbose || println("initial state: ", init.initial_state)
     !verbose || println("initial game parameters: ", init.game_parameters)
@@ -150,7 +151,7 @@ function calculate_road_func(roadpoints; display_plot = false)
 
     model(x, p) = p[1] * exp(p[2] * (x - p[3])) + p[4]
     
-    loss(p) = sum((model.(xs, Ref(p)) .- ys).^2)
+    loss(p) = sum(((x->model(x,p)).(xs) .- ys).^2)
 
     p0 = [1.0, 1.0, median(xs), median(ys)]
 
@@ -195,7 +196,7 @@ function init_waymax_test_game(;
     state_dim = (4, 4, 4, 4),
     action_dim = (2, 2, 2, 2),
     σ_ = 0.0,
-    game_environment = nothing, 
+    game_environment = InverseGameDiscountFactor.NullEnv(), 
     initial_state = mortar([
         [0, 2, 0.2236, 2*pi-1.10715], # initial x, y, initial velocity magnitude, heading angle (player 1)
         [2.5, 2, 0.0, 0.0],# player 2
@@ -212,7 +213,13 @@ function init_waymax_test_game(;
     myopic = false,
     verbose = false,
     lane_centers = nothing,
-    dynamics = nothing,
+    dynamics = BicycleDynamics(;
+        dt = 0.1, # needs to become framerate
+        l = 1.0,
+        state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
+        control_bounds = (; lb = [-5, -pi/4], ub = [5, pi/4]),
+        integration_scheme = :forward_euler
+    ),
 )
     !verbose || print("initializing game ... ")
     game_structure = Waymax_collision_avoidance(
@@ -285,7 +292,7 @@ function Waymax_collision_avoidance(
             context_state[Block(i)][myopic ? 5 : 4] * mean_target + 
             context_state[Block(i)][myopic ? 6 : 5] * control +
             context_state[Block(i)][myopic ? 7 : 6] * safe_distance_violation +
-            (context_state[Block(i)][myopic ? 8 : 7] * lane_center : 0.0)
+            (context_state[Block(i)][myopic ? 8 : 7] * lane_center)
 
         end
         function cost_function(xs, us, context_state)
@@ -304,7 +311,9 @@ function Waymax_collision_avoidance(
         nothing
     )
     InverseGameDiscountFactor.CollisionAvoidanceGame(game)
-
 end
 
+function norm_sqr(x)
+    return sum(x.^2)
+end
 end 

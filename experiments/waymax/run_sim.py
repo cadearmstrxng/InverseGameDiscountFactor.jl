@@ -6,21 +6,24 @@ from tqdm import tqdm
 import dataclasses
 import pickle
 import os
-from waymax import config as _config
-from waymax import dataloader
-from waymax import datatypes
-from waymax import dynamics
-from waymax import env as _env
-from waymax import agents
-from waymax import visualization
+import sys
 
-# from juliacall import Main as jl
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(script_dir, '..', '..'))
+from juliacall import Main as jl
+jl.seval("using Pkg")
+jl.seval(f'Pkg.activate("{project_root}")')
+from waymax import config as _config, dataloader, datatypes, dynamics, agents, visualization, env as _env
 
 import pdbpp as pdb
 
-def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl", horizon: int = 10):
-    # jl.seval("include(\"experiments/waymax/Waymax.jl\")")
-
+def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
+    print("[run_sim] Including Waymax.jl")
+    jl.seval("include(\"experiments/waymax/Waymax.jl\")")
+    print("[run_sim] Running run_waymax_sim()")
+    jl.seval("get_action = Waymax.run_waymax_sim()")
+    print("[run_sim] run_waymax_sim() complete")
+    
     with open(scenario_path, 'rb') as f:
         scenario = pickle.load(f)
     init_steps = 11
@@ -30,7 +33,7 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl", 
         config=dataclasses.replace(
             _config.EnvironmentConfig(),
             max_num_objects=scenario.object_metadata.num_objects,
-            controlled_object=_config.ObjectType.SDC,
+            controlled_object=_config.ObjectType.VALID,
         ),
     )
 
@@ -42,77 +45,87 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl", 
             for point in valid_roadgraph_points:
                 f.write(f"{point[0]} {point[1]}\n")
 
-    # obj_idx = jnp.arange(scenario.object_metadata.num_objects)
-    # static_actor = agents.create_constant_speed_actor(
-    #     speed=0.0,
-    #     dynamics_model=dynamics_model,
-    #     is_controlled_func=lambda state: obj_idx >= 4,# TODO: change this to find all non-important agents, TODO: is obj_idx 1-indexed?
-    # ) # use this static actor for all agents not in the game theoretic setup
-
-    expert_actor = agents.create_expert_actor(
-        dynamics_model=dynamics_model,
-        is_controlled_func=lambda state: True,
-    )
-    # controlled_mask = jnp.zeros((scenario.object_metadata.num_objects, 1), dtype=jnp.bool_).at[3, 0].set(True)
-    # controlled_actor = agents.actor_core_factory(
-    #     lambda random_state: [0.0],
-    #     lambda env_state, prev_agent_state, arg3, arg4: agents.WaymaxActorOutput(
-    #         actor_state=jnp.array([0.0]),
-    #         action=datatypes.Action(
-    #             data=jnp.zeros((scenario.object_metadata.num_objects, 2)) 
-    #             .at[3, :]
-    #             .set(jnp.array([1.0, 0.0])), # TODO: change this to the action from the game-theoretic solver
-    #             valid=controlled_mask,
-    #         ),
-    #         is_controlled=jnp.zeros(scenario.object_metadata.num_objects, dtype=jnp.bool_).at[3].set(True),
-    #     ),
-    # )
-
-    # agents.actor_core.register_actor_core(controlled_actor)
-    # actors = [static_actor, expert_actor, controlled_actor]
-    actors = [expert_actor]
-
-    jit_step = jax.jit(env.step)
-    jit_select_action_list = [jax.jit(actor.select_action) for actor in actors]
-
-    states = [env.reset(scenario)]
-    for _ in range(states[0].remaining_timesteps):
-        current_state = states[-1]
-
-        outputs = [jit_select_action({}, current_state, None, None) for jit_select_action in jit_select_action_list]
-        action = agents.merge_actions(outputs)
-        next_state = jit_step(current_state, action)
-
-        states.append(next_state)
-
-    agent_ids_to_log = [2, 8, 4]
+    agent_ids_to_log = [4, 3, 8, 2]
     id_to_idx_map = {i : int(id) for i, id in enumerate(scenario.object_metadata.ids)}
     agent_indices_to_log = []
     for id in agent_ids_to_log:
         if id in id_to_idx_map:
             agent_indices_to_log.append(id_to_idx_map[id])
+            print(f"Agent with ID {id} found at index {id_to_idx_map[id]}")
         else:
             print(f"Warning: Agent with ID {id} not found in scenario.")
+
     output_file_path = "experiments/waymax/agent_states.txt"
-    with open(output_file_path, "w") as f:
-        f.write("agent_id,timestep,x,y,velocity,yaw\n")
-        for state in states:
-            t = state.timestep
-            for agent_idx in agent_indices_to_log:
-                pdb.set_trace()
-                x = state.log_trajectory.x[agent_idx, t]
-                y = state.log_trajectory.y[agent_idx, t]
-                vel_x = state.log_trajectory.vel_x[agent_idx, t]
-                vel_y = state.log_trajectory.vel_y[agent_idx, t]
-                yaw = state.log_trajectory.yaw[agent_idx, t]
-                vel = jnp.sqrt(vel_x**2 + vel_y**2)
-                f.write(f"{agent_idx},{int(t)},{float(x)},{float(y)},{float(vel)},{float(yaw)}\n")
+    
+    template_state = env.reset(scenario)
+    state_vectors = []
+    for obs_t in range(0,11):
+        state_vectors.append([])
+        for x, y, yaw, vel_x, vel_y in zip(
+                scenario.log_trajectory.x[agent_ids_to_log, obs_t],
+                scenario.log_trajectory.y[agent_ids_to_log, obs_t],
+                scenario.log_trajectory.yaw[agent_ids_to_log, obs_t],
+                scenario.log_trajectory.vel_x[agent_ids_to_log, obs_t],
+                scenario.log_trajectory.vel_y[agent_ids_to_log, obs_t]
+            ):
+            state_vectors[-1].extend([float(x), float(y), float(jnp.sqrt(vel_x**2 + vel_y**2)), float(yaw)])
+
+    state = dataclasses.replace(
+        template_state,
+        timestep=jnp.asarray(10),
+    )
+    states = [state]
+
+    obj_idx = jnp.arange(scenario.object_metadata.num_objects)
+    controlled_mask = jnp.zeros((scenario.object_metadata.num_objects, 1), dtype=jnp.bool_).at[3, 0].set(True)
+
+    expert_actor = agents.create_expert_actor(
+        dynamics_model=dynamics_model,
+        is_controlled_func=lambda state: obj_idx != 4,
+    )
+    controlled_actor = agents.actor_core_factory(
+        lambda random_state: [0.0],
+        lambda env_state, prev_agent_state, arg3, arg4: agents.WaymaxActorOutput(
+            actor_state=jnp.array([0.0]),
+            action=datatypes.Action(
+                data=jnp.array(get_action(jl)),
+                valid=controlled_mask,
+            ),
+            is_controlled=jnp.zeros(scenario.object_metadata.num_objects, dtype=jnp.bool_).at[4].set(True),
+        ),
+    )
+    agents.actor_core.register_actor_core(controlled_actor)
+
+    actors = [expert_actor, controlled_actor]
+    jit_step = jax.jit(env.step)
+    jit_select_action_list = [jax.jit(actor.select_action) for actor in actors]
+
+    for t in range(states[0].remaining_timesteps):
+        outputs = [jit_select_action({}, state, None, None) for jit_select_action in jit_select_action_list]
+        action = agents.merge_actions(outputs)
+        state = jit_step(state, action)
+        states.append(state)
+        state_vectors.append([])
+        state_vectors[-1].extend(list(
+            [float(x[0]), float(y[0]), float(jnp.sqrt(vel_x**2 + vel_y**2)[0]), float(yaw[0])]
+            for x, y, yaw, vel_x, vel_y in 
+            zip(state.current_sim_trajectory.x[agent_ids_to_log, -1:],state.current_sim_trajectory.y[agent_ids_to_log, -1:],state.current_sim_trajectory.yaw[agent_ids_to_log, -1:],state.current_sim_trajectory.vel_x[agent_ids_to_log, -1:],state.current_sim_trajectory.vel_y[agent_ids_to_log, -1:])
+        ))
+        
+        with open(output_file_path, "w") as f:
+            for x in state_vectors[-11:]:
+                f.write(' '.join(map(str, x)).replace("[", "").replace("]", "").replace(",", "") + "\n")
 
     imgs = []
     for state in states:
         imgs.append(visualization.plot_simulator_state(state, use_log_traj=False))
     mediapy.write_video("experiments/waymax/data/simulation.mp4", imgs, fps=10)
     print("Done")
+
+def get_action(jl):
+    jl.seval("get_action()")
+    
+
 
 
 if __name__ == "__main__":

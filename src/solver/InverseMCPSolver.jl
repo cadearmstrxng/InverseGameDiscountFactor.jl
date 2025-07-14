@@ -139,29 +139,29 @@ function solve_inverse_mcp_game(
 end
 
 # Add a new function to create an animation
-function animate_optimization_progress(all_trajectories, mcp_game; fps=1//3)
-    n_frames = length(all_trajectories)
-    n = num_players(mcp_game.game)
-    player_state_dimension = convert(Int64, state_dim(mcp_game.game.dynamics)/n)
-    horizon = mcp_game.horizon
-    anim = Plots.@animate for i in 1:n_frames
-        trajectory = all_trajectories[i]
+# function animate_optimization_progress(all_trajectories, mcp_game; fps=1//3)
+#     n_frames = length(all_trajectories)
+#     n = num_players(mcp_game.game)
+#     player_state_dimension = convert(Int64, state_dim(mcp_game.game.dynamics)/n)
+#     horizon = mcp_game.horizon
+#     anim = Plots.@animate for i in 1:n_frames
+#         trajectory = all_trajectories[i]
         
-        # Create a single plot for all players
-        p = Plots.plot(title="Trajectory Optimization Progress (Frame $i/$n_frames)",
-                      xlabel="X Position",
-                      ylabel="Y Position",
-                      legend=:topleft)
+#         # Create a single plot for all players
+#         p = Plots.plot(title="Trajectory Optimization Progress (Frame $i/$n_frames)",
+#                       xlabel="X Position",
+#                       ylabel="Y Position",
+#                       legend=:topleft)
         
-        # Add each player's trajectory to the same plot
-        for j in 1:n
-            xs = [state[(j-1) * player_state_dimension + 1] for state in trajectory.blocks[1:horizon-1]]
-            ys = [state[(j-1) * player_state_dimension + 2] for state in trajectory.blocks[1:horizon-1]]
-            Plots.plot!(p, xs, ys, label="Player $j")
-        end
-    end
+#         # Add each player's trajectory to the same plot
+#         for j in 1:n
+#             xs = [state[(j-1) * player_state_dimension + 1] for state in trajectory.blocks[1:horizon-1]]
+#             ys = [state[(j-1) * player_state_dimension + 2] for state in trajectory.blocks[1:horizon-1]]
+#             Plots.plot!(p, xs, ys, label="Player $j")
+#         end
+#     end
     
-    Plots.gif(anim, "trajectory_optimization.gif", fps=fps)
-    display(anim)
-end
+#     Plots.gif(anim, "trajectory_optimization.gif", fps=fps)
+#     display(anim)
+# end
 

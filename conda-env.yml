@@ -5,23 +5,11 @@ channels:
 dependencies:
   - python=3.11
   - pip
-  - ipykernel
   - numpy
   - scipy
   - matplotlib
-  - pandas
-  - seaborn
+  - tqdm
+  - jax>=0.4.6
+  - mediapy
   - pip:
-    - julia
-    - pyjulia
-    - plotly
-    - scikit-learn
-    - tqdm
-    - pytest
-    - black
-    - flake8
-    - mypy
-    - ipython
-    - tensorflow>=2.11.0
-    - jax>=0.4.6
     - git+https://github.com/waymo-research/waymax.git@main#egg=waymo-waymax 
