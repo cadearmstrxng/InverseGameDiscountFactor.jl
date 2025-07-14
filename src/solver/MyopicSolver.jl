@@ -1,4 +1,3 @@
-using Infiltrator
 function solve_myopic_inverse_game(
     mcp_game,
     observed_trajectory,
@@ -79,7 +78,7 @@ function solve_myopic_inverse_game(
                 inv_sol = reconstruct_solution(sol, mcp_game.game, total_horizon)
                 
                 # Apply observation model to reconstructed solution to match observed_trajectory structure
-                observed_inv_sol = map(blocks(inv_sol)) do state_t
+                observed_inv_sol = map(inv_sol.blocks) do state_t
                     observation_model(state_t)
                 end
                 

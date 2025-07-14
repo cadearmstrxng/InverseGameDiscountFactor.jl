@@ -8,6 +8,7 @@ using Statistics: mean,median
 using Random
 using CairoMakie
 using Optim
+using Infiltrator
 
 # include("../../src/InverseGameDiscountFactor.jl")
 using InverseGameDiscountFactor
@@ -63,13 +64,11 @@ function run_waymax_sim(;full_state=false, graph=true, verbose = true, myopic = 
     agent_states = [BlockArray(state, [4, 4, 4, 4]) for state in agent_states]
     
     initial_state = agent_states[1]
-    goal_init_guess = [mean(roadgraph_points), mean(roadgraph_points)]
+    goal_init_guess = mean(roadgraph_points)
     if myopic
-        game_params = mortar([
-            [[goal_init_guess..., 1.0, 1.0, 1.0, 1.0, 1.0, 10.0 ] for i in 1:4]...])
+        game_params = mortar([[vcat(goal_init_guess, [1.0, 1.0, 1.0, 1.0, 1.0, 10.0]) for i in 1:4]...])
     else
-        game_params = mortar([
-            [[goal_init_guess..., 1.0, 1.0, 1.0, 1.0, 10.0 ] for i in 1:4]...])
+        game_params = mortar([[vcat(goal_init_guess, [1.0, 1.0, 1.0, 1.0, 10.0]) for i in 1:4]...])
     end
     
     horizon = length(agent_states)
@@ -136,14 +135,13 @@ function run_waymax_sim(;full_state=false, graph=true, verbose = true, myopic = 
         )
 
         primals = forward_solution.primals
-        player_state_dim = state_dim(dynamics.subsystems[1])
-        player_control_dim = control_dim(dynamics.subsystems[1])
+        player_state_dim = state_dim(dynamics)
+        player_control_dim = control_dim(dynamics)
+        @infiltrate
         ego_action_t1 = primals[player_state_dim+1:player_state_dim+player_control_dim]
 
         return ego_action_t1
-        
     end
-    
 end
 
 function calculate_road_func(roadpoints; display_plot = false)
