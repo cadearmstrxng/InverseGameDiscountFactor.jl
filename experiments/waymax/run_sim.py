@@ -20,7 +20,6 @@ import pdbpp as pdb
 
 def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
     jl.seval("include(\"experiments/waymax/Waymax.jl\")")
-    jl.seval("get_action = Waymax.run_waymax_sim()")
     
     with open(scenario_path, 'rb') as f:
         scenario = pickle.load(f)
@@ -68,6 +67,9 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
             ):
             state_vectors[-1].extend([float(x), float(y), float(jnp.sqrt(vel_x**2 + vel_y**2)), float(yaw)])
 
+    jl.initial_agent_states = state_vectors
+    jl.seval("get_action = Waymax.run_waymax_sim(initial_agent_states;verbose=true)")
+
     state = dataclasses.replace(
         template_state,
         timestep=jnp.asarray(10),
@@ -86,7 +88,7 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
         lambda env_state, prev_agent_state, arg3, arg4: agents.WaymaxActorOutput(
             actor_state=jnp.array([0.0]),
             action=datatypes.Action(
-                data=jnp.array(get_action(jl)),
+                data=jnp.array(get_action(jl, state_vectors[-11:])),
                 valid=controlled_mask,
             ),
             is_controlled=jnp.zeros(scenario.object_metadata.num_objects, dtype=jnp.bool_).at[4].set(True),
@@ -107,15 +109,23 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
         state = env.step(state, action)
         states.append(state)
         state_vectors.append([])
-        state_vectors[-1].extend(list(
-            [float(x[0]), float(y[0]), float(jnp.sqrt(vel_x**2 + vel_y**2)[0]), float(yaw[0])]
-            for x, y, yaw, vel_x, vel_y in 
-            zip(state.current_sim_trajectory.x[agent_ids_to_log, -1:],state.current_sim_trajectory.y[agent_ids_to_log, -1:],state.current_sim_trajectory.yaw[agent_ids_to_log, -1:],state.current_sim_trajectory.vel_x[agent_ids_to_log, -1:],state.current_sim_trajectory.vel_y[agent_ids_to_log, -1:])
-        ))
+        for x, y, yaw, vel_x, vel_y in zip(
+            state.current_sim_trajectory.x[agent_ids_to_log, -1:],
+            state.current_sim_trajectory.y[agent_ids_to_log, -1:],
+            state.current_sim_trajectory.yaw[agent_ids_to_log, -1:],
+            state.current_sim_trajectory.vel_x[agent_ids_to_log, -1:],
+            state.current_sim_trajectory.vel_y[agent_ids_to_log, -1:]
+        ):
+            state_vectors[-1].extend([
+                float(x[0]), 
+                float(y[0]), 
+                float(jnp.sqrt(vel_x**2 + vel_y**2)[0]), 
+                float(yaw[0])
+            ])
         
-        with open(output_file_path, "w") as f:
-            for x in state_vectors[-11:]:
-                f.write(' '.join(map(str, x)).replace("[", "").replace("]", "").replace(",", "") + "\n")
+        # with open(output_file_path, "w") as f:
+        #     for x in state_vectors[-11:]:
+        #         f.write(' '.join(map(str, x)).replace("[", "").replace("]", "").replace(",", "") + "\n")
 
     print("[run_sim] videoing!")
     imgs = []
@@ -124,8 +134,10 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
     mediapy.write_video("experiments/waymax/data/simulation.mp4", imgs, fps=10)
     print("Done")
 
-def get_action(jl):
-    return jl.seval("get_action()")
+def get_action(jl, agent_states):
+    jl.current_agent_states = agent_states
+    print(agent_states)
+    return jl.seval("get_action(current_agent_states)")
 
 if __name__ == "__main__":
     run_sim()
