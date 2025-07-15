@@ -2602,7 +2602,7 @@ weakdeps = ["Makie"]
 
 [[deps.TrajectoryGamesExamples]]
 deps = ["BlockArrays", "Colors", "InfiniteArrays", "LinearAlgebra", "Makie", "TrajectoryGamesBase"]
-git-tree-sha1 = "be54cd0fe86962b2b8c379d541ad1ac6092eb8e6"
+path = "/home/ryanjpark/.julia/dev/TrajectoryGamesExamples"
 uuid = "ff3fa34c-8d8f-519c-b5bc-31760c52507a"
 version = "0.1.11"
 

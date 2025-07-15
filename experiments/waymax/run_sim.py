@@ -13,16 +13,14 @@ project_root = os.path.abspath(os.path.join(script_dir, '..', '..'))
 from juliacall import Main as jl
 jl.seval("using Pkg")
 jl.seval(f'Pkg.activate("{project_root}")')
+
 from waymax import config as _config, dataloader, datatypes, dynamics, agents, visualization, env as _env
 
 import pdbpp as pdb
 
 def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
-    print("[run_sim] Including Waymax.jl")
     jl.seval("include(\"experiments/waymax/Waymax.jl\")")
-    print("[run_sim] Running run_waymax_sim()")
     jl.seval("get_action = Waymax.run_waymax_sim()")
-    print("[run_sim] run_waymax_sim() complete")
     
     with open(scenario_path, 'rb') as f:
         scenario = pickle.load(f)
@@ -97,13 +95,16 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
     agents.actor_core.register_actor_core(controlled_actor)
 
     actors = [expert_actor, controlled_actor]
-    jit_step = jax.jit(env.step)
-    jit_select_action_list = [jax.jit(actor.select_action) for actor in actors]
+    # jit_step = jax.jit(env.step)
+    # jit_select_action_list = [jax.jit(actor.select_action) for actor in actors]
 
     for t in range(states[0].remaining_timesteps):
-        outputs = [jit_select_action({}, state, None, None) for jit_select_action in jit_select_action_list]
+        print(f"[run_sim] time: {t}")
+        # outputs = [jit_select_action({}, state, None, None) for jit_select_action in jit_select_action_list]
+        outputs = [actor.select_action({}, state, None, None) for actor in actors]
         action = agents.merge_actions(outputs)
-        state = jit_step(state, action)
+        # state = jit_step(state, action)
+        state = env.step(state, action)
         states.append(state)
         state_vectors.append([])
         state_vectors[-1].extend(list(
@@ -116,6 +117,7 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
             for x in state_vectors[-11:]:
                 f.write(' '.join(map(str, x)).replace("[", "").replace("]", "").replace(",", "") + "\n")
 
+    print("[run_sim] videoing!")
     imgs = []
     for state in states:
         imgs.append(visualization.plot_simulator_state(state, use_log_traj=False))
@@ -123,10 +125,7 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
     print("Done")
 
 def get_action(jl):
-    jl.seval("get_action()")
-    
-
-
+    return jl.seval("get_action()")
 
 if __name__ == "__main__":
     run_sim()

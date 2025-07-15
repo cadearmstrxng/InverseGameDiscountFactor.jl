@@ -33,7 +33,7 @@ using ForwardDiff: ForwardDiff
 using Zygote: Zygote
 using ParametricMCPs: ParametricMCPs
 using Statistics
-using Plots
+# using Plots
 
 include("utils/Utils.jl")
 

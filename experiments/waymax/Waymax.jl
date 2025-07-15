@@ -2,13 +2,12 @@ module Waymax
 
 using BlockArrays
 using TrajectoryGamesBase
-using TrajectoryGamesExamples
+using TrajectoryGamesExamples: BicycleDynamics
 using LinearAlgebra
 using Statistics: mean,median
 using Random
-using CairoMakie
+
 using Optim
-using Infiltrator
 
 # include("../../src/InverseGameDiscountFactor.jl")
 using InverseGameDiscountFactor
@@ -49,7 +48,7 @@ function run_waymax_sim(;full_state=false, graph=true, verbose = true, myopic = 
 
     lane_centers = [ego_lane_center, agent_3_lane_center, agent_8_lane_center, agent_2_lane_center]
 
-    dynamics = TrajectoryGamesExamples.BicycleDynamics(;
+    dynamics = BicycleDynamics(;
         dt = 0.1, # needs to become framerate
         l = 1.0,
         state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
@@ -137,7 +136,7 @@ function run_waymax_sim(;full_state=false, graph=true, verbose = true, myopic = 
         primals = forward_solution.primals
         player_state_dim = state_dim(dynamics)
         player_control_dim = control_dim(dynamics)
-        ego_action_t1 = primals[player_state_dim*horizon+1:player_state_dim*horizon+player_control_dim]
+        ego_action_t1 = primals[1][player_state_dim*horizon+1:player_state_dim*horizon+player_control_dim]
         return ego_action_t1
     end
 end
@@ -160,19 +159,19 @@ function calculate_road_func(roadpoints; display_plot = false)
         best_params = Optim.minimizer(result)
         println("Fit complete. Best parameters [c1, c2, c3]: ", best_params)
 
-        if display_plot
-            CairoMakie.activate!()
-            fig = Figure()
-            ax = Axis(fig[1, 1], aspect = DataAspect(), xlabel="x", ylabel="y", title="Exponential Fit with Optim.jl: y = c1*e^(c2*x) + c3")
+        # if display_plot
+        #     CairoMakie.activate!()
+        #     fig = Figure()
+        #     ax = Axis(fig[1, 1], aspect = DataAspect(), xlabel="x", ylabel="y", title="Exponential Fit with Optim.jl: y = c1*e^(c2*x) + c3")
             
-            scatter!(ax, xs, ys, label="Data", markersize=4)
+        #     scatter!(ax, xs, ys, label="Data", markersize=4)
             
-            x_smooth = range(minimum(xs), stop=maximum(xs), length=500)
-            y_fit = model.(x_smooth, Ref(best_params))
-            lines!(ax, x_smooth, y_fit, label="Fitted Curve", color=:red, linewidth=2)
+        #     x_smooth = range(minimum(xs), stop=maximum(xs), length=500)
+        #     y_fit = model.(x_smooth, Ref(best_params))
+        #     lines!(ax, x_smooth, y_fit, label="Fitted Curve", color=:red, linewidth=2)
             
-            display(fig)
-        end
+        #     display(fig)
+        # end
         return model, best_params
     catch e
         println("An error occurred during fitting: ", e)
