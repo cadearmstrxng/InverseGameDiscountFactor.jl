@@ -43,21 +43,25 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
                 f.write(f"{point[0]} {point[1]}\n")
 
     agent_ids_to_log = [4, 3, 8, 2]
-    id_to_idx_map = {i : int(id) for i, id in enumerate(scenario.object_metadata.ids)}
-    agent_indices_to_log = []
-    for id in agent_ids_to_log:
-        if id in id_to_idx_map:
-            agent_indices_to_log.append(id_to_idx_map[id])
-            print(f"Agent with ID {id} found at index {id_to_idx_map[id]}")
-        else:
-            print(f"Warning: Agent with ID {id} not found in scenario.")
+    # Note: Correcting this map to be id->idx. The previous version was idx->id,
+    # which caused incorrect lookups.
+    id_to_idx_map = {i:int(id) for i, id in enumerate(scenario.object_metadata.ids)}
+    agent_1_idx = id_to_idx_map.get(1, -1)
 
-    output_file_path = "experiments/waymax/agent_states.txt"
+    # agent_indices_to_log = []
+    # for id in agent_ids_to_log:
+    #     if id in id_to_idx_map:
+    #         agent_indices_to_log.append(id_to_idx_map[id])
+    #         print(f"Agent with ID {id} found at index {id_to_idx_map[id]}")
+    #     else:
+    #         print(f"Warning: Agent with ID {id} not found in scenario.")
+
+    # output_file_path = "experiments/waymax/agent_states.txt"
     
     template_state = env.reset(scenario)
-    state_vectors = []
+    state_vectors = { "data": [] }
     for obs_t in range(0,11):
-        state_vectors.append([])
+        state_vectors["data"].append([])
         for x, y, yaw, vel_x, vel_y in zip(
                 scenario.log_trajectory.x[agent_ids_to_log, obs_t],
                 scenario.log_trajectory.y[agent_ids_to_log, obs_t],
@@ -65,9 +69,9 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
                 scenario.log_trajectory.vel_x[agent_ids_to_log, obs_t],
                 scenario.log_trajectory.vel_y[agent_ids_to_log, obs_t]
             ):
-            state_vectors[-1].extend([float(x), float(y), float(jnp.sqrt(vel_x**2 + vel_y**2)), float(yaw)])
+            state_vectors["data"][-1].extend([float(x), float(y), float(jnp.sqrt(vel_x**2 + vel_y**2)), float(yaw)])
 
-    jl.initial_agent_states = state_vectors
+    jl.initial_agent_states = state_vectors["data"]
     jl.seval("get_action = Waymax.run_waymax_sim(initial_agent_states;verbose=true)")
 
     state = dataclasses.replace(
@@ -77,7 +81,7 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
     states = [state]
 
     obj_idx = jnp.arange(scenario.object_metadata.num_objects)
-    controlled_mask = jnp.zeros((scenario.object_metadata.num_objects, 1), dtype=jnp.bool_).at[3, 0].set(True)
+    controlled_mask = jnp.zeros((scenario.object_metadata.num_objects, 1), dtype=jnp.bool_).at[4, 0].set(True)
 
     expert_actor = agents.create_expert_actor(
         dynamics_model=dynamics_model,
@@ -88,7 +92,7 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
         lambda env_state, prev_agent_state, arg3, arg4: agents.WaymaxActorOutput(
             actor_state=jnp.array([0.0]),
             action=datatypes.Action(
-                data=jnp.array(get_action(jl, state_vectors[-11:])),
+                data=jnp.array(get_action(jl, state_vectors["data"][-11:])),
                 valid=controlled_mask,
             ),
             is_controlled=jnp.zeros(scenario.object_metadata.num_objects, dtype=jnp.bool_).at[4].set(True),
@@ -108,7 +112,7 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
         # state = jit_step(state, action)
         state = env.step(state, action)
         states.append(state)
-        state_vectors.append([])
+        state_vectors["data"].append([])
         for x, y, yaw, vel_x, vel_y in zip(
             state.current_sim_trajectory.x[agent_ids_to_log, -1:],
             state.current_sim_trajectory.y[agent_ids_to_log, -1:],
@@ -116,28 +120,31 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
             state.current_sim_trajectory.vel_x[agent_ids_to_log, -1:],
             state.current_sim_trajectory.vel_y[agent_ids_to_log, -1:]
         ):
-            state_vectors[-1].extend([
+            state_vectors["data"][-1].extend([
                 float(x[0]), 
                 float(y[0]), 
                 float(jnp.sqrt(vel_x**2 + vel_y**2)[0]), 
                 float(yaw[0])
             ])
-        
-        # with open(output_file_path, "w") as f:
-        #     for x in state_vectors[-11:]:
-        #         f.write(' '.join(map(str, x)).replace("[", "").replace("]", "").replace(",", "") + "\n")
 
     print("[run_sim] videoing!")
     imgs = []
     for state in states:
-        imgs.append(visualization.plot_simulator_state(state, use_log_traj=False))
+        state_to_plot = state
+        if agent_1_idx != -1:
+            metadata = state.object_metadata
+            new_valid = metadata.is_valid.at[1].set(False)
+            new_metadata = dataclasses.replace(metadata, is_valid=new_valid)
+            state_to_plot = dataclasses.replace(state, object_metadata=new_metadata)
+            imgs.append(visualization.plot_simulator_state(state_to_plot, use_log_traj=False))
     mediapy.write_video("experiments/waymax/data/simulation.mp4", imgs, fps=10)
     print("Done")
 
 def get_action(jl, agent_states):
     jl.current_agent_states = agent_states
-    print(agent_states)
-    return jl.seval("get_action(current_agent_states)")
+    action = jl.seval("get_action(current_agent_states)")
+    print(f"Action: {action}")
+    return action
 
 if __name__ == "__main__":
     run_sim()
