@@ -83,8 +83,8 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
     obj_idx = jnp.arange(scenario.object_metadata.num_objects)
     controlled_mask = jnp.zeros((scenario.object_metadata.num_objects, 1), dtype=jnp.bool_).at[4, 0].set(True)
 
-    expert_actor = agents.create_expert_actor(
-        dynamics_model=dynamics_model,
+    expert_actor = agents.IDMRoutePolicy(
+        # dynamics_model=dynamics_model,
         is_controlled_func=lambda state: obj_idx != 4,
     )
     controlled_actor = agents.actor_core_factory(
@@ -142,9 +142,10 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
 
 def get_action(jl, agent_states):
     jl.current_agent_states = agent_states
-    action = jl.seval("get_action(current_agent_states)")
+    action = jnp.array(jl.seval("get_action(current_agent_states)"))
     print(f"Action: {action}")
-    return action
+    dummy_action = jnp.array([0.0 for _ in range(len(action))])
+    return [dummy_action if i == 4 else action for i in range(16)]
 
 if __name__ == "__main__":
     run_sim()
