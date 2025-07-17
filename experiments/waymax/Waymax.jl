@@ -38,31 +38,7 @@ function run_waymax_sim(initial_agent_states;full_state=false, graph=false, verb
     rng = MersenneTwister(1234)
     Random.seed!(rng)
 
-    # Find Lane Center Funcs
-    # ego_roadgraph_idx = 3001:3340
-    # agent_3_roadgraph_idx = vcat(2000:2109, 2676:2900)
-    # agent_8_roadgraph_idx = [4441]
-    # agent_2_roadgraph_idx = agent_8_roadgraph_idx
-
     roadgraph_points = pull_roadpoints("experiments/waymax/data/roadgraph_points.txt")
-    # ego_roadgraph_points = roadgraph_points[ego_roadgraph_idx]
-    # agent_3_roadgraph_points = roadgraph_points[agent_3_roadgraph_idx]
-    # agent_8_roadgraph_points = roadgraph_points[agent_8_roadgraph_idx]
-    # agent_2_roadgraph_points = roadgraph_points[agent_2_roadgraph_idx]
-
-    # ego_model, ego_params = calculate_road_func(ego_roadgraph_points)
-    # ego_params[4] -= 2
-    # agent_3_model, agent_3_params = calculate_road_func(agent_3_roadgraph_points)
-    # agent_8_point = roadgraph_points[agent_8_roadgraph_idx][1]
-    # agent_2_point = roadgraph_points[agent_2_roadgraph_idx][1]
-
-    # ego_lane_center = x -> ego_model(x, ego_params)
-    # agent_3_lane_center = x -> agent_3_model(x, agent_3_params)
-    # agent_8_lane_center = x -> agent_8_point[2]
-    # agent_2_lane_center = x -> agent_2_point[2]
-
-    # lane_centers = [ego_lane_center, agent_3_lane_center, agent_8_lane_center, agent_2_lane_center]
-
     
     agent_states_float = [[Float64(x) for x in line] for line in initial_agent_states]
     agent_states = [BlockArray(state, [4, 4, 4, 4]) for state in agent_states_float]
@@ -71,10 +47,11 @@ function run_waymax_sim(initial_agent_states;full_state=false, graph=false, verb
     goal_init_guess = mean(roadgraph_points)
     if myopic
         game_params = mortar([[vcat(goal_init_guess, [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]) for i in 1:4]...])
+        game_params[1:9] = [2555, -5600, 1.0, 5, 0.1, 1.0, 7, -4, 2] # Ego agent knows its goal
     else
         game_params = mortar([[vcat(goal_init_guess, [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]) for i in 1:4]...])
+        game_params[1:8] = [2555, -5600, 5, 0.1, 1.0, 7, -4, 2] # Ego agent knows its goal
     end
-    game_params[1:9] = [2555, -5600, 1.0, 5, 0.1, -1.0, 7, -4, 2] # Ego agent knows its goal
     # mean_target
     # control
     # safe_distance_violation
@@ -127,12 +104,9 @@ function run_waymax_sim(initial_agent_states;full_state=false, graph=false, verb
         )
         primals = forward_solution.primals
         actions = BlockVector(vcat([primals[ii][4*horizon+1:4*horizon+2] for ii in 1:4]...), [2 for _ in 1:4])
-        println("bicycle action: ", actions[Block(1)])
         projected_actions = BlockVector(vcat([[min(max(action[1], -5), 3), max(min(action[2], pi/7), -pi/7)] for action in actions.blocks]...), [2 for _ in 1:4])
         raw_state = init.game_structure.game.dynamics(current_state, projected_actions).blocks[1]
-        # Trajectory Games Base does x, y, v, theta
-        # Waymax StateDynamics does x, y, yaw, vel_x, vel_y
-        return [raw_state[1], raw_state[2], raw_state[4], raw_state[3]*sin(raw_state[4]), raw_state[3]*cos(raw_state[4])]
+        return [raw_state[1], raw_state[2], raw_state[4], raw_state[3]*sin(raw_state[4]), raw_state[3]*cos(raw_state[4])], projected_actions, recovered_params
     end
 end
 
@@ -235,7 +209,7 @@ function Waymax_collision_avoidance(
         function collision_cost(x, i, context_state, t)
             mapreduce(+, [1:(i-1); (i+1):num_players]) do paired_player
                 # 10 * log(1 + exp(-9*norm_sqr(x[Block(i)][1:2] - x[Block(paired_player)][1:2])))
-                norm_sqr(x[Block(i)][1:2] - x[Block(paired_player)][1:2])
+                -1 * norm_sqr(x[Block(i)][1:2] - x[Block(paired_player)][1:2])
             end
         end
         function lane_center_cost(x, i, context_state, t)
