@@ -1,7 +1,9 @@
 module WaymaxAnalysis
 
 using CairoMakie
-function evaluate_and_plot_cost_components(
+using BlockArrays
+
+function eval_cc(
     states_file_m::String, contexts_file_m::String, actions_file_m::String,
     states_file_b::String, contexts_file_b::String, actions_file_b::String;
     output_file::String="cost_components.png")
@@ -50,27 +52,27 @@ function evaluate_and_plot_cost_components(
     states_m = [BlockArray(state, [4, 4, 4, 4]) for state in states_parsed_m]
     states_b = [BlockArray(state, [4, 4, 4, 4]) for state in states_parsed_b]
 
-    actions_m = readlines(actions_file_m)
-    actions_b = readlines(actions_file_b)
-    actions_parsed_m = []
-    actions_parsed_b = []
-    for (action_m, action_b) in zip(actions_m, actions_b)
-        content_m = strip(action_m)
-        if startswith(content_m, "[") && endswith(content_m, "]")
-            content_m = content_m[2:end-1]
-        end
-        values_m = [parse(Float64, strip(val)) for val in split(content_m, ",") if !isempty(strip(val))]
-        push!(actions_parsed_m, values_m)
+    # actions_m = readlines(actions_file_m)
+    # actions_b = readlines(actions_file_b)
+    # actions_parsed_m = []
+    # actions_parsed_b = []
+    # for (action_m, action_b) in zip(actions_m, actions_b)
+    #     content_m = strip(action_m)
+    #     if startswith(content_m, "[") && endswith(content_m, "]")
+    #         content_m = content_m[2:end-1]
+    #     end
+    #     values_m = [parse(Float64, strip(val)) for val in split(content_m, ",") if !isempty(strip(val))]
+    #     push!(actions_parsed_m, values_m)
         
-        content_b = strip(action_b)
-        if startswith(content_b, "[") && endswith(content_b, "]")
-            content_b = content_b[2:end-1]
-        end
-        values_b = [parse(Float64, strip(val)) for val in split(content_b, ",") if !isempty(strip(val))]
-        push!(actions_parsed_b, values_b)
-    end
-    actions_m = [BlockArray(action, [2, 2, 2, 2]) for action in actions_parsed_m]
-    actions_b = [BlockArray(action, [2, 2, 2, 2]) for action in actions_parsed_b]
+    #     content_b = strip(action_b)
+    #     if startswith(content_b, "[") && endswith(content_b, "]")
+    #         content_b = content_b[2:end-1]
+    #     end
+    #     values_b = [parse(Float64, strip(val)) for val in split(content_b, ",") if !isempty(strip(val))]
+    #     push!(actions_parsed_b, values_b)
+    # end
+    # actions_m = [BlockArray(action, [2, 2, 2, 2]) for action in actions_parsed_m]
+    # actions_b = [BlockArray(action, [2, 2, 2, 2]) for action in actions_parsed_b]
 
     num_players = 4
     horizon = length(states_m) - 12
