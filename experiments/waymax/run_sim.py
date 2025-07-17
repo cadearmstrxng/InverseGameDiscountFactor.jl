@@ -24,7 +24,7 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
     with open(scenario_path, 'rb') as f:
         scenario = pickle.load(f)
     init_steps = 11
-    dynamics_model = dynamics.InvertibleBicycleModel()
+    dynamics_model = dynamics.StateDynamics()
     env = _env.MultiAgentEnvironment(
         dynamics_model=dynamics_model,
         config=dataclasses.replace(
@@ -81,11 +81,11 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
     states = [state]
 
     obj_idx = jnp.arange(scenario.object_metadata.num_objects)
-    controlled_mask = jnp.zeros((scenario.object_metadata.num_objects, 1), dtype=jnp.bool_).at[4, 0].set(True)
-
     expert_actor = agents.IDMRoutePolicy(
         # dynamics_model=dynamics_model,
         is_controlled_func=lambda state: obj_idx != 4,
+        desired_vel=15.0,
+        min_spacing=30.0
     )
     controlled_actor = agents.actor_core_factory(
         lambda random_state: [0.0],
@@ -93,7 +93,7 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
             actor_state=jnp.array([0.0]),
             action=datatypes.Action(
                 data=jnp.array(get_action(jl, state_vectors["data"][-11:])),
-                valid=controlled_mask,
+                valid=jnp.zeros((scenario.object_metadata.num_objects, 1), dtype=jnp.bool_).at[4, 0].set(True),
             ),
             is_controlled=jnp.zeros(scenario.object_metadata.num_objects, dtype=jnp.bool_).at[4].set(True),
         ),
@@ -104,7 +104,7 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
     # jit_step = jax.jit(env.step)
     # jit_select_action_list = [jax.jit(actor.select_action) for actor in actors]
 
-    for t in range(states[0].remaining_timesteps):
+    for t in range(50):
         print(f"[run_sim] time: {t}")
         # outputs = [jit_select_action({}, state, None, None) for jit_select_action in jit_select_action_list]
         outputs = [actor.select_action({}, state, None, None) for actor in actors]
@@ -145,7 +145,7 @@ def get_action(jl, agent_states):
     action = jnp.array(jl.seval("get_action(current_agent_states)"))
     print(f"Action: {action}")
     dummy_action = jnp.array([0.0 for _ in range(len(action))])
-    return [dummy_action if i == 4 else action for i in range(16)]
+    return [action if i == 4 else dummy_action for i in range(16)]
 
 if __name__ == "__main__":
     run_sim()

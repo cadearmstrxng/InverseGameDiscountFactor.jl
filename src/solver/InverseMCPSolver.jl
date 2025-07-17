@@ -14,7 +14,8 @@ function solve_inverse_mcp_game(
     lr_increase_factor = 1.1,
     min_lr = 1e-7,
     max_consecutive_success = 3,
-    frozen_ego = false
+    frozen_ego = false,
+    freeze_initial_state = false
 )
     # Store all trajectories for animation
     all_trajectories = []
@@ -130,7 +131,9 @@ function solve_inverse_mcp_game(
         else
             context_state_estimation -= objective_update
         end
-        initial_state -= x0_update
+        if !freeze_initial_state
+            initial_state -= x0_update
+        end
     end
     context_state_estimation = ForwardDiff.value.(context_state_estimation)
     (; context_state_estimation, last_solution = last_solution_ref[], i_, solving_info, time_exec, all_trajectories, context_states)

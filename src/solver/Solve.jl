@@ -145,24 +145,25 @@ function solve_mcp_game(
     variables, status, info = ParametricMCPs.solve(
         parametric_mcp,
         θ;
-        # initial_guess = z,
+        initial_guess = z,
         verbose,
-        # cumulative_iteration_limit = maxiter,
+        cumulative_iteration_limit = maxiter,
         convergence_tolerance = 1e-3
     ) 
-    # if status != PATHSolver.MCP_Solved
-    #     variables_, status_, info_ = ParametricMCPs.solve(
-    #     parametric_mcp,
-    #     θ;
-    #     verbose,
-    #     convergence_tolerance = 1e-3
-    #     )
-    #     if status_ == PATHSolver.MCP_Solved
-    #         variables = variables_
-    #         status = status_
-    #         info = info_
-    #     end
-    # end
+    if status != PATHSolver.MCP_Solved
+        variables_, status_, info_ = ParametricMCPs.solve(
+        parametric_mcp,
+        θ;
+        verbose,
+        convergence_tolerance = 1e-3,
+        cumulative_iteration_limit = maxiter
+        )
+        if status_ == PATHSolver.MCP_Solved
+            variables = variables_
+            status = status_
+            info = info_
+        end
+    end
     primals = map(1:num_players(game)) do ii
         variables[index_sets.τ_idx_set[ii]]
     end

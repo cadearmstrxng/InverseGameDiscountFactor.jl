@@ -22,10 +22,13 @@ end
 
 function TrajectoryGamesBase.get_constraints(env::WaymaxEnv, i)
     # [2546.63, -5539.43,
+    n=2
     function (state)
         return [
-            norm_sqr(state[1:2] - [2549, -5544]) - 4^2
-            norm_sqr(state[1:2] - [2548, -5548]) - 5^2;
+            norm_sqr(state[1:2] - [2551.75, -5544]) - 3^2
+            norm_sqr(state[1:2] - [2548, -5544]) - 3^2
+            # ((1/3(state[1] - 2548))^n + (state[2] + 5541)^n)^1/n - 1
+            (1/1.5(state[1] - 2550))^2 + (state[2] + 5546)^2 - 1
             ]
     end
 end
@@ -67,12 +70,17 @@ function run_waymax_sim(initial_agent_states;full_state=false, graph=false, verb
     initial_state = agent_states[1]
     goal_init_guess = mean(roadgraph_points)
     if myopic
-        game_params = mortar([[vcat(goal_init_guess, [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]) for i in 1:4]...])
+        game_params = mortar([[vcat(goal_init_guess, [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]) for i in 1:4]...])
     else
-        game_params = mortar([[vcat(goal_init_guess, [1.0, 1.0, 1.0, 1.0, 1.0]) for i in 1:4]...])
+        game_params = mortar([[vcat(goal_init_guess, [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]) for i in 1:4]...])
     end
-    game_params[1:2] = [2555, -5800] # Ego agent knows its goal
-    
+    game_params[1:9] = [2555, -5600, 1.0, 5, 0.1, -1.0, 7, -4, 2] # Ego agent knows its goal
+    # mean_target
+    # control
+    # safe_distance_violation
+    # lane_center
+    # road_boundary
+    # velocity 
     horizon = length(agent_states)
 
     init = init_waymax_test_game(;
@@ -90,7 +98,7 @@ function run_waymax_sim(initial_agent_states;full_state=false, graph=false, verb
         init.game_structure.game,
         init.horizon,
         blocksizes(init.game_parameters, 1)
-    )
+    )    
     return function get_next_action_inverse(current_agent_states;)
         agent_states_float = [BlockVector([Float64(x) for x in line], [4, 4, 4, 4]) for line in current_agent_states]
 
@@ -107,6 +115,7 @@ function run_waymax_sim(initial_agent_states;full_state=false, graph=false, verb
             total_horizon = horizon,
             lr = 1e-4,
             frozen_ego = true,
+            freeze_initial_state = true
         )
         recovered_params = method_sol.recovered_params
         current_state = agent_states_float[end]
@@ -117,8 +126,9 @@ function run_waymax_sim(initial_agent_states;full_state=false, graph=false, verb
             recovered_params
         )
         primals = forward_solution.primals
-        actions = BlockVector(primals[1][4*horizon+1:4*horizon+2*4], [2 for _ in 1:4])
-        projected_actions = BlockVector(vcat([[min(max(action[1], -5), 3), action[2]] for action in actions.blocks]...), [2 for _ in 1:4])
+        actions = BlockVector(vcat([primals[ii][4*horizon+1:4*horizon+2] for ii in 1:4]...), [2 for _ in 1:4])
+        println("bicycle action: ", actions[Block(1)])
+        projected_actions = BlockVector(vcat([[min(max(action[1], -5), 3), max(min(action[2], pi/7), -pi/7)] for action in actions.blocks]...), [2 for _ in 1:4])
         raw_state = init.game_structure.game.dynamics(current_state, projected_actions).blocks[1]
         # Trajectory Games Base does x, y, v, theta
         # Waymax StateDynamics does x, y, yaw, vel_x, vel_y
@@ -172,7 +182,7 @@ function init_waymax_test_game(;
         dt = 0.1,
         l = 1.0,
         state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
-        control_bounds = (; lb = [-5, -pi/7], ub = [3, pi/7]),
+        control_bounds = (; lb = [-12, -pi/7], ub = [4, pi/7]),
         integration_scheme = :forward_euler
     ),
 )
@@ -217,29 +227,25 @@ function Waymax_collision_avoidance(
 
     cost = let
         function target_cost(x, context_state, t)
-            (myopic ? context_state[3] ^ t : 1) * 2 * norm_sqr(x[1:2] - context_state[1:2])
+            (myopic ? context_state[3] ^ t : 1) * norm_sqr(x[1:2] - context_state[1:2])
         end
         function control_cost(u, context_state, t)
-            0.1 * norm_sqr(u) * (myopic ? context_state[3] ^ t : 1)
+            norm_sqr(u) * (myopic ? context_state[3] ^ t : 1)
         end
         function collision_cost(x, i, context_state, t)
             mapreduce(+, [1:(i-1); (i+1):num_players]) do paired_player
-                10 * log(1 + exp(-9*norm_sqr(x[Block(i)][1:2] - x[Block(paired_player)][1:2])))
+                # 10 * log(1 + exp(-9*norm_sqr(x[Block(i)][1:2] - x[Block(paired_player)][1:2])))
+                norm_sqr(x[Block(i)][1:2] - x[Block(paired_player)][1:2])
             end
         end
         function lane_center_cost(x, i, context_state, t)
-            if i == 1
-                7 * (x[Block(i)][1] - 2554)^2
-            else
-                0
-            end
+            (x[Block(i)][1] - 2555)^2
         end
         function road_boundary_cost(x, i, context_state, t)
-            if i == 1
-                -4 * (x[Block(i)][1] - 2552)^2
-            else
-                0
-            end
+            (x[Block(i)][1] - 2552)^2
+        end
+        function velocity_cost(x, i, context_state, t)
+            norm_sqr(x[Block(i)][3] - 15)
         end
         function cost_for_player(i, xs, us, context_state, T)
             mean_target = mean([target_cost(xs[t + 1][Block(i)], context_state[Block(i)], t) for t in 1:T])
@@ -247,11 +253,14 @@ function Waymax_collision_avoidance(
             safe_distance_violation = mean([collision_cost(xs[t], i, context_state[Block(i)], t) for t in 1:T])
             lane_center = mean([lane_center_cost(xs[t], i, context_state[Block(i)], t) for t in 1:T])
             road_boundary = mean([road_boundary_cost(xs[t], i, context_state[Block(i)], t) for t in 1:T])
-
-            context_state[Block(i)][myopic ? 5 : 4] * mean_target + #TODO DONT update ego. # TODO basic screenshots at some times.could annotate with gamma that ego is inferring.
-            context_state[Block(i)][myopic ? 6 : 5] * control +
-            context_state[Block(i)][myopic ? 7 : 6] * safe_distance_violation + 
-            context_state[Block(i)][myopic ? 8 : 7] * (lane_center + road_boundary)
+            velocity = mean([velocity_cost(xs[t], i, context_state[Block(i)], t) for t in 1:T])
+            
+            context_state[Block(i)][myopic ? 4 : 3] * mean_target + # TODO basic screenshots at some times.could annotate with gamma that ego is inferring.
+            context_state[Block(i)][myopic ? 5 : 4] * control +
+            context_state[Block(i)][myopic ? 6 : 5] * safe_distance_violation + 
+            context_state[Block(i)][myopic ? 7 : 6] * lane_center + 
+            context_state[Block(i)][myopic ? 8 : 7] * road_boundary +
+            context_state[Block(i)][myopic ? 9 : 8] * velocity
         end
         function cost_function(xs, us, context_state)
             num_players = blocksize(xs[1], 1)
