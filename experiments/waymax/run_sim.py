@@ -7,6 +7,7 @@ import dataclasses
 import pickle
 import os
 import sys
+import random
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(script_dir, '..', '..'))
@@ -14,16 +15,29 @@ from juliacall import Main as jl
 jl.seval("using Pkg")
 jl.seval(f'Pkg.activate("{project_root}")')
 
-from waymax import config as _config, dataloader, datatypes, dynamics, agents, visualization, env as _env
+from waymax import config as _config, datatypes, dynamics, agents, visualization, env as _env
 
-import pdbpp as pdb
+def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl",
+            draw_frames: bool=False,
+            save_video: bool=False,
+            write_states: bool=True,
+            myopic: bool=True,
+            noise_level: float=0.0,
+            seed: int=0,
+            trial_num: int=0):
+    random.seed(seed)
+    print(f"[run_sim] seed: {seed}")
+    print(f"[run_sim] myopic: {myopic}")
+    print(f"[run_sim] noise_level: {noise_level}")
+    print(f"[run_sim] write_states: {write_states}")
+    print(f"[run_sim] save_video: {save_video}")
+    print(f"[run_sim] trial_num: {trial_num}")
 
-def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
     jl.seval("include(\"experiments/waymax/Waymax.jl\")")
     
     with open(scenario_path, 'rb') as f:
         scenario = pickle.load(f)
-    init_steps = 11
+
     dynamics_model = dynamics.StateDynamics()
     env = _env.MultiAgentEnvironment(
         dynamics_model=dynamics_model,
@@ -43,20 +57,8 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
                 f.write(f"{point[0]} {point[1]}\n")
 
     agent_ids_to_log = [4, 3, 8, 2]
-    # Note: Correcting this map to be id->idx. The previous version was idx->id,
-    # which caused incorrect lookups.
     id_to_idx_map = {i:int(id) for i, id in enumerate(scenario.object_metadata.ids)}
     agent_1_idx = id_to_idx_map.get(1, -1)
-
-    # agent_indices_to_log = []
-    # for id in agent_ids_to_log:
-    #     if id in id_to_idx_map:
-    #         agent_indices_to_log.append(id_to_idx_map[id])
-    #         print(f"Agent with ID {id} found at index {id_to_idx_map[id]}")
-    #     else:
-    #         print(f"Warning: Agent with ID {id} not found in scenario.")
-
-    # output_file_path = "experiments/waymax/agent_states.txt"
     
     template_state = env.reset(scenario)
     state_vectors = { "data": [] }
@@ -72,21 +74,46 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
             state_vectors["data"][-1].extend([float(x), float(y), float(jnp.sqrt(vel_x**2 + vel_y**2)), float(yaw)])
 
     jl.initial_agent_states = state_vectors["data"]
-    jl.seval("get_action = Waymax.run_waymax_sim(initial_agent_states;verbose=true)")
+    jl.seval(f"get_action = Waymax.run_waymax_sim(initial_agent_states;verbose=true,myopic={str(myopic).lower()})")
 
     state = dataclasses.replace(
         template_state,
         timestep=jnp.asarray(10),
     )
     states = [state]
+    all_actions = []
 
     obj_idx = jnp.arange(scenario.object_metadata.num_objects)
     expert_actor = agents.IDMRoutePolicy(
-        # dynamics_model=dynamics_model,
         is_controlled_func=lambda state: obj_idx != 4,
         desired_vel=15.0,
         min_spacing=30.0
     )
+    if write_states:
+        if myopic:
+            open(f"experiments/waymax/rh/myopic/actions_myopic_{noise_level}@{trial_num}.txt", "w").close()
+            open(f"experiments/waymax/rh/myopic/contexts_myopic_{noise_level}@{trial_num}.txt", "w").close()
+        else:
+            open(f"experiments/waymax/rh/baseline/actions_baseline_{noise_level}@{trial_num}.txt", "w").close()
+            open(f"experiments/waymax/rh/baseline/contexts_baseline_{noise_level}@{trial_num}.txt", "w").close()
+
+    def get_action(jl, agent_states, myopic=False):
+        jl.current_agent_states = agent_states
+        ret = jl.seval("get_action(current_agent_states)")
+        action, projected_actions, recovered_params = ret
+        if write_states:
+            if myopic:
+                with open(f"experiments/waymax/rh/myopic/actions_myopic_{noise_level}@{trial_num}.txt", "a") as f:
+                    f.write(str(projected_actions) + "\n")
+                with open(f"experiments/waymax/rh/myopic/contexts_myopic_{noise_level}@{trial_num}.txt", "a") as f:
+                    f.write(str(recovered_params) + "\n")
+            else:
+                with open(f"experiments/waymax/rh/baseline/actions_baseline_{noise_level}@{trial_num}.txt", "a") as f:
+                    f.write(str(projected_actions) + "\n")
+                with open(f"experiments/waymax/rh/baseline/contexts_baseline_{noise_level}@{trial_num}.txt", "a") as f:
+                    f.write(str(recovered_params) + "\n")
+        dummy_action = jnp.array([0.0 for _ in range(len(action))])
+        return [action if i == 4 else dummy_action for i in range(16)]
     controlled_actor = agents.actor_core_factory(
         lambda random_state: [0.0],
         lambda env_state, prev_agent_state, arg3, arg4: agents.WaymaxActorOutput(
@@ -99,19 +126,15 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
         ),
     )
     agents.actor_core.register_actor_core(controlled_actor)
-
     actors = [expert_actor, controlled_actor]
-    # jit_step = jax.jit(env.step)
-    # jit_select_action_list = [jax.jit(actor.select_action) for actor in actors]
 
     for t in range(50):
         print(f"[run_sim] time: {t}")
-        # outputs = [jit_select_action({}, state, None, None) for jit_select_action in jit_select_action_list]
         outputs = [actor.select_action({}, state, None, None) for actor in actors]
         action = agents.merge_actions(outputs)
-        # state = jit_step(state, action)
         state = env.step(state, action)
         states.append(state)
+        all_actions.append(action.data)
         state_vectors["data"].append([])
         for x, y, yaw, vel_x, vel_y in zip(
             state.current_sim_trajectory.x[agent_ids_to_log, -1:],
@@ -126,26 +149,44 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl"):
                 float(jnp.sqrt(vel_x**2 + vel_y**2)[0]), 
                 float(yaw[0])
             ])
-
-    print("[run_sim] videoing!")
-    imgs = []
-    for state in states:
-        state_to_plot = state
-        if agent_1_idx != -1:
-            metadata = state.object_metadata
-            new_valid = metadata.is_valid.at[1].set(False)
-            new_metadata = dataclasses.replace(metadata, is_valid=new_valid)
-            state_to_plot = dataclasses.replace(state, object_metadata=new_metadata)
-            imgs.append(visualization.plot_simulator_state(state_to_plot, use_log_traj=False))
-    mediapy.write_video("experiments/waymax/data/simulation.mp4", imgs, fps=10)
+        state_vectors["data"][-1] += np.random.multivariate_normal(np.zeros(16), np.eye(16)*noise_level)
+    print("[run_sim] Done!")
+    if save_video:
+        print("[run_sim] videoing!")
+        imgs = []
+        data_folder = os.path.join(script_dir, "data")
+        os.makedirs(data_folder, exist_ok=True)
+        for idx, state in enumerate(states):
+            state_to_plot = state
+            img = visualization.plot_simulator_state(state_to_plot, use_log_traj=False)
+            imgs.append(img)
+            if draw_frames:
+                frame_filename = os.path.join(data_folder, f"frame_{idx:03d}.png")
+                mediapy.write_image(frame_filename, img)
+        
+        mediapy.write_video(f"experiments/waymax/data/simulation_{noise_level}@{trial_num}.mp4", imgs, fps=10)
+    if write_states:
+        if myopic:
+            with open(f"experiments/waymax/rh/myopic/states_myopic_{noise_level}@{trial_num}.txt", "w") as f:
+                for vector in state_vectors["data"]:
+                    f.write(f"[{', '.join(map(str, vector))}]\n")
+        else:
+            with open(f"experiments/waymax/rh/baseline/states_baseline_{noise_level}@{trial_num}.txt", "w") as f:
+                for vector in state_vectors["data"]:
+                    f.write(f"[{', '.join(map(str, vector))}]\n")
     print("Done")
 
-def get_action(jl, agent_states):
-    jl.current_agent_states = agent_states
-    action = jnp.array(jl.seval("get_action(current_agent_states)"))
-    print(f"Action: {action}")
-    dummy_action = jnp.array([0.0 for _ in range(len(action))])
-    return [action if i == 4 else dummy_action for i in range(16)]
+def run_mc(seed: int=0):
+    # for noise_level in [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1]:
+    for noise_level in [0.01]:
+        # for trial_num in range(15):
+        for trial_num in range(1):
+            run_sim(noise_level=noise_level, trial_num=trial_num, myopic=False, seed=seed)
+            run_sim(noise_level=noise_level, trial_num=trial_num, myopic=True, seed=seed)
 
 if __name__ == "__main__":
-    run_sim()
+    if len(sys.argv) > 1 and sys.argv[1] == "-mc":
+        seed = int(sys.argv[2][1:]) if len(sys.argv) > 2 else 0
+        run_mc(seed=seed)
+    else:
+        run_sim()
