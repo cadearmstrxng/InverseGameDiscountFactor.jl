@@ -91,16 +91,16 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl",
     )
     if write_states:
         if myopic:
+            os.makedirs(f"experiments/waymax/mc/myopic", exist_ok=True)
             open(f"experiments/waymax/mc/myopic/actions_{noise_level}@{trial_num}.txt", "w").close()
             open(f"experiments/waymax/mc/myopic/contexts_{noise_level}@{trial_num}.txt", "w").close()
         else:
+            os.makedirs(f"experiments/waymax/mc/baseline", exist_ok=True)
             open(f"experiments/waymax/mc/baseline/actions_{noise_level}@{trial_num}.txt", "w").close()
             open(f"experiments/waymax/mc/baseline/contexts_{noise_level}@{trial_num}.txt", "w").close()
 
     def get_action(jl, agent_states, myopic=False):
-        noised_agent_states = [state + noise_level * np.random.multivariate_normal(np.zeros(16), np.eye(16)) for state in agent_states[:-1]]
-        noised_agent_states.append(agent_states[-1])
-        jl.current_agent_states = noised_agent_states
+        jl.current_agent_states = agent_states
         ret = jl.seval("get_action(current_agent_states)")
         action, projected_actions, recovered_params = ret
         if write_states:
@@ -122,7 +122,7 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl",
         lambda env_state, prev_agent_state, arg3, arg4: agents.WaymaxActorOutput(
             actor_state=jnp.array([0.0]),
             action=datatypes.Action(
-                data=jnp.array(get_action(jl, state_vectors["data"][-11:])),
+                data=jnp.array(get_action(jl, state_vectors["data"][-11:], myopic=myopic)),
                 valid=jnp.zeros((scenario.object_metadata.num_objects, 1), dtype=jnp.bool_).at[4, 0].set(True),
             ),
             is_controlled=jnp.zeros(scenario.object_metadata.num_objects, dtype=jnp.bool_).at[4].set(True),
@@ -152,6 +152,7 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl",
                 float(jnp.sqrt(vel_x**2 + vel_y**2)[0]), 
                 float(yaw[0])
             ])
+        state_vectors["data"][-1] += np.random.multivariate_normal(np.zeros(16), np.eye(16)*noise_level)
     print("[run_sim] Done!")
     if save_video:
         print("[run_sim] videoing!")
@@ -165,6 +166,7 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl",
             if draw_frames:
                 frame_filename = os.path.join(data_folder, f"frame_{idx:03d}.png")
                 mediapy.write_image(frame_filename, img)
+        
         s = "myp" if myopic else "bsl"
         mediapy.write_video(f"experiments/waymax/data/sim-{s}_n-{noise_level}@{trial_num}.mp4", imgs, fps=10)
     if write_states:
@@ -179,10 +181,10 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl",
     print("Done")
 
 def run_mc(seed: int=0):
-    # for noise_level in [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1]:
-    for noise_level in [0.01]:
-        # for trial_num in range(15):
-        for trial_num in range(1):
+    for noise_level in [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1]:
+    # for noise_level in [0.01]:
+        for trial_num in range(15):
+        # for trial_num in range(1):
             run_sim(noise_level=noise_level, trial_num=trial_num, myopic=False, seed=seed)
             run_sim(noise_level=noise_level, trial_num=trial_num, myopic=True, seed=seed)
 
