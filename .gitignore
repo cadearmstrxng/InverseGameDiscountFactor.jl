@@ -11,3 +11,4 @@ _tmp.*
 flamegraph_output.txt
 .CondaPkg
 trajectory_optimization.gif
+**/mc
