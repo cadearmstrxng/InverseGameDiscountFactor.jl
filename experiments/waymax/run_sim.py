@@ -14,6 +14,8 @@ project_root = os.path.abspath(os.path.join(script_dir, '..', '..'))
 from juliacall import Main as jl
 jl.seval("using Pkg")
 jl.seval(f'Pkg.activate("{project_root}")')
+jl.seval("Pkg.precompile()")
+jl.seval("include(\"experiments/waymax/Waymax.jl\")")
 
 from waymax import config as _config, datatypes, dynamics, agents, visualization, env as _env
 
@@ -32,8 +34,6 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl",
     print(f"[run_sim] write_states: {write_states}")
     print(f"[run_sim] save_video: {save_video}")
     print(f"[run_sim] trial_num: {trial_num}")
-
-    jl.seval("include(\"experiments/waymax/Waymax.jl\")")
     
     with open(scenario_path, 'rb') as f:
         scenario = pickle.load(f)
@@ -73,9 +73,6 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl",
             ):
             state_vectors["data"][-1].extend([float(x), float(y), float(jnp.sqrt(vel_x**2 + vel_y**2)), float(yaw)])
 
-    jl.initial_agent_states = state_vectors["data"]
-    jl.seval(f"get_action = Waymax.run_waymax_sim(initial_agent_states;verbose=true,myopic={str(myopic).lower()})")
-
     state = dataclasses.replace(
         template_state,
         timestep=jnp.asarray(10),
@@ -101,7 +98,7 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl",
 
     def get_action(jl, agent_states, myopic=False):
         jl.current_agent_states = agent_states
-        ret = jl.seval("get_action(current_agent_states)")
+        ret = jl.seval("Waymax.get_action(init, mcp_solver, current_agent_states)")
         action, projected_actions, recovered_params = ret
         if write_states:
             if myopic:
@@ -186,12 +183,14 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl",
     print("Done")
 
 def run_mc(seed: int=0):
-    for noise_level in [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1]:
+    jl.seval("init, mcp_solver = Waymax.init_solver()")
+    for noise_level in [0.0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1]:
     # for noise_level in [0.01]:
         for trial_num in range(15):
         # for trial_num in range(1):
             run_sim(noise_level=noise_level, trial_num=trial_num, myopic=False, seed=seed)
             run_sim(noise_level=noise_level, trial_num=trial_num, myopic=True, seed=seed)
+            jl.seval("GC.gc()")
 
 if __name__ == "__main__":
     args = {}
