@@ -25,10 +25,10 @@ function TrajectoryGamesBase.get_constraints(env::WaymaxEnv, i)
     n=2
     function (state)
         return [
-            norm_sqr(state[1:2] - [2551.75, -5544]) - 3^2
-            norm_sqr(state[1:2] - [2548, -5544]) - 3^2
+            norm_sqr(state[1:2] - [2549, -5548]) - 5^2
+            # norm_sqr(state[1:2] - [2548, -5544]) - 3^2
             # ((1/3(state[1] - 2548))^n + (state[2] + 5541)^n)^1/n - 1
-            (1/1.5(state[1] - 2550))^2 + (state[2] + 5546)^2 - 1
+            # (1/1.15(state[1] - 2550))^2 + (state[2] + 5547)^2 - 1
             ]
     end
 end
@@ -47,7 +47,7 @@ function run_waymax_sim(initial_agent_states;full_state=false, graph=false, verb
     goal_init_guess = mean(roadgraph_points)
     if myopic
         game_params = mortar([[vcat(goal_init_guess, [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]) for i in 1:4]...])
-        game_params[1:9] = [2555, -5600, 1.0, 5, 0.1, 1.0, 7, -4, 2] # Ego agent knows its goal
+        game_params[1:9] = [2555, -5600, 1.0, 5, 0.1, 0.75, 7, -4, 2] # Ego agent knows its goal
     else
         game_params = mortar([[vcat(goal_init_guess, [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]) for i in 1:4]...])
         game_params[1:8] = [2555, -5600, 5, 0.1, 1.0, 7, -4, 2] # Ego agent knows its goal
@@ -156,7 +156,7 @@ function init_waymax_test_game(;
         dt = 0.1,
         l = 1.0,
         state_bounds = (; lb = [-Inf, -Inf, -Inf, -Inf], ub = [Inf, Inf, Inf, Inf]),
-        control_bounds = (; lb = [-12, -pi/7], ub = [4, pi/7]),
+        control_bounds = (; lb = [-12, -pi/7], ub = [5, pi/7]),
         integration_scheme = :forward_euler
     ),
 )

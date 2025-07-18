@@ -19,7 +19,7 @@ from waymax import config as _config, datatypes, dynamics, agents, visualization
 
 def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl",
             draw_frames: bool=False,
-            save_video: bool=False,
+            save_video: bool=True,
             write_states: bool=True,
             myopic: bool=True,
             noise_level: float=0.0,
@@ -86,8 +86,8 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl",
     obj_idx = jnp.arange(scenario.object_metadata.num_objects)
     expert_actor = agents.IDMRoutePolicy(
         is_controlled_func=lambda state: obj_idx != 4,
-        desired_vel=15.0,
-        min_spacing=30.0
+        desired_vel=10.0,
+        min_spacing=40.0
     )
     if write_states:
         if myopic:
