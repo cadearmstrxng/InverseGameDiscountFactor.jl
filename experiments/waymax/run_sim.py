@@ -152,7 +152,11 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl",
                 float(jnp.sqrt(vel_x**2 + vel_y**2)[0]), 
                 float(yaw[0])
             ])
-        state_vectors["data"][-1] += np.random.multivariate_normal(np.zeros(16), np.eye(16)*noise_level)
+        noise = np.zeros(16)
+        for i in range(4):
+            noise[(4*i):(4*i)+2] = np.random.multivariate_normal(np.zeros(2), np.eye(2)*noise_level)
+        state_vectors["data"][-1] += noise
+
     print("[run_sim] Done!")
     if save_video:
         print("[run_sim] videoing!")
@@ -169,6 +173,7 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl",
         
         s = "myp" if myopic else "bsl"
         mediapy.write_video(f"experiments/waymax/data/sim-{s}_n-{noise_level}@{trial_num}.mp4", imgs, fps=10)
+        print(f"[run_sim] video saved to experiments/waymax/data/sim-{s}_n-{noise_level}@{trial_num}.mp4")
     if write_states:
         if myopic:
             with open(f"experiments/waymax/mc/myopic/states_{noise_level}@{trial_num}.txt", "w") as f:
@@ -189,8 +194,29 @@ def run_mc(seed: int=0):
             run_sim(noise_level=noise_level, trial_num=trial_num, myopic=True, seed=seed)
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == "-mc":
-        seed = int(sys.argv[2]) if len(sys.argv) > 2 else 0
-        run_mc(seed=seed)
+    args = {}
+    args["mc"] = False
+    args["seed"] = 0
+    args["noise_level"] = 0.0
+    args["trial_num"] = 0
+    args["myopic"] = False
+    args["draw_frames"] = False
+    args["write_states"] = False
+
+    for arg in sys.argv[1:]:
+        if arg == "-mc":
+            args["mc"] = True
+        elif arg == "-s":
+            args["seed"] = int(sys.argv[sys.argv.index(arg) + 1])
+        elif arg == "-n":
+            args["noise_level"] = float(sys.argv[sys.argv.index(arg) + 1])
+        elif arg == "-m":
+            args["myopic"] = True
+        elif arg == "-d":
+            args["draw_frames"] = True
+        elif arg == "-w":
+            args["write_states"] = True
+    if args["mc"]:
+        run_mc(seed=args["seed"])
     else:
-        run_sim()
+        run_sim(noise_level=args["noise_level"], trial_num=args["trial_num"], myopic=args["myopic"], seed=args["seed"], write_states=args["write_states"])
