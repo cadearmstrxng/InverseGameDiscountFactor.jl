@@ -13,7 +13,8 @@ function solve_myopic_inverse_game(
     lr = 1e-3,
     total_horizon = 25,
     frozen_ego = false,
-    freeze_initial_state = false
+    freeze_initial_state = false,
+    store_trajectories = false
 )
     !verbose || println("solving ... ")
     initial_state = (isnothing(initial_state)) ? BlockVector(deepcopy(observed_trajectory[1]), collect(blocksizes(observed_trajectory[1], 1))) : initial_state
@@ -56,7 +57,8 @@ function solve_myopic_inverse_game(
                     # last_solution = warm_start_sol,
                     lr = lr,
                     frozen_ego = frozen_ego,
-                    freeze_initial_state = freeze_initial_state
+                    freeze_initial_state = freeze_initial_state,
+                    store_trajectories = store_trajectories
                 )
             @info "inverse game took $(time_exec) seconds"
             # animate_optimization_progress(all_trajectories, mcp_game)

@@ -15,10 +15,11 @@ function solve_inverse_mcp_game(
     min_lr = 1e-7,
     max_consecutive_success = 3,
     frozen_ego = false,
-    freeze_initial_state = false
+    freeze_initial_state = false,
+    store_trajectories = false,
 )
     # Store all trajectories for animation
-    all_trajectories = []
+    all_trajectories = store_trajectories ? [] : nothing
     last_solution_ref = Ref{Any}(last_solution)
     
     function observe_trajectory(x)
@@ -44,7 +45,10 @@ function solve_inverse_mcp_game(
             push!(solving_info, solution.info)
             last_solution_ref[] = (; primals = ForwardDiff.value.(solution.primals),
                 variables = ForwardDiff.value.(solution.variables), status = solution.status)
-            push!(all_trajectories, ForwardDiff.value.(deepcopy(τs_solution)))
+            # Only store trajectories if requested (memory optimization)
+            if store_trajectories
+                push!(all_trajectories, ForwardDiff.value.(deepcopy(τs_solution)))
+            end
             # println("forward game success ratio: ", solution.success_ratio)
         
             was_successful[] = solution.success_ratio >= 0.9
