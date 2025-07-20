@@ -98,7 +98,10 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl",
 
     def get_action(jl, agent_states, myopic=False):
         jl.current_agent_states = agent_states
-        ret = jl.seval("Waymax.get_action(init, mcp_solver, current_agent_states)")
+        if myopic:
+            ret = jl.seval("Waymax.get_action(init_m, mcp_solver_m, current_agent_states)")
+        else:
+            ret = jl.seval("Waymax.get_action(init_b, mcp_solver_b, current_agent_states)")
         action, projected_actions, recovered_params = ret
         if write_states:
             if myopic:
@@ -183,7 +186,8 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl",
     print("Done")
 
 def run_mc(seed: int=0):
-    jl.seval("init, mcp_solver = Waymax.init_solver()")
+    jl.seval("init_b, mcp_solver_b = Waymax.init_solver()")
+    jl.seval("init_m, mcp_solver_m = Waymax.init_solver(myopic=true)")
     for noise_level in [0.0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1]:
     # for noise_level in [0.01]:
         for trial_num in range(15):

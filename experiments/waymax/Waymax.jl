@@ -11,7 +11,7 @@ using Optim
 
 using InverseGameDiscountFactor
 
-export run_waymax_sim, test_waymax_sim
+export init_solver, get_action
 
 struct CollisionAvoidanceGame
     game::TrajectoryGame
@@ -34,18 +34,12 @@ function TrajectoryGamesBase.get_constraints(env::WaymaxEnv, i)
     end
 end
 
-function run_waymax_sim(initial_agent_states;full_state=false, graph=false, verbose = false, myopic = true)
-
-    rng = MersenneTwister(1234)
-    Random.seed!(rng)
-
-    roadgraph_points = pull_roadpoints("experiments/waymax/data/roadgraph_points.txt")
-    
-    agent_states_float = [[Float64(x) for x in line] for line in initial_agent_states]
-    agent_states = [BlockArray(state, [4, 4, 4, 4]) for state in agent_states_float]
-    
-    initial_state = agent_states[1]
-    goal_init_guess = mean(roadgraph_points)
+function init_solver(;
+    horizon = 11,
+    myopic = false,
+    verbose = false,
+)
+    goal_init_guess = [2543.9316778018742, -5584.346918384463] # mean of all roadgraph points, pulled out.
     if myopic
         game_params = mortar([[vcat(goal_init_guess, [1.0, 5, 0.1, 0.75, 7, -4, 2]) for i in 1:4]...])
         game_params[1:9] = [2555, -5600, 1.0, 5, 0.1, 0.75, 7, -4, 2] # Ego agent knows its goal
@@ -53,16 +47,8 @@ function run_waymax_sim(initial_agent_states;full_state=false, graph=false, verb
         game_params = mortar([[vcat(goal_init_guess, [5, 0.1, 1.0, 7, -4, 2]) for i in 1:4]...])
         game_params[1:8] = [2555, -5600, 5, 0.1, 1.0, 7, -4, 2] # Ego agent knows its goal
     end
-    # mean_target
-    # control
-    # safe_distance_violation
-    # lane_center
-    # road_boundary
-    # velocity 
-    horizon = length(agent_states)
-
+    
     init = init_waymax_test_game(;
-        initial_state = initial_state,
         game_params = game_params,
         horizon = horizon,
         n = 4,
@@ -70,45 +56,45 @@ function run_waymax_sim(initial_agent_states;full_state=false, graph=false, verb
         verbose = verbose,
         # lane_centers = lane_centers,
     )
-
-    !verbose || println("initializing mcp coupled optimization solver...")
     mcp_solver = InverseGameDiscountFactor.MCPCoupledOptimizationSolver(
         init.game_structure.game,
         init.horizon,
         blocksizes(init.game_parameters, 1)
-    )    
-    return function get_next_action_inverse(current_agent_states;)
-        agent_states_float = [BlockVector([Float64(x) for x in line], [4, 4, 4, 4]) for line in current_agent_states]
+    )
+    return init, mcp_solver
+end
 
-        !verbose || println("solving inverse game")
-        method_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
-            mcp_solver.mcp_game,
-            agent_states_float,
-            init.observation_model,
-            Tuple(blocksizes(init.game_parameters, 1));
-            initial_state = init.initial_state,
-            hidden_state_guess = init.game_parameters[1:end],
-            max_grad_steps = 2,
-            verbose = verbose,
-            total_horizon = horizon,
-            lr = 1e-4,
-            frozen_ego = true,
-            freeze_initial_state = true
-        )
-        recovered_params = method_sol.recovered_params
-        current_state = agent_states_float[end]
-        !verbose || println("current state: ", round.(current_state[1:4], digits=2))
-        forward_solution = solve_mcp_game(
-            mcp_solver.mcp_game,
-            current_state,
-            recovered_params
-        )
-        primals = forward_solution.primals
-        actions = BlockVector(vcat([primals[ii][4*horizon+1:4*horizon+2] for ii in 1:4]...), [2 for _ in 1:4])
-        projected_actions = BlockVector(vcat([[min(max(action[1], -5), 3), max(min(action[2], pi/7), -pi/7)] for action in actions.blocks]...), [2 for _ in 1:4])
-        raw_state = init.game_structure.game.dynamics(current_state, projected_actions).blocks[1]
-        return [raw_state[1], raw_state[2], raw_state[4], raw_state[3]*sin(raw_state[4]), raw_state[3]*cos(raw_state[4])], projected_actions, recovered_params
-    end
+function get_action(init, mcp_solver, current_agent_states;verbose = false)
+    agent_states_float = [BlockVector([Float64(x) for x in line], [4, 4, 4, 4]) for line in current_agent_states]
+    initial_state = agent_states_float[end]
+    !verbose || println("solving inverse game")
+    method_sol = InverseGameDiscountFactor.solve_myopic_inverse_game(
+        mcp_solver.mcp_game,
+        agent_states_float,
+        init.observation_model,
+        Tuple(blocksizes(init.game_parameters, 1));
+        initial_state = initial_state,
+        hidden_state_guess = init.game_parameters[1:end],
+        max_grad_steps = 2,
+        verbose = verbose,
+        total_horizon = init.horizon,
+        lr = 1e-4,
+        frozen_ego = true,
+        freeze_initial_state = true
+    )
+    recovered_params = method_sol.recovered_params
+    current_state = agent_states_float[end]
+    !verbose || println("current state: ", round.(current_state[1:4], digits=2))
+    forward_solution = solve_mcp_game(
+        mcp_solver.mcp_game,
+        current_state,
+        recovered_params
+    )
+    primals = forward_solution.primals
+    actions = BlockVector(vcat([primals[ii][4*init.horizon+1:4*init.horizon+2] for ii in 1:4]...), [2 for _ in 1:4])
+    projected_actions = BlockVector(vcat([[min(max(action[1], -5), 3), max(min(action[2], pi/7), -pi/7)] for action in actions.blocks]...), [2 for _ in 1:4])
+    raw_state = init.game_structure.game.dynamics(current_state, projected_actions).blocks[1]
+    return [raw_state[1], raw_state[2], raw_state[4], raw_state[3]*sin(raw_state[4]), raw_state[3]*cos(raw_state[4])], projected_actions, recovered_params
 end
 
 function calculate_road_func(roadpoints; display_plot = false)
@@ -146,7 +132,6 @@ function init_waymax_test_game(;
     action_dim = (2, 2, 2, 2),
     σ_ = 0.0,
     game_environment = WaymaxEnv(),
-    initial_state = nothing,
     game_params = nothing,
     horizon = 10,
     n = 4,
@@ -180,7 +165,6 @@ function init_waymax_test_game(;
             [state_dim[1] for _ in 1:n]
         )
     (;
-    initial_state = initial_state,
     game_parameters = game_params,
     environment = game_environment,
     observation_model = observation_model,
