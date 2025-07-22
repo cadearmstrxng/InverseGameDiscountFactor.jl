@@ -42,7 +42,14 @@ This will produce terminal output as well as plots.
 
 Finally, the Waymax simulation is run in python, rather than julia. In order to do this, there is a `conda` environment setup script run by `setup_environment.sh` in the top-level directory.
 
-The dataset is too large to download locally, so we have set up a script `experiments/waymax/find_scenario.py` to iterate through the many scenarios provided by Waymo. Our paper uses the second scenario, or the scenario saved as `experiments/wayamx/data/scenario_iter_1.pkl`. Then, the actual scenario can be run by calling:
+The dataset is too large to download locally, so we have set up a script `experiments/waymax/find_scenario.py` to iterate through the many scenarios provided by Waymo. Our paper uses the second scenario, or the scenario saved as `experiments/wayamx/data/scenario_iter_1.pkl`. Then, the actual scenario (with the baseline solver) can be run by calling:
 ```
 $ python ./experiments/waymax/run_sim.py
 ```
+
+To run our method, simply add the `-m` flag:
+```
+$ python experiments/waymax/run_sim.py -m
+```
+
+Note that there are known issues with using Julia from Python on a Windows environment. If possible, please run from a Linux environment. Otherwise, there may be many issues with how Python package managers such as `conda` interact with Julia.
