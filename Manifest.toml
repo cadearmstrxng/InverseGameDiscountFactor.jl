@@ -2601,8 +2601,8 @@ weakdeps = ["Makie"]
     MakieExt = "Makie"
 
 [[deps.TrajectoryGamesExamples]]
-deps = ["BlockArrays", "Colors", "InfiniteArrays", "LinearAlgebra", "Makie", "TrajectoryGamesBase"]
-path = "/home/ryanjpark/.julia/dev/TrajectoryGamesExamples"
+deps = ["BlockArrays", "InfiniteArrays", "LinearAlgebra", "TrajectoryGamesBase"]
+path = "/home/rjp2764/.julia/dev/TrajectoryGamesExamples"
 uuid = "ff3fa34c-8d8f-519c-b5bc-31760c52507a"
 version = "0.1.11"
 

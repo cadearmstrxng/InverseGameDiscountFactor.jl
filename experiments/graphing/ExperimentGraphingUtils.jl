@@ -25,7 +25,9 @@ function graph_metrics(
     partial_state_included=true,
     std_dev_threshold=2.5,
     show_outliers=false,
-    y_axis_limit=150
+    show_individual_points=false,
+    y_axis_limit=150,
+    font_size=24,
 )
     prefix = pre_prefix
     CairoMakie.activate!()
@@ -79,6 +81,13 @@ function graph_metrics(
     our_method_full_means, our_method_full_stds, our_method_full_outlier_masks = 
         filter_outliers_and_compute_stats(our_method_full_individual_points; std_dev_threshold=std_dev_threshold)
     
+    # Calculate bootstrapped statistics
+    baseline_full_boot_means, baseline_full_boot_lower, baseline_full_boot_upper, _ =
+        bootstrap_and_compute_stats(baseline_full_individual_points; std_dev_threshold=std_dev_threshold)
+
+    our_method_full_boot_means, our_method_full_boot_lower, our_method_full_boot_upper, _ =
+        bootstrap_and_compute_stats(our_method_full_individual_points; std_dev_threshold=std_dev_threshold)
+
     # Process partial state data if included
     if partial_state_included
         baseline_partial_means, baseline_partial_stds, baseline_partial_outlier_masks = 
@@ -86,9 +95,17 @@ function graph_metrics(
         
         our_method_partial_means, our_method_partial_stds, our_method_partial_outlier_masks = 
             filter_outliers_and_compute_stats(our_method_partial_individual_points; std_dev_threshold=std_dev_threshold)
+        
+        baseline_partial_boot_means, baseline_partial_boot_lower, baseline_partial_boot_upper, _ =
+            bootstrap_and_compute_stats(baseline_partial_individual_points; std_dev_threshold=std_dev_threshold)
+
+        our_method_partial_boot_means, our_method_partial_boot_lower, our_method_partial_boot_upper, _ =
+            bootstrap_and_compute_stats(our_method_partial_individual_points; std_dev_threshold=std_dev_threshold)
     else
         baseline_partial_means, baseline_partial_stds, baseline_partial_outlier_masks = nothing, nothing, nothing
         our_method_partial_means, our_method_partial_stds, our_method_partial_outlier_masks = nothing, nothing, nothing
+        baseline_partial_boot_means, baseline_partial_boot_lower, baseline_partial_boot_upper = nothing, nothing, nothing
+        our_method_partial_boot_means, our_method_partial_boot_lower, our_method_partial_boot_upper = nothing, nothing, nothing
     end
     
     # Print information about outliers
@@ -138,15 +155,17 @@ function graph_metrics(
         color=(colors[fo_b], band_opacity))
 
     # Scatter plot for individual baseline full state data points
-    for col in eachindex(baseline_full_individual_points[1, :])
-        for row in eachindex(σs)
-            # Determine if this point is an outlier
-            is_outlier = baseline_full_outlier_masks[row][col]
-            is_outlier && !show_outliers && continue
-            point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
-            
-            scatter!(ax_all, [σs[row]], [baseline_full_individual_points[row, col]], 
-                    color=(colors[fo_b], point_opacity), markersize=4)
+    if show_individual_points
+        for col in eachindex(baseline_full_individual_points[1, :])
+            for row in eachindex(σs)
+                # Determine if this point is an outlier
+                is_outlier = baseline_full_outlier_masks[row][col]
+                is_outlier && !show_outliers && continue
+                point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+                
+                scatter!(ax_all, [σs[row]], [baseline_full_individual_points[row, col]], 
+                        color=(colors[fo_b], point_opacity), markersize=4)
+            end
         end
     end
 
@@ -158,15 +177,17 @@ function graph_metrics(
         color=(colors[fo_n], band_opacity+0.1))
         
     # Scatter plot for individual our method full state data points
-    for col in eachindex(our_method_full_individual_points[1, :])
-        for row in eachindex(σs)
-            # Determine if this point is an outlier
-            is_outlier = our_method_full_outlier_masks[row][col]
-            is_outlier && !show_outliers && continue
-            point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
-            
-            scatter!(ax_all, [σs[row]], [our_method_full_individual_points[row, col]], 
-                    color=(colors[fo_n], point_opacity), markersize=4)
+    if show_individual_points
+        for col in eachindex(our_method_full_individual_points[1, :])
+            for row in eachindex(σs)
+                # Determine if this point is an outlier
+                is_outlier = our_method_full_outlier_masks[row][col]
+                is_outlier && !show_outliers && continue
+                point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+                
+                scatter!(ax_all, [σs[row]], [our_method_full_individual_points[row, col]], 
+                        color=(colors[fo_n], point_opacity), markersize=4)
+            end
         end
     end
 
@@ -178,7 +199,7 @@ function graph_metrics(
         color=(colors[po_b], band_opacity))
         
     # Scatter plot for individual baseline partial state data points
-    if partial_state_included
+    if partial_state_included && show_individual_points
         for col in eachindex(baseline_partial_individual_points[1, :])
             for row in eachindex(σs)
                 # Determine if this point is an outlier
@@ -200,7 +221,7 @@ function graph_metrics(
         color=(colors[po_n], band_opacity))
         
     # Scatter plot for individual our method partial state data points
-    if partial_state_included
+    if partial_state_included && show_individual_points
         for col in eachindex(our_method_partial_individual_points[1, :])
             for row in eachindex(σs)
                 # Determine if this point is an outlier
@@ -238,14 +259,16 @@ function graph_metrics(
         color=(colors[fo_b], band_opacity))
         
     # Scatter plot for individual baseline full state data points
-    for col in eachindex(baseline_full_individual_points[1, :])
-        for row in eachindex(σs)
-            # Determine if this point is an outlier
-            is_outlier = baseline_full_outlier_masks[row][col]
-            is_outlier && !show_outliers && continue
-            point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
-            scatter!(ax_baseline, [σs[row]], [baseline_full_individual_points[row, col]], 
-                    color=(colors[fo_b], point_opacity), markersize=4)
+    if show_individual_points
+        for col in eachindex(baseline_full_individual_points[1, :])
+            for row in eachindex(σs)
+                # Determine if this point is an outlier
+                is_outlier = baseline_full_outlier_masks[row][col]
+                is_outlier && !show_outliers && continue
+                point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+                scatter!(ax_baseline, [σs[row]], [baseline_full_individual_points[row, col]], 
+                        color=(colors[fo_b], point_opacity), markersize=4)
+            end
         end
     end
     
@@ -257,7 +280,7 @@ function graph_metrics(
         color=(colors[po_b], band_opacity))
         
     # Scatter plot for individual baseline partial state data points
-    if partial_state_included
+    if partial_state_included && show_individual_points
         for col in eachindex(baseline_partial_individual_points[1, :])
             for row in eachindex(σs)
                 # Determine if this point is an outlier
@@ -294,15 +317,17 @@ function graph_metrics(
         color=(colors[fo_n], band_opacity))
         
     # Scatter plot for individual our method full state data points
-    for col in eachindex(our_method_full_individual_points[1, :])
-        for row in eachindex(σs)
-            # Determine if this point is an outlier
-            is_outlier = our_method_full_outlier_masks[row][col]
-            is_outlier && !show_outliers && continue
-            point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
-            
-            scatter!(ax_our, [σs[row]], [our_method_full_individual_points[row, col]], 
-                    color=(colors[fo_n], point_opacity), markersize=4)
+    if show_individual_points
+        for col in eachindex(our_method_full_individual_points[1, :])
+            for row in eachindex(σs)
+                # Determine if this point is an outlier
+                is_outlier = our_method_full_outlier_masks[row][col]
+                is_outlier && !show_outliers && continue
+                point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+                
+                scatter!(ax_our, [σs[row]], [our_method_full_individual_points[row, col]], 
+                        color=(colors[fo_n], point_opacity), markersize=4)
+            end
         end
     end
     
@@ -314,7 +339,7 @@ function graph_metrics(
         color=(colors[po_n], band_opacity))
         
     # Scatter plot for individual our method partial state data points
-    if partial_state_included
+    if partial_state_included && show_individual_points
         for col in eachindex(our_method_partial_individual_points[1, :])
             for row in eachindex(σs)
                 # Determine if this point is an outlier
@@ -351,15 +376,17 @@ function graph_metrics(
         color=(colors[fo_b], band_opacity))
     
     # Scatter plot for individual baseline full state data points
-    for col in eachindex(baseline_full_individual_points[1, :])
-        for row in eachindex(σs)
-            # Determine if this point is an outlier
-            is_outlier = baseline_full_outlier_masks[row][col]
-            is_outlier && !show_outliers && continue
-            point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
-            
-            scatter!(ax_full, [σs[row]], [baseline_full_individual_points[row, col]], 
-                    color=(colors[fo_b], point_opacity), markersize=4)
+    if show_individual_points
+        for col in eachindex(baseline_full_individual_points[1, :])
+            for row in eachindex(σs)
+                # Determine if this point is an outlier
+                is_outlier = baseline_full_outlier_masks[row][col]
+                is_outlier && !show_outliers && continue
+                point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+                
+                scatter!(ax_full, [σs[row]], [baseline_full_individual_points[row, col]], 
+                        color=(colors[fo_b], point_opacity), markersize=4)
+            end
         end
     end
     
@@ -371,15 +398,17 @@ function graph_metrics(
         color=(colors[fo_n], band_opacity+0.1))
     
     # Scatter plot for individual our method full state data points
-    for col in eachindex(our_method_full_individual_points[1, :])
-        for row in eachindex(σs)
-            # Determine if this point is an outlier
-            is_outlier = our_method_full_outlier_masks[row][col]
-            is_outlier && !show_outliers && continue
-            point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
-            
-            scatter!(ax_full, [σs[row]], [our_method_full_individual_points[row, col]], 
-                    color=(colors[fo_n], point_opacity), markersize=4)
+    if show_individual_points
+        for col in eachindex(our_method_full_individual_points[1, :])
+            for row in eachindex(σs)
+                # Determine if this point is an outlier
+                is_outlier = our_method_full_outlier_masks[row][col]
+                is_outlier && !show_outliers && continue
+                point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+                
+                scatter!(ax_full, [σs[row]], [our_method_full_individual_points[row, col]], 
+                        color=(colors[fo_n], point_opacity), markersize=4)
+            end
         end
     end
     
@@ -407,15 +436,17 @@ function graph_metrics(
             color=(colors[po_b], band_opacity))
         
         # Scatter plot for individual baseline partial state data points
-        for col in eachindex(baseline_partial_individual_points[1, :])
-            for row in eachindex(σs)
-                # Determine if this point is an outlier
-                is_outlier = baseline_partial_outlier_masks[row][col]
-                is_outlier && !show_outliers && continue
-                point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
-                
-                scatter!(ax_partial, [σs[row]], [baseline_partial_individual_points[row, col]], 
-                        color=(colors[po_b], point_opacity), markersize=4)
+        if show_individual_points
+            for col in eachindex(baseline_partial_individual_points[1, :])
+                for row in eachindex(σs)
+                    # Determine if this point is an outlier
+                    is_outlier = baseline_partial_outlier_masks[row][col]
+                    is_outlier && !show_outliers && continue
+                    point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+                    
+                    scatter!(ax_partial, [σs[row]], [baseline_partial_individual_points[row, col]], 
+                            color=(colors[po_b], point_opacity), markersize=4)
+                end
             end
         end
         
@@ -427,15 +458,17 @@ function graph_metrics(
             color=(colors[po_n], band_opacity))
         
         # Scatter plot for individual our method partial state data points
-        for col in eachindex(our_method_partial_individual_points[1, :])
-            for row in eachindex(σs)
-                # Determine if this point is an outlier
-                is_outlier = our_method_partial_outlier_masks[row][col]
-                is_outlier && !show_outliers && continue
-                point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
-                
-                scatter!(ax_partial, [σs[row]], [our_method_partial_individual_points[row, col]], 
-                        color=(colors[po_n], point_opacity), markersize=4)
+        if show_individual_points
+            for col in eachindex(our_method_partial_individual_points[1, :])
+                for row in eachindex(σs)
+                    # Determine if this point is an outlier
+                    is_outlier = our_method_partial_outlier_masks[row][col]
+                    is_outlier && !show_outliers && continue
+                    point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+                    
+                    scatter!(ax_partial, [σs[row]], [our_method_partial_individual_points[row, col]], 
+                            color=(colors[po_n], point_opacity), markersize=4)
+                end
             end
         end
         
@@ -446,7 +479,358 @@ function graph_metrics(
         save(pdf_dir*"/"*"po_both_ind.pdf", fig_partial, pt_per_unit=1, pt_per_inch=72)
     end
     
+    # --- Bootstrapped Plots ---
+
+    # Create figure for all methods together (bootstrapped)
+    fig_all_boot = Figure(size = (800, 600), margins = (10, 10, 10, 10), fontsize=font_size)
+    ax_all_boot = Axis(fig_all_boot[1, 1],
+        xlabel = "Noise σ [m^2]",
+        ylabel = "Average Trajectory Error [m]",
+        limits = (nothing, (0, y_axis_limit))
+    )
+
+    # Plot baseline with non-negative lower bound (full state)
+    lines!(ax_all_boot, σs, baseline_full_boot_means, color=colors[fo_b], label="Baseline (Full State)")
+    band!(ax_all_boot, σs, 
+        max.(baseline_full_boot_lower, 0), 
+        baseline_full_boot_upper, 
+        color=(colors[fo_b], band_opacity))
+
+    # Scatter plot for individual baseline full state data points
+    if show_individual_points
+        for col in eachindex(baseline_full_individual_points[1, :])
+            for row in eachindex(σs)
+                is_outlier = baseline_full_outlier_masks[row][col]
+                is_outlier && !show_outliers && continue
+                point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+                scatter!(ax_all_boot, [σs[row]], [baseline_full_individual_points[row, col]], 
+                        color=(colors[fo_b], point_opacity), markersize=4)
+            end
+        end
+    end
+
+    # Plot our method with non-negative lower bound (full state)
+    lines!(ax_all_boot, σs, our_method_full_boot_means, color=colors[fo_n], label="Our Method (Full State)")
+    band!(ax_all_boot, σs, 
+        max.(our_method_full_boot_lower, 0), 
+        our_method_full_boot_upper, 
+        color=(colors[fo_n], band_opacity+0.1))
+        
+    # Scatter plot for individual our method full state data points
+    if show_individual_points
+        for col in eachindex(our_method_full_individual_points[1, :])
+            for row in eachindex(σs)
+                is_outlier = our_method_full_outlier_masks[row][col]
+                is_outlier && !show_outliers && continue
+                point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+                scatter!(ax_all_boot, [σs[row]], [our_method_full_individual_points[row, col]], 
+                        color=(colors[fo_n], point_opacity), markersize=4)
+            end
+        end
+    end
+
+    # Plot baseline with non-negative lower bound (partial state)
+    if partial_state_included
+        lines!(ax_all_boot, σs, baseline_partial_boot_means, color=colors[po_b], linestyle=:dash, label="Baseline (Partial State)")
+        band!(ax_all_boot, σs, 
+            max.(baseline_partial_boot_lower, 0), 
+            baseline_partial_boot_upper, 
+            color=(colors[po_b], band_opacity))
+        
+        if show_individual_points
+            for col in eachindex(baseline_partial_individual_points[1, :])
+                for row in eachindex(σs)
+                    is_outlier = baseline_partial_outlier_masks[row][col]
+                    is_outlier && !show_outliers && continue
+                    point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+                    scatter!(ax_all_boot, [σs[row]], [baseline_partial_individual_points[row, col]], 
+                            color=(colors[po_b], point_opacity), markersize=4)
+                end
+            end
+        end
+    end
+    
+    # Plot our method with non-negative lower bound (partial state)
+    if partial_state_included
+        lines!(ax_all_boot, σs, our_method_partial_boot_means, color=colors[po_n], linestyle=:dash, label="Our Method (Partial State)")
+        band!(ax_all_boot, σs, 
+            max.(our_method_partial_boot_lower, 0), 
+            our_method_partial_boot_upper, 
+            color=(colors[po_n], band_opacity))
+            
+        if show_individual_points
+            for col in eachindex(our_method_partial_individual_points[1, :])
+                for row in eachindex(σs)
+                    is_outlier = our_method_partial_outlier_masks[row][col]
+                    is_outlier && !show_outliers && continue
+                    point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+                    scatter!(ax_all_boot, [σs[row]], [our_method_partial_individual_points[row, col]], 
+                            color=(colors[po_n], point_opacity), markersize=4)
+                end
+            end
+        end
+    end
+
+    axislegend(ax_all_boot, position=:lt)
+    save(prefix*"/"*"po_fo_all_ind_bootstrapped.png", fig_all_boot)
+    save(pdf_dir*"/"*"po_fo_all_ind_bootstrapped.pdf", fig_all_boot, pt_per_unit=1, pt_per_inch=72)
+    
+    # Create figure for baseline comparison (bootstrapped)
+    fig_baseline_boot = Figure(size = (800, 600), margins = (10, 10, 10, 10), fontsize=font_size)
+    ax_baseline_boot = Axis(fig_baseline_boot[1, 1],
+        xlabel = "Noise σ [m^2]",
+        ylabel = "Average Trajectory Error [m]",
+        limits = (nothing, (0, y_axis_limit))
+    )
+    
+    lines!(ax_baseline_boot, σs, baseline_full_boot_means, color=colors[fo_b], label="Full State")
+    band!(ax_baseline_boot, σs, 
+        max.(baseline_full_boot_lower, 0), 
+        baseline_full_boot_upper, 
+        color=(colors[fo_b], band_opacity))
+        
+    if show_individual_points
+        for col in eachindex(baseline_full_individual_points[1, :])
+            for row in eachindex(σs)
+                is_outlier = baseline_full_outlier_masks[row][col]
+                is_outlier && !show_outliers && continue
+                point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+                scatter!(ax_baseline_boot, [σs[row]], [baseline_full_individual_points[row, col]], 
+                        color=(colors[fo_b], point_opacity), markersize=4)
+            end
+        end
+    end
+    
+    if partial_state_included
+        lines!(ax_baseline_boot, σs, baseline_partial_boot_means, color=colors[po_b], linestyle=:dash, label="Partial State")
+        band!(ax_baseline_boot, σs, 
+            max.(baseline_partial_boot_lower, 0), 
+            baseline_partial_boot_upper, 
+            color=(colors[po_b], band_opacity))
+            
+        if show_individual_points
+            for col in eachindex(baseline_partial_individual_points[1, :])
+                for row in eachindex(σs)
+                    is_outlier = baseline_partial_outlier_masks[row][col]
+                    is_outlier && !show_outliers && continue
+                    point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+                    scatter!(ax_baseline_boot, [σs[row]], [baseline_partial_individual_points[row, col]], 
+                            color=(colors[po_b], point_opacity), markersize=4)
+                end
+            end
+        end
+    end
+    
+    axislegend(ax_baseline_boot, position=:lt)
+    save(prefix*"/"*"po_fo_baseline_ind_bootstrapped.png", fig_baseline_boot)
+    save(pdf_dir*"/"*"po_fo_baseline_ind_bootstrapped.pdf", fig_baseline_boot, pt_per_unit=1, pt_per_inch=72)
+    
+    # Create figure for our method comparison (bootstrapped)
+    fig_our_boot = Figure(size = (800, 600), margins = (10, 10, 10, 10), fontsize=font_size)
+    ax_our_boot = Axis(fig_our_boot[1, 1],
+        xlabel = "Noise σ [m^2]",
+        ylabel = "Average Trajectory Error [m]",
+        limits = (nothing, (0, y_axis_limit))
+    )
+    
+    lines!(ax_our_boot, σs, our_method_full_boot_means, color=colors[fo_n], label="Full State")
+    band!(ax_our_boot, σs, 
+        max.(our_method_full_boot_lower, 0), 
+        our_method_full_boot_upper, 
+        color=(colors[fo_n], band_opacity))
+        
+    if show_individual_points
+        for col in eachindex(our_method_full_individual_points[1, :])
+            for row in eachindex(σs)
+                is_outlier = our_method_full_outlier_masks[row][col]
+                is_outlier && !show_outliers && continue
+                point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+                scatter!(ax_our_boot, [σs[row]], [our_method_full_individual_points[row, col]], 
+                        color=(colors[fo_n], point_opacity), markersize=4)
+            end
+        end
+    end
+    
+    if partial_state_included
+        lines!(ax_our_boot, σs, our_method_partial_boot_means, color=colors[po_n], linestyle=:dash, label="Partial State")
+        band!(ax_our_boot, σs, 
+            max.(our_method_partial_boot_lower, 0), 
+            our_method_partial_boot_upper, 
+            color=(colors[po_n], band_opacity))
+            
+        if show_individual_points
+            for col in eachindex(our_method_partial_individual_points[1, :])
+                for row in eachindex(σs)
+                    is_outlier = our_method_partial_outlier_masks[row][col]
+                    is_outlier && !show_outliers && continue
+                    point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+                    scatter!(ax_our_boot, [σs[row]], [our_method_partial_individual_points[row, col]], 
+                            color=(colors[po_n], point_opacity), markersize=4)
+                end
+            end
+        end
+    end
+    
+    axislegend(ax_our_boot, position=:lt)
+    save(prefix*"/"*"po_fo_our_ind_bootstrapped.png", fig_our_boot)
+    save(pdf_dir*"/"*"po_fo_our_ind_bootstrapped.pdf", fig_our_boot, pt_per_unit=1, pt_per_inch=72)
+    
+    # Create figure for full state methods comparison (bootstrapped)
+    fig_full_boot = Figure(size = (800, 600), margins = (10, 10, 10, 10), fontsize=font_size)
+    ax_full_boot = Axis(fig_full_boot[1, 1],
+        xlabel = "Noise σ [m^2]",
+        ylabel = "Average Trajectory Error [m]",
+        limits = (nothing, (0, y_axis_limit))
+    )
+    
+    lines!(ax_full_boot, σs, baseline_full_boot_means, color=colors[fo_b], label="Baseline")
+    band!(ax_full_boot, σs, 
+        max.(baseline_full_boot_lower, 0), 
+        baseline_full_boot_upper, 
+        color=(colors[fo_b], band_opacity))
+    
+    if show_individual_points
+        for col in eachindex(baseline_full_individual_points[1, :])
+            for row in eachindex(σs)
+                is_outlier = baseline_full_outlier_masks[row][col]
+                is_outlier && !show_outliers && continue
+                point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+                scatter!(ax_full_boot, [σs[row]], [baseline_full_individual_points[row, col]], 
+                        color=(colors[fo_b], point_opacity), markersize=4)
+            end
+        end
+    end
+    
+    lines!(ax_full_boot, σs, our_method_full_boot_means, color=colors[fo_n], label="Our Method")
+    band!(ax_full_boot, σs, 
+        max.(our_method_full_boot_lower, 0), 
+        our_method_full_boot_upper, 
+        color=(colors[fo_n], band_opacity+0.1))
+    
+    if show_individual_points
+        for col in eachindex(our_method_full_individual_points[1, :])
+            for row in eachindex(σs)
+                is_outlier = our_method_full_outlier_masks[row][col]
+                is_outlier && !show_outliers && continue
+                point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+                scatter!(ax_full_boot, [σs[row]], [our_method_full_individual_points[row, col]], 
+                        color=(colors[fo_n], point_opacity), markersize=4)
+            end
+        end
+    end
+    
+    axislegend(ax_full_boot, position=:lt)
+    save(prefix*"/"*"fo_both_ind_bootstrapped.png", fig_full_boot)
+    save(pdf_dir*"/"*"fo_both_ind_bootstrapped.pdf", fig_full_boot, pt_per_unit=1, pt_per_inch=72)
+    
+    # Create figure for partial state methods comparison (bootstrapped)
+    if partial_state_included
+        fig_partial_boot = Figure(size = (800, 600), margins = (10, 10, 10, 10), fontsize=font_size)
+        ax_partial_boot = Axis(fig_partial_boot[1, 1],
+            xlabel = "Noise σ [m^2]",
+            ylabel = "Average Trajectory Error [m]",
+            limits = (nothing, (0, y_axis_limit))
+        )
+        
+        lines!(ax_partial_boot, σs, baseline_partial_boot_means, color=colors[po_b], label="Baseline")
+        band!(ax_partial_boot, σs, 
+            max.(baseline_partial_boot_lower, 0), 
+            baseline_partial_boot_upper, 
+            color=(colors[po_b], band_opacity))
+        
+        if show_individual_points
+            for col in eachindex(baseline_partial_individual_points[1, :])
+                for row in eachindex(σs)
+                    is_outlier = baseline_partial_outlier_masks[row][col]
+                    is_outlier && !show_outliers && continue
+                    point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+                    scatter!(ax_partial_boot, [σs[row]], [baseline_partial_individual_points[row, col]], 
+                            color=(colors[po_b], point_opacity), markersize=4)
+                end
+            end
+        end
+        
+        lines!(ax_partial_boot, σs, our_method_partial_boot_means, color=colors[po_n], label="Our Method")
+        band!(ax_partial_boot, σs, 
+            max.(our_method_partial_boot_lower, 0), 
+            our_method_partial_boot_upper, 
+            color=(colors[po_n], band_opacity))
+        
+        if show_individual_points
+            for col in eachindex(our_method_partial_individual_points[1, :])
+                for row in eachindex(σs)
+                    is_outlier = our_method_partial_outlier_masks[row][col]
+                    is_outlier && !show_outliers && continue
+                    point_opacity = is_outlier ? outlier_point_opacity : data_point_opacity
+                    scatter!(ax_partial_boot, [σs[row]], [our_method_partial_individual_points[row, col]], 
+                            color=(colors[po_n], point_opacity), markersize=4)
+                end
+            end
+        end
+        
+        axislegend(ax_partial_boot, position=:lt)
+        save(prefix*"/"*"po_both_ind_bootstrapped.png", fig_partial_boot)
+        save(pdf_dir*"/"*"po_both_ind_bootstrapped.pdf", fig_partial_boot, pt_per_unit=1, pt_per_inch=72)
+    end
+
     # return σs, baseline_full_means, our_method_full_means, baseline_partial_means, our_method_partial_means
+end
+
+function bootstrap_and_compute_stats(data_matrix; std_dev_threshold=2.5, n_bootstrap=50)
+    num_rows, _ = size(data_matrix)
+    
+    # First, filter outliers as before
+    filtered_data_list = []
+    outlier_masks = []
+    
+    for noise_level in 1:num_rows
+        row_data = data_matrix[noise_level, :]
+        row_mean = mean(row_data)
+        row_std = std(row_data)
+        
+        is_within_threshold = abs.(row_data .- row_mean) .<= std_dev_threshold * row_std
+        push!(outlier_masks, .!is_within_threshold)
+        
+        filtered_row_data = row_data[is_within_threshold]
+        
+        if isempty(filtered_row_data)
+            filtered_row_data = row_data
+        end
+        push!(filtered_data_list, filtered_row_data)
+    end
+    
+    # Now, perform bootstrapping on the filtered data
+    bootstrapped_means = Vector{Float64}(undef, num_rows)
+    lower_bounds = Vector{Float64}(undef, num_rows)
+    upper_bounds = Vector{Float64}(undef, num_rows)
+    
+    for i in 1:num_rows
+        data = filtered_data_list[i]
+        if isempty(data)
+            bootstrapped_means[i] = NaN
+            lower_bounds[i] = NaN
+            upper_bounds[i] = NaN
+            continue
+        end
+
+        bootstrap_means = Vector{Float64}(undef, n_bootstrap)
+        n = length(data)
+        for j in 1:n_bootstrap
+            resample_indices = rand(1:n, n)
+            resample = data[resample_indices]
+            bootstrap_means[j] = mean(resample)
+        end
+        
+        bootstrapped_means[i] = mean(data)
+        
+        sort!(bootstrap_means)
+        lower_idx = Int(floor(n_bootstrap * 0.025))
+        upper_idx = Int(ceil(n_bootstrap * 0.975))
+        lower_bounds[i] = bootstrap_means[max(1, lower_idx)]
+        upper_bounds[i] = bootstrap_means[min(n_bootstrap, upper_idx)]
+    end
+    
+    return bootstrapped_means, lower_bounds, upper_bounds, outlier_masks
 end
 
 # Function to filter outliers and compute statistics

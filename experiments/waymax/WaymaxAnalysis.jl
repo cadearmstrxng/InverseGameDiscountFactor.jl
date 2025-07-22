@@ -314,7 +314,7 @@ function eval_2(; input_dir::String="./experiments/waymax/mc")
     # --- Plotting ---
     for nl in all_noise_levels
         fig = Figure(resolution=(1200, 400), fontsize=24)
-        ax = Axis(fig[1, 1], xlabel="Time Step", ylabel="Distance [m]", title="Metrics for Noise σ = $nl")
+        ax = Axis(fig[1, 1], xlabel="Time Step", ylabel="Distance [m]", title="Metrics for Noise Standard Deviation = $nl")
 
         time_steps = 0:horizon-1
         player_colors = Dict(2 => :orange, 3 => :green, 4 => :red)
@@ -336,8 +336,8 @@ function eval_2(; input_dir::String="./experiments/waymax/mc")
             LineElement(color=:black)
         ]
         legend_labels = [
-            "ego-car #3 dist", "ego-car #8 dist", "ego-car #2 dist",
-            "ego-goal dist"
+            "ego-car #3 dist (safety)", "ego-car #8 dist (safety)", "ego-car #2 dist (safety)",
+            "ego-goal dist (efficiency)"
         ]
         
         all_collision_distances = vcat(values(collision_data[nl])...)

@@ -26,7 +26,9 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl",
             myopic: bool=True,
             noise_level: float=0.0,
             seed: int=0,
-            trial_num: int=0):
+            trial_num: int=0,
+            monte_carlo: bool=False,
+            ):
     random.seed(seed)
     print(f"[run_sim] seed: {seed}")
     print(f"[run_sim] myopic: {myopic}")
@@ -34,6 +36,11 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl",
     print(f"[run_sim] write_states: {write_states}")
     print(f"[run_sim] save_video: {save_video}")
     print(f"[run_sim] trial_num: {trial_num}")
+    if not monte_carlo:
+        if myopic:
+            jl.seval("init_m, mcp_solver_m = Waymax.init_solver(myopic=true)")
+        else:
+            jl.seval("init_b, mcp_solver_b = Waymax.init_solver()")
     
     with open(scenario_path, 'rb') as f:
         scenario = pickle.load(f)
@@ -165,7 +172,7 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl",
         os.makedirs(data_folder, exist_ok=True)
         for idx, state in enumerate(states):
             state_to_plot = state
-            img = visualization.plot_simulator_state(state_to_plot, use_log_traj=False)
+            img = visualization.plot_simulator_state(state_to_plot, use_log_traj=False, viz_config={"show_agent_id": False})
             imgs.append(img)
             if draw_frames:
                 frame_filename = os.path.join(data_folder, f"frame_{idx:03d}.png")
@@ -188,12 +195,12 @@ def run_sim(scenario_path: str="./experiments/waymax/data/scenario_iter_1.pkl",
 def run_mc(seed: int=0):
     jl.seval("init_b, mcp_solver_b = Waymax.init_solver()")
     jl.seval("init_m, mcp_solver_m = Waymax.init_solver(myopic=true)")
-    for noise_level in [0.0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1]:
+    for noise_level in [0.0]:
     # for noise_level in [0.01]:
-        for trial_num in range(15):
+        for trial_num in range(1):
         # for trial_num in range(1):
-            run_sim(noise_level=noise_level, trial_num=trial_num, myopic=False, seed=seed)
-            run_sim(noise_level=noise_level, trial_num=trial_num, myopic=True, seed=seed)
+            run_sim(noise_level=noise_level, trial_num=trial_num, myopic=False, seed=seed, monte_carlo=monte_carlo)
+            run_sim(noise_level=noise_level, trial_num=trial_num, myopic=True, seed=seed, monte_carlo=monte_carlo)
             jl.seval("GC.gc()")
 
 if __name__ == "__main__":
@@ -222,4 +229,4 @@ if __name__ == "__main__":
     if args["mc"]:
         run_mc(seed=args["seed"])
     else:
-        run_sim(noise_level=args["noise_level"], trial_num=args["trial_num"], myopic=args["myopic"], seed=args["seed"], write_states=args["write_states"])
+        run_sim(noise_level=args["noise_level"], trial_num=args["trial_num"], myopic=args["myopic"], seed=args["seed"], write_states=args["write_states"], draw_frames=args["draw_frames"])
