@@ -14,8 +14,19 @@ Detailed examples for use can be found in several experiments, each with a dedic
 Finally, the first argument, ```mcp_game```, is most easily constructed through functions provided - namely, `MCPGame` and `MCPCoupledOptimizationSolver`. These return data structures in the format expected by our solver and contain game theoretic games as well as the associated mixed complimentarity problem. 
 
 # Recreating Experiments
-The basic results of the experiments can be recreated by running functions in the ```exp``` directory. Specifically, the experiments directory contains a folder with a julia file that has the same name. For example, `exp/crosswalk/Crosswalk.jl` has a function `run_myopic_crosswalk_sim(;...)`, which can be run from the REPL:
+For this repo, we need Julia 1.9.1. This can be done using Julia manager [Juliaup](https://github.com/JuliaLang/juliaup), which should come installed with most common methods of installing Julia.
+We can add Julia 1.9.1 by running `juliaup add 1.9.1`, which should show:
 ```
+$ juliaup add 1.9.1
+Checking for new Julia versions
+Installing Julia 1.9.1+0.x64.linux.gnu
+```
+when completed.
+Next, we navigate to the directory containing this repo, and use `julia +1.9.1 --proj` to start Julia with version 1.9.1 and with the current project activated.
+Then, the project dependencies can be instantiated by typing `]` in the Julia REPL.
+The terminal should at this point show:
+```
+$ julia +1.9.1 --proj
                _
    _       _ _(_)_     |  Documentation: https://docs.julialang.org
   (_)     | (_) (_)    |
@@ -25,6 +36,13 @@ The basic results of the experiments can be recreated by running functions in th
  _/ |\__'_|_|_|\__'_|  |  Official https://julialang.org/ release
 |__/                   |
 
+(InverseGameDiscountFactor) pkg> 
+```
+From here, we simply type `instantiate`, and the Julia package manager will automatically install dependencies.
+
+
+The basic results of the experiments can be recreated by running functions in the ```exp``` directory. Specifically, the experiments directory contains a folder with a julia file that has the same name. For example, `exp/crosswalk/Crosswalk.jl` has a function `run_myopic_crosswalk_sim(;...)`, which can be run from the REPL:
+```
 julia> include("./experiments/crosswalk/Crosswalk.jl")
 ```
 After which we can run:
